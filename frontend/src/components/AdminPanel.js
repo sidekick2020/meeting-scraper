@@ -33,6 +33,7 @@ function AdminPanel({ onBackToPublic }) {
     total_feeds: 3,
     current_feed_progress: 0,
     current_feed_total: 0,
+    current_meeting: null,
     activity_log: []
   });
   const [recentMeetings, setRecentMeetings] = useState([]);
@@ -46,6 +47,8 @@ function AdminPanel({ onBackToPublic }) {
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [activeView, setActiveView] = useState('list');
   const [showDocs, setShowDocs] = useState(false);
+  const [unfinishedScrape, setUnfinishedScrape] = useState(null);
+  const [checkedUnfinished, setCheckedUnfinished] = useState(false);
 
   const isRunningRef = useRef(false);
   const pollIntervalRef = useRef(null);
@@ -62,6 +65,24 @@ function AdminPanel({ onBackToPublic }) {
       console.error('Error checking config:', error);
     }
   }, []);
+
+  // Check for unfinished scrapes on load
+  const checkUnfinishedScrape = useCallback(async () => {
+    if (checkedUnfinished) return; // Only check once
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/check-unfinished`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.hasUnfinished && data.scrape) {
+          setUnfinishedScrape(data.scrape);
+        }
+        setCheckedUnfinished(true);
+      }
+    } catch (error) {
+      console.error('Error checking for unfinished scrapes:', error);
+      setCheckedUnfinished(true);
+    }
+  }, [checkedUnfinished]);
 
   const checkConnection = useCallback(async () => {
     try {
@@ -112,11 +133,12 @@ function AdminPanel({ onBackToPublic }) {
   useEffect(() => {
     checkConnection();
     checkBackendConfig();
+    checkUnfinishedScrape();
     pollIntervalRef.current = setInterval(checkConnection, POLL_INTERVAL_IDLE);
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [checkConnection, checkBackendConfig]);
+  }, [checkConnection, checkBackendConfig, checkUnfinishedScrape]);
 
   useEffect(() => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -148,9 +170,11 @@ function AdminPanel({ onBackToPublic }) {
           current_feed_index: 0,
           current_feed_progress: 0,
           current_feed_total: 0,
+          current_meeting: null,
           activity_log: []
         }));
         setRecentMeetings([]);
+        setUnfinishedScrape(null); // Clear any unfinished scrape notice
         isRunningRef.current = true;
       } else {
         alert(data.message);
@@ -159,6 +183,50 @@ function AdminPanel({ onBackToPublic }) {
       console.error('Error starting scraper:', error);
       alert('Failed to start scraper');
     }
+  };
+
+  const resumeScraping = async () => {
+    if (!unfinishedScrape) return;
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resume_scrape_id: unfinishedScrape.id,
+          resume_object_id: unfinishedScrape.objectId,
+          resume_feeds_processed: unfinishedScrape.feeds_processed,
+          resume_total_found: unfinishedScrape.total_found,
+          resume_total_saved: unfinishedScrape.total_saved,
+          resume_started_at: unfinishedScrape.started_at,
+          resume_meetings_by_state: unfinishedScrape.meetings_by_state
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setScrapingState(prev => ({
+          ...prev,
+          is_running: true,
+          total_found: unfinishedScrape.total_found,
+          total_saved: unfinishedScrape.total_saved,
+          meetings_by_state: unfinishedScrape.meetings_by_state || {},
+          current_feed_index: unfinishedScrape.feeds_processed,
+          current_meeting: null,
+          activity_log: []
+        }));
+        setUnfinishedScrape(null);
+        isRunningRef.current = true;
+      } else {
+        alert(data.message);
+      }
+    } catch (error) {
+      console.error('Error resuming scraper:', error);
+      alert('Failed to resume scraper');
+    }
+  };
+
+  const dismissUnfinished = () => {
+    setUnfinishedScrape(null);
   };
 
   const stopScraping = async () => {
@@ -287,6 +355,28 @@ function AdminPanel({ onBackToPublic }) {
       </header>
 
       <main className="App-main">
+        {/* Unfinished Scrape Banner */}
+        {unfinishedScrape && !scrapingState.is_running && (
+          <div className="unfinished-scrape-banner">
+            <div className="unfinished-info">
+              <strong>Unfinished scrape detected</strong>
+              <span>
+                Started {new Date(unfinishedScrape.started_at).toLocaleString()} -
+                {' '}{unfinishedScrape.feeds_processed} of {unfinishedScrape.total_feeds} feeds completed,
+                {' '}{unfinishedScrape.total_saved} meetings saved
+              </span>
+            </div>
+            <div className="unfinished-actions">
+              <button onClick={resumeScraping} className="btn btn-primary">
+                Resume Scraping
+              </button>
+              <button onClick={dismissUnfinished} className="btn btn-ghost">
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="controls-section">
           <div className="control-buttons">
             {!scrapingState.is_running ? (
@@ -317,7 +407,7 @@ function AdminPanel({ onBackToPublic }) {
         </div>
 
         <Dashboard scrapingState={scrapingState} />
-        <ActivityLog logs={scrapingState.activity_log} />
+        <ActivityLog logs={scrapingState.activity_log} currentMeeting={scrapingState.current_meeting} />
         <CoverageAnalysis />
         <ScrapeHistory />
 

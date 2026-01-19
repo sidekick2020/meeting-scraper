@@ -90,8 +90,10 @@ scraping_state = {
     "total_feeds": len(AA_FEEDS),
     "current_feed_progress": 0,
     "current_feed_total": 0,
+    "current_meeting": None,  # Current meeting being processed
     "activity_log": [],
     "started_at": None,
+    "scrape_id": None,  # Unique ID for the current scrape run
 }
 
 # Scrape history - stores last 50 scrape runs
@@ -600,9 +602,18 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
 
             scraping_state["current_feed_progress"] = idx + 1
 
-            # Update progress message every 10 meetings
-            if idx % 10 == 0:
-                scraping_state["progress_message"] = f"Processing meeting {idx + 1}/{total_in_feed} from {feed_name}..."
+            # Get meeting name for logging
+            meeting_name = raw.get('name', 'Unknown Meeting')
+            meeting_city = raw.get('city', '') or ''
+
+            # Update progress message with current meeting info
+            scraping_state["progress_message"] = f"Processing: {meeting_name[:40]}{'...' if len(meeting_name) > 40 else ''}"
+            scraping_state["current_meeting"] = {
+                "name": meeting_name,
+                "city": meeting_city,
+                "index": idx + 1,
+                "total": total_in_feed
+            }
 
             try:
                 # Skip geocoding during bulk scrape for real-time progress updates
@@ -621,6 +632,10 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
                     # Keep recent meetings (last 20)
                     scraping_state["recent_meetings"].insert(0, meeting)
                     scraping_state["recent_meetings"] = scraping_state["recent_meetings"][:20]
+
+                    # Log every 5th saved meeting to activity log
+                    if saved_count % 5 == 0:
+                        add_log(f"Saved: {meeting_name[:30]}{'...' if len(meeting_name) > 30 else ''} ({meeting.get('city', '')})", "info")
                 elif result == "duplicate":
                     duplicate_count += 1
                 else:
@@ -787,12 +802,16 @@ def save_scrape_history(status="completed", feeds_processed=0):
 
     return history_entry
 
-def run_scraper_in_background():
+def run_scraper_in_background(start_from_feed=0):
     """Background thread function to process all feeds"""
     feed_names = list(AA_FEEDS.keys())
-    feeds_completed = 0
+    feeds_completed = start_from_feed  # Start from resume point if resuming
 
     for idx, feed_name in enumerate(feed_names):
+        # Skip feeds that were already processed (when resuming)
+        if idx < start_from_feed:
+            continue
+
         if not scraping_state["is_running"]:
             add_log("Scraping stopped by user", "warning")
             # Save history even when stopped
@@ -809,6 +828,7 @@ def run_scraper_in_background():
     # Mark as complete
     scraping_state["is_running"] = False
     scraping_state["current_source"] = ""
+    scraping_state["current_meeting"] = None
     scraping_state["progress_message"] = "Completed!"
     add_log(f"All feeds completed! Total: {scraping_state['total_found']} found, {scraping_state['total_saved']} saved", "success")
 
@@ -824,30 +844,43 @@ def start_scraping():
     if scraping_state["is_running"]:
         return jsonify({"success": False, "message": "Scraper already running"}), 400
 
+    # Check if we're resuming an existing scrape
+    data = request.json or {}
+    resume_scrape_id = data.get('resume_scrape_id')
+    resume_feeds_processed = data.get('resume_feeds_processed', 0)
+
     # Reset state
     scraping_state["is_running"] = True
-    scraping_state["total_found"] = 0
-    scraping_state["total_saved"] = 0
+    scraping_state["total_found"] = data.get('resume_total_found', 0)
+    scraping_state["total_saved"] = data.get('resume_total_saved', 0)
     scraping_state["errors"] = []
-    scraping_state["meetings_by_state"] = {}
+    scraping_state["meetings_by_state"] = data.get('resume_meetings_by_state', {})
     scraping_state["meetings_by_type"] = {"AA": 0, "NA": 0, "Al-Anon": 0, "Other": 0}
     scraping_state["recent_meetings"] = []
     scraping_state["progress_message"] = "Starting..."
-    scraping_state["current_feed_index"] = 0
+    scraping_state["current_feed_index"] = resume_feeds_processed
     scraping_state["current_feed_progress"] = 0
     scraping_state["current_feed_total"] = 0
+    scraping_state["current_meeting"] = None
     scraping_state["activity_log"] = []
-    scraping_state["started_at"] = datetime.now().isoformat()
-    scraping_state["scrape_id"] = generate_object_id()  # Unique ID for this scrape run
-    current_scrape_object_id = None  # Reset for new scrape
+    scraping_state["started_at"] = data.get('resume_started_at') or datetime.now().isoformat()
+    scraping_state["scrape_id"] = resume_scrape_id or generate_object_id()  # Use existing or new ID
 
-    add_log(f"Scraping started - {len(AA_FEEDS)} feeds to process", "info")
+    if resume_scrape_id:
+        current_scrape_object_id = data.get('resume_object_id')
+        add_log(f"Resuming scrape - starting from feed {resume_feeds_processed + 1} of {len(AA_FEEDS)}", "info")
+    else:
+        current_scrape_object_id = None  # Reset for new scrape
+        add_log(f"Scraping started - {len(AA_FEEDS)} feeds to process", "info")
 
-    # Start background thread
-    thread = threading.Thread(target=run_scraper_in_background, daemon=True)
+        # Create initial scrape history record in Back4app immediately
+        save_scrape_history(status="in_progress", feeds_processed=0)
+
+    # Start background thread with resume offset
+    thread = threading.Thread(target=run_scraper_in_background, args=(resume_feeds_processed,), daemon=True)
     thread.start()
 
-    return jsonify({"success": True, "message": "Scraper started"})
+    return jsonify({"success": True, "message": "Scraper started", "scrape_id": scraping_state["scrape_id"]})
 
 @app.route('/api/scrape-next', methods=['POST'])
 def scrape_next_feed():
@@ -981,6 +1014,52 @@ def get_history():
             print(f"Error fetching history from Back4app: {e}")
 
     return jsonify({"history": []})
+
+@app.route('/api/check-unfinished', methods=['GET'])
+def check_unfinished_scrape():
+    """Check if there's an unfinished scrape in Back4app that can be resumed"""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({"hasUnfinished": False})
+
+    try:
+        headers = {
+            "X-Parse-Application-Id": BACK4APP_APP_ID,
+            "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+        }
+
+        # Look for in_progress scrapes
+        import urllib.parse
+        where = json.dumps({"status": "in_progress"})
+        history_url = f"https://parseapi.back4app.com/classes/ScrapeHistory?where={urllib.parse.quote(where)}&order=-createdAt&limit=1"
+
+        response = requests.get(history_url, headers=headers, timeout=10)
+
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get("results", [])
+
+            if results:
+                unfinished = results[0]
+                return jsonify({
+                    "hasUnfinished": True,
+                    "scrape": {
+                        "objectId": unfinished.get("objectId"),
+                        "id": unfinished.get("id"),
+                        "started_at": unfinished.get("started_at"),
+                        "last_updated": unfinished.get("last_updated"),
+                        "total_found": unfinished.get("total_found", 0),
+                        "total_saved": unfinished.get("total_saved", 0),
+                        "feeds_processed": unfinished.get("feeds_processed", 0),
+                        "total_feeds": len(AA_FEEDS),
+                        "meetings_by_state": unfinished.get("meetings_by_state", {}),
+                    }
+                })
+
+        return jsonify({"hasUnfinished": False})
+
+    except Exception as e:
+        print(f"Error checking for unfinished scrapes: {e}")
+        return jsonify({"hasUnfinished": False, "error": str(e)})
 
 @app.route('/api/coverage', methods=['GET'])
 def get_coverage():

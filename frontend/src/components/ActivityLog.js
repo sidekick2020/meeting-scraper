@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-function ActivityLog({ logs }) {
+function ActivityLog({ logs, currentMeeting }) {
   const containerRef = useRef(null);
 
   // Auto-scroll log container (not page) to bottom when new logs arrive
@@ -29,6 +29,18 @@ function ActivityLog({ logs }) {
     return (
       <div className="activity-log">
         <h3>Activity Log</h3>
+        {currentMeeting && (
+          <div className="current-meeting-banner">
+            <span className="processing-indicator"></span>
+            <span className="current-meeting-text">
+              Processing: <strong>{currentMeeting.name}</strong>
+              {currentMeeting.city && ` (${currentMeeting.city})`}
+              <span className="current-meeting-progress">
+                {currentMeeting.index} of {currentMeeting.total}
+              </span>
+            </span>
+          </div>
+        )}
         <div className="activity-log-empty">
           No activity yet. Start scraping to see real-time updates.
         </div>
@@ -42,6 +54,18 @@ function ActivityLog({ logs }) {
   return (
     <div className="activity-log">
       <h3>Activity Log</h3>
+      {currentMeeting && (
+        <div className="current-meeting-banner">
+          <span className="processing-indicator"></span>
+          <span className="current-meeting-text">
+            Processing: <strong>{currentMeeting.name}</strong>
+            {currentMeeting.city && ` (${currentMeeting.city})`}
+            <span className="current-meeting-progress">
+              {currentMeeting.index} of {currentMeeting.total}
+            </span>
+          </span>
+        </div>
+      )}
       <div className="activity-log-container" ref={containerRef}>
         {sortedLogs.map((log, index) => (
           <div key={index} className={`log-entry log-${log.level}`}>
