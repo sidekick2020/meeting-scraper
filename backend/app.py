@@ -417,6 +417,69 @@ def get_version():
         "started_at": BUILD_VERSION
     })
 
+@app.route('/api/meetings', methods=['GET'])
+def get_meetings():
+    """Get all meetings from Back4app for public viewing"""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        # Return recent meetings from memory if no Back4app configured
+        return jsonify({
+            "meetings": scraping_state.get("recent_meetings", []),
+            "total": len(scraping_state.get("recent_meetings", []))
+        })
+
+    headers = {
+        "X-Parse-Application-Id": BACK4APP_APP_ID,
+        "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+    }
+
+    try:
+        # Get query parameters for filtering
+        limit = request.args.get('limit', 1000, type=int)
+        skip = request.args.get('skip', 0, type=int)
+        state = request.args.get('state', '')
+        day = request.args.get('day', '', type=str)
+        search = request.args.get('search', '')
+        meeting_type = request.args.get('type', '')
+
+        # Build where clause
+        where = {}
+        if state:
+            where['state'] = state
+        if day and day.isdigit():
+            where['day'] = int(day)
+        if meeting_type:
+            where['meetingType'] = meeting_type
+        if search:
+            # Search in name field (case-insensitive regex)
+            where['name'] = {"$regex": search, "$options": "i"}
+
+        import urllib.parse
+        params = {
+            'limit': min(limit, 1000),
+            'skip': skip,
+            'order': '-updatedAt'
+        }
+        if where:
+            params['where'] = str(where).replace("'", '"')
+
+        query_string = urllib.parse.urlencode(params)
+        url = f"{BACK4APP_URL}?{query_string}"
+
+        response = requests.get(url, headers=headers, timeout=15)
+
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify({
+                "meetings": data.get("results", []),
+                "total": len(data.get("results", []))
+            })
+        else:
+            return jsonify({"meetings": [], "total": 0, "error": "Failed to fetch meetings"}), 500
+
+    except Exception as e:
+        print(f"Error fetching meetings: {e}")
+        return jsonify({"meetings": [], "total": 0, "error": str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') != 'production'
