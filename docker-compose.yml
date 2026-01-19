@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: meeting-scraper-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+    restart: unless-stopped
+    networks:
+      - meeting-scraper-network
+
+  frontend:
+    build: ./frontend
+    container_name: meeting-scraper-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:5000
+    restart: unless-stopped
+    networks:
+      - meeting-scraper-network
+
+networks:
+  meeting-scraper-network:
+    driver: bridge
