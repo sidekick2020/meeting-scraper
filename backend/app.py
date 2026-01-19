@@ -1,10 +1,4 @@
 import os
-
-# Monkey-patch for gevent if in production (must be done before other imports)
-if os.environ.get('FLASK_ENV') == 'production':
-    from gevent import monkey
-    monkey.patch_all()
-
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
@@ -20,9 +14,9 @@ import re
 app = Flask(__name__)
 CORS(app, origins="*")
 
-# Use gevent async mode for production, threading for local dev
-async_mode = 'gevent' if os.environ.get('FLASK_ENV') == 'production' else 'threading'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode=async_mode, logger=True, engineio_logger=True)
+# Let gunicorn handle async mode via its worker class
+# Don't specify async_mode - let it auto-detect
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Back4app Configuration
 BACK4APP_APP_ID = None
@@ -273,18 +267,30 @@ def run_scraper():
                 'total_found': scraping_state["total_found"]
             })
 
-            # Process each meeting
-            for meeting in meetings:
+            # Process meetings in smaller batches to reduce memory pressure
+            batch_size = 100
+            for i, meeting in enumerate(meetings):
                 if not scraping_state["is_running"]:
                     break
 
                 process_and_save_meeting(meeting)
 
-                # Small delay to avoid overwhelming the system
-                time.sleep(0.01)
+                # Yield control more frequently to prevent worker timeout
+                if i % batch_size == 0:
+                    socketio.sleep(0.1)  # Use socketio.sleep for gevent compatibility
+                    # Send progress update
+                    socketio.emit('progress_update', {
+                        'message': f'Processed {i}/{len(meetings)} from {feed_name}...',
+                        'source': feed_name,
+                        'total_found': scraping_state["total_found"],
+                        'total_saved': scraping_state["total_saved"]
+                    })
+
+            # Clear the meetings list to free memory
+            del meetings
 
             # Delay between feeds
-            time.sleep(0.5)
+            socketio.sleep(1)
 
         # Final update
         socketio.emit('scraper_completed', {
