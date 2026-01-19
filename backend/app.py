@@ -1,3 +1,10 @@
+import os
+
+# Monkey-patch for gevent if in production (must be done before other imports)
+if os.environ.get('FLASK_ENV') == 'production':
+    from gevent import monkey
+    monkey.patch_all()
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
@@ -9,14 +16,13 @@ import string
 from datetime import datetime
 import json
 import re
-import os
 
 app = Flask(__name__)
 CORS(app, origins="*")
 
 # Use gevent async mode for production, threading for local dev
 async_mode = 'gevent' if os.environ.get('FLASK_ENV') == 'production' else 'threading'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode=async_mode)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode=async_mode, logger=True, engineio_logger=True)
 
 # Back4app Configuration
 BACK4APP_APP_ID = None
