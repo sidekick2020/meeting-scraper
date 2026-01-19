@@ -564,8 +564,82 @@ def save_to_back4app(meeting_data, skip_duplicate_check=False):
         print(f"Error saving to back4app: {e}")
         return False
 
+def check_duplicates_batch(unique_keys):
+    """Check which unique keys already exist in Back4app (batch query)"""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY or not unique_keys:
+        return set()
+
+    headers = {
+        "X-Parse-Application-Id": BACK4APP_APP_ID,
+        "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+    }
+
+    existing_keys = set()
+    # Query in batches of 100 (Parse limit for $in queries)
+    batch_size = 100
+
+    for i in range(0, len(unique_keys), batch_size):
+        batch_keys = unique_keys[i:i + batch_size]
+        try:
+            import urllib.parse
+            where = json.dumps({"uniqueKey": {"$in": batch_keys}})
+            url = f"{BACK4APP_URL}?where={urllib.parse.quote(where)}&limit=1000&keys=uniqueKey"
+            response = requests.get(url, headers=headers, timeout=15)
+
+            if response.status_code == 200:
+                results = response.json().get("results", [])
+                for item in results:
+                    if item.get("uniqueKey"):
+                        existing_keys.add(item["uniqueKey"])
+        except Exception as e:
+            print(f"Error checking duplicates batch: {e}")
+
+    return existing_keys
+
+def save_to_back4app_batch(meetings):
+    """Save multiple meetings to Back4app in a single batch request (up to 50)"""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY or not meetings:
+        return {"saved": 0, "errors": 0}
+
+    headers = {
+        "X-Parse-Application-Id": BACK4APP_APP_ID,
+        "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+        "Content-Type": "application/json"
+    }
+
+    # Parse batch API format
+    requests_list = []
+    for meeting in meetings:
+        requests_list.append({
+            "method": "POST",
+            "path": "/classes/Meeting",
+            "body": meeting
+        })
+
+    try:
+        batch_url = "https://parseapi.back4app.com/batch"
+        response = requests.post(
+            batch_url,
+            headers=headers,
+            json={"requests": requests_list},
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            results = response.json()
+            saved = sum(1 for r in results if "success" in r)
+            errors = sum(1 for r in results if "error" in r)
+            return {"saved": saved, "errors": errors}
+        else:
+            error_detail = response.text[:200] if response.text else "No details"
+            print(f"Batch save error {response.status_code}: {error_detail}")
+            return {"saved": 0, "errors": len(meetings)}
+    except Exception as e:
+        print(f"Error in batch save: {e}")
+        return {"saved": 0, "errors": len(meetings)}
+
 def fetch_and_process_feed(feed_name, feed_config, feed_index):
-    """Fetch meetings from a single feed and process them"""
+    """Fetch meetings from a single feed and process them using batch operations"""
     url = feed_config["url"]
     default_state = feed_config["state"]
 
@@ -592,22 +666,21 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
         scraping_state["progress_message"] = f"Processing {total_in_feed} meetings from {feed_name}..."
         add_log(f"Found {total_in_feed} meetings in {feed_name}", "info")
 
-        saved_count = 0
-        duplicate_count = 0
-        error_count = 0
+        # Phase 1: Normalize all meetings and collect unique keys
+        scraping_state["progress_message"] = f"Normalizing {total_in_feed} meetings..."
+        normalized_meetings = []
+        unique_keys = []
+
         for idx, raw in enumerate(raw_meetings):
             if not scraping_state["is_running"]:
                 add_log("Scraping stopped by user", "warning")
-                break
+                return 0
 
-            scraping_state["current_feed_progress"] = idx + 1
-
-            # Get meeting name for logging
             meeting_name = raw.get('name', 'Unknown Meeting')
             meeting_city = raw.get('city', '') or ''
 
-            # Update progress message with current meeting info
-            scraping_state["progress_message"] = f"Processing: {meeting_name[:40]}{'...' if len(meeting_name) > 40 else ''}"
+            # Update progress for UI
+            scraping_state["current_feed_progress"] = idx + 1
             scraping_state["current_meeting"] = {
                 "name": meeting_name,
                 "city": meeting_city,
@@ -616,36 +689,76 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
             }
 
             try:
-                # Skip geocoding during bulk scrape for real-time progress updates
                 meeting = normalize_meeting(raw, feed_name, default_state, skip_geocoding=True)
-
-                result = save_to_back4app(meeting)
-                if result == True:
-                    saved_count += 1
-                    scraping_state["total_saved"] += 1
-
-                    # Update stats
-                    state = meeting.get("state", "Unknown")
-                    scraping_state["meetings_by_state"][state] = scraping_state["meetings_by_state"].get(state, 0) + 1
-                    scraping_state["meetings_by_type"]["AA"] = scraping_state["meetings_by_type"].get("AA", 0) + 1
-
-                    # Keep recent meetings (last 20)
-                    scraping_state["recent_meetings"].insert(0, meeting)
-                    scraping_state["recent_meetings"] = scraping_state["recent_meetings"][:20]
-
-                    # Log every 5th saved meeting to activity log
-                    if saved_count % 5 == 0:
-                        add_log(f"Saved: {meeting_name[:30]}{'...' if len(meeting_name) > 30 else ''} ({meeting.get('city', '')})", "info")
-                elif result == "duplicate":
-                    duplicate_count += 1
-                else:
-                    error_count += 1
-
+                normalized_meetings.append(meeting)
+                if meeting.get("uniqueKey"):
+                    unique_keys.append(meeting["uniqueKey"])
             except Exception as e:
-                error_count += 1
                 continue
 
+        # Phase 2: Batch check for duplicates
+        scraping_state["progress_message"] = f"Checking for duplicates..."
+        scraping_state["current_meeting"] = None
+        existing_keys = check_duplicates_batch(unique_keys)
+        duplicate_count = 0
+
+        # Filter out duplicates
+        meetings_to_save = []
+        for meeting in normalized_meetings:
+            if meeting.get("uniqueKey") in existing_keys:
+                duplicate_count += 1
+            else:
+                meetings_to_save.append(meeting)
+
+        add_log(f"Found {duplicate_count} duplicates, saving {len(meetings_to_save)} new meetings", "info")
+
+        # Phase 3: Batch save in chunks of 50 (Parse limit)
+        saved_count = 0
+        error_count = 0
+        batch_size = 50
+
+        for i in range(0, len(meetings_to_save), batch_size):
+            if not scraping_state["is_running"]:
+                add_log("Scraping stopped by user", "warning")
+                break
+
+            batch = meetings_to_save[i:i + batch_size]
+            batch_num = (i // batch_size) + 1
+            total_batches = (len(meetings_to_save) + batch_size - 1) // batch_size
+
+            scraping_state["progress_message"] = f"Saving batch {batch_num}/{total_batches}..."
+            scraping_state["current_feed_progress"] = min(i + batch_size, len(meetings_to_save))
+
+            # Show first meeting in batch for context
+            if batch:
+                first_meeting = batch[0]
+                scraping_state["current_meeting"] = {
+                    "name": first_meeting.get("name", "Unknown"),
+                    "city": first_meeting.get("city", ""),
+                    "index": i + 1,
+                    "total": len(meetings_to_save)
+                }
+
+            result = save_to_back4app_batch(batch)
+            saved_count += result["saved"]
+            error_count += result["errors"]
+            scraping_state["total_saved"] += result["saved"]
+
+            # Update stats for saved meetings
+            for meeting in batch[:result["saved"]]:
+                state = meeting.get("state", "Unknown")
+                scraping_state["meetings_by_state"][state] = scraping_state["meetings_by_state"].get(state, 0) + 1
+                scraping_state["meetings_by_type"]["AA"] = scraping_state["meetings_by_type"].get("AA", 0) + 1
+
+                # Keep recent meetings (last 20)
+                scraping_state["recent_meetings"].insert(0, meeting)
+                scraping_state["recent_meetings"] = scraping_state["recent_meetings"][:20]
+
+            # Log batch progress
+            add_log(f"Batch {batch_num}: saved {result['saved']}/{len(batch)}", "info")
+
         scraping_state["total_found"] += total_in_feed
+        scraping_state["current_meeting"] = None
         log_msg = f"Completed {feed_name}: saved {saved_count}/{total_in_feed} meetings"
         if duplicate_count > 0:
             log_msg += f" ({duplicate_count} duplicates skipped)"
