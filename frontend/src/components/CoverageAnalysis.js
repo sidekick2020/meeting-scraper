@@ -8,9 +8,12 @@ function CoverageAnalysis() {
   const [error, setError] = useState(null);
   const [showAllStates, setShowAllStates] = useState(false);
 
-  const fetchCoverage = useCallback(async () => {
+  const fetchCoverage = useCallback(async (isInitialLoad = false) => {
     try {
-      setLoading(true);
+      // Only show loading spinner on initial load, not refreshes
+      if (isInitialLoad) {
+        setLoading(true);
+      }
       const response = await fetch(`${BACKEND_URL}/api/coverage`);
       if (response.ok) {
         const data = await response.json();
@@ -27,7 +30,7 @@ function CoverageAnalysis() {
   }, []);
 
   useEffect(() => {
-    fetchCoverage();
+    fetchCoverage(true); // Initial load shows spinner
   }, [fetchCoverage]);
 
   const getCoverageColor = (coveragePer100k, avgCoverage) => {
@@ -74,7 +77,7 @@ function CoverageAnalysis() {
     <div className="coverage-analysis">
       <div className="coverage-header">
         <h3>US Coverage Analysis</h3>
-        <button onClick={fetchCoverage} className="btn btn-ghost btn-small">
+        <button onClick={() => fetchCoverage(false)} className="btn btn-ghost btn-small">
           Refresh
         </button>
       </div>

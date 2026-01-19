@@ -754,9 +754,14 @@ def save_scrape_history(status="completed", feeds_processed=0):
                 "Content-Type": "application/json"
             }
             history_url = "https://parseapi.back4app.com/classes/ScrapeHistory"
-            requests.post(history_url, headers=headers, json=history_entry, timeout=10)
+            response = requests.post(history_url, headers=headers, json=history_entry, timeout=10)
+            if response.status_code == 201:
+                add_log(f"Scrape history saved to Back4app", "info")
+            else:
+                error_detail = response.text[:200] if response.text else "No details"
+                add_log(f"Failed to save history to Back4app: {response.status_code} - {error_detail}", "warning")
         except Exception as e:
-            print(f"Error saving history to Back4app: {e}")
+            add_log(f"Error saving history to Back4app: {e}", "warning")
 
     return history_entry
 

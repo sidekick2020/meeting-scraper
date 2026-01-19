@@ -1,12 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 
 function ActivityLog({ logs }) {
-  const logEndRef = useRef(null);
+  const containerRef = useRef(null);
 
-  // Auto-scroll to bottom when new logs arrive
+  // Auto-scroll log container (not page) to bottom when new logs arrive
   useEffect(() => {
-    if (logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
   }, [logs]);
 
@@ -42,7 +42,7 @@ function ActivityLog({ logs }) {
   return (
     <div className="activity-log">
       <h3>Activity Log</h3>
-      <div className="activity-log-container">
+      <div className="activity-log-container" ref={containerRef}>
         {sortedLogs.map((log, index) => (
           <div key={index} className={`log-entry log-${log.level}`}>
             <span className="log-icon">{getLevelIcon(log.level)}</span>
@@ -50,7 +50,6 @@ function ActivityLog({ logs }) {
             <span className="log-message">{log.message}</span>
           </div>
         ))}
-        <div ref={logEndRef} />
       </div>
     </div>
   );
