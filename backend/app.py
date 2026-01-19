@@ -238,6 +238,23 @@ def determine_fellowship(meeting_type, types, name):
 
     return meeting_type or "AA"
 
+def to_parse_date(date_str):
+    """Convert a date string to Parse Date format"""
+    if not date_str:
+        return None
+
+    try:
+        # Try various date formats
+        for fmt in ["%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%m/%d/%Y"]:
+            try:
+                dt = datetime.strptime(date_str, fmt)
+                return {"__type": "Date", "iso": dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")}
+            except ValueError:
+                continue
+        return None
+    except:
+        return None
+
 def normalize_meeting(raw_meeting, source_name, default_state):
     """Normalize meeting data from various feed formats to our standard format"""
     formatted_address = raw_meeting.get('formatted_address', '') or raw_meeting.get('address', '')
@@ -371,7 +388,6 @@ def normalize_meeting(raw_meeting, source_name, default_state):
         "format": meeting_format,
         "duration": duration,
         "averageAttendance": raw_meeting.get('attendance', None),
-        "foundedDate": raw_meeting.get('founded', ''),
         "isActive": True,
         "literatureUsed": raw_meeting.get('literature', ''),
 
@@ -419,8 +435,9 @@ def normalize_meeting(raw_meeting, source_name, default_state):
         # Metadata
         "sourceType": "web_scraper",
         "sourceFeed": source_name,
-        "updatedAt": raw_meeting.get('updated', ''),
-        "scrapedAt": datetime.now().isoformat(),
+        "updatedAt": to_parse_date(raw_meeting.get('updated', '')),
+        "foundedDate": to_parse_date(raw_meeting.get('founded', '')),
+        "scrapedAt": {"__type": "Date", "iso": datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")},
     }
 
 def save_to_back4app(meeting_data):
