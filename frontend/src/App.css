@@ -1389,14 +1389,17 @@
   position: absolute;
   top: 100%;
   right: 0;
-  margin-top: 0.5rem;
+  padding-top: 0.25rem;
+  z-index: 1000;
+}
+
+.user-dropdown-content {
   background: #1e1e2e;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 0.75rem;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
   min-width: 200px;
   padding: 0.5rem;
-  z-index: 1000;
   animation: dropdownFadeIn 0.15s ease-out;
 }
 
