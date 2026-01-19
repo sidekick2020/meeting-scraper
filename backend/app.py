@@ -100,33 +100,110 @@ def normalize_meeting(raw_meeting, source_name, default_state):
     formatted_address = raw_meeting.get('formatted_address', '') or raw_meeting.get('address', '')
     addr_parts = parse_address(formatted_address)
 
+    # Determine online/hybrid status
     is_online = False
+    is_hybrid = False
     online_url = ""
+    conference_phone = ""
     attendance = raw_meeting.get('attendance_option', '')
-    if attendance in ['online', 'hybrid'] or raw_meeting.get('conference_url'):
+
+    if attendance == 'online':
         is_online = True
-        online_url = raw_meeting.get('conference_url', '') or raw_meeting.get('conference_url_notes', '')
+    elif attendance == 'hybrid':
+        is_hybrid = True
+        is_online = True
+    elif raw_meeting.get('conference_url') or raw_meeting.get('conference_phone'):
+        is_online = True
+
+    if raw_meeting.get('conference_url'):
+        online_url = raw_meeting.get('conference_url', '')
+    if raw_meeting.get('conference_phone'):
+        conference_phone = raw_meeting.get('conference_phone', '')
 
     location_name = raw_meeting.get('location', '') or raw_meeting.get('location_name', '')
     state = addr_parts.get("state") or raw_meeting.get('state', '') or default_state
 
+    # Extract meeting types (e.g., O=Open, C=Closed, W=Women, M=Men, etc.)
+    types = raw_meeting.get('types', [])
+    if isinstance(types, str):
+        types = [types]
+
+    # Get regions - can be string or array
+    regions = raw_meeting.get('regions', [])
+    if isinstance(regions, str):
+        regions = [regions]
+    region = raw_meeting.get('region', '') or (regions[0] if regions else '')
+
+    # Get coordinates if available
+    latitude = raw_meeting.get('latitude')
+    longitude = raw_meeting.get('longitude')
+
+    # Try to parse as float if they're strings
+    if latitude and isinstance(latitude, str):
+        try:
+            latitude = float(latitude)
+        except ValueError:
+            latitude = None
+    if longitude and isinstance(longitude, str):
+        try:
+            longitude = float(longitude)
+        except ValueError:
+            longitude = None
+
     return {
         "objectId": generate_object_id(),
+        # Basic info
         "name": raw_meeting.get('name', 'Unknown Meeting'),
+        "slug": raw_meeting.get('slug', ''),
+
+        # Location
         "locationName": location_name,
+        "locationNotes": raw_meeting.get('location_notes', ''),
         "address": addr_parts.get("address") or formatted_address,
         "city": addr_parts.get("city") or raw_meeting.get('city', ''),
         "state": state,
         "postalCode": addr_parts.get("postalCode") or raw_meeting.get('postal_code', ''),
+        "country": raw_meeting.get('country', 'US'),
+        "region": region,
+        "subRegion": raw_meeting.get('sub_region', ''),
+        "formattedAddress": formatted_address,
+
+        # Coordinates
+        "latitude": latitude,
+        "longitude": longitude,
+
+        # Schedule
         "day": raw_meeting.get('day', 0),
         "time": raw_meeting.get('time', ''),
+        "endTime": raw_meeting.get('end_time', ''),
+        "timezone": raw_meeting.get('timezone', ''),
+
+        # Meeting characteristics
         "meetingType": "AA",
-        "isOnline": is_online,
-        "onlineUrl": online_url,
+        "types": types,  # Array of type codes like ['O', 'D', 'W']
         "notes": raw_meeting.get('notes', ''),
+
+        # Online meeting info
+        "isOnline": is_online,
+        "isHybrid": is_hybrid,
+        "onlineUrl": online_url,
+        "onlineUrlNotes": raw_meeting.get('conference_url_notes', ''),
+        "conferencePhone": conference_phone,
+        "conferencePhoneNotes": raw_meeting.get('conference_phone_notes', ''),
+
+        # Group info
+        "group": raw_meeting.get('group', ''),
+        "groupNotes": raw_meeting.get('group_notes', ''),
+
+        # Contact info
+        "contactName": raw_meeting.get('contact_1_name', ''),
+        "contactEmail": raw_meeting.get('contact_1_email', ''),
+        "contactPhone": raw_meeting.get('contact_1_phone', ''),
+
+        # Metadata
         "sourceType": "web_scraper",
         "sourceFeed": source_name,
-        "region": raw_meeting.get('region', '') or (raw_meeting.get('regions', [''])[0] if raw_meeting.get('regions') else ''),
+        "updatedAt": raw_meeting.get('updated', ''),
     }
 
 def save_to_back4app(meeting_data):
