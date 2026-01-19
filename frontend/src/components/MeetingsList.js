@@ -1,6 +1,6 @@
 import React from 'react';
 
-function MeetingsList({ meetings }) {
+function MeetingsList({ meetings, onSelectMeeting }) {
   const formatDay = (day) => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     return days[day] || 'Unknown';
@@ -13,7 +13,11 @@ function MeetingsList({ meetings }) {
       <div className="meetings-list">
         {meetings.length > 0 ? (
           meetings.map((meeting, index) => (
-            <div key={meeting.objectId || index} className="meeting-card">
+            <div
+              key={meeting.objectId || index}
+              className="meeting-card clickable"
+              onClick={() => onSelectMeeting && onSelectMeeting(meeting)}
+            >
               <div className="meeting-header">
                 <span className={`meeting-type type-${meeting.meetingType?.toLowerCase().replace('-', '')}`}>
                   {meeting.meetingType}

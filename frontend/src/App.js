@@ -5,6 +5,8 @@ import ConfigModal from './components/ConfigModal';
 import Stats from './components/Stats';
 import MeetingsList from './components/MeetingsList';
 import ActivityLog from './components/ActivityLog';
+import MeetingMap from './components/MeetingMap';
+import MeetingDetail from './components/MeetingDetail';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -36,6 +38,8 @@ function App() {
     appId: localStorage.getItem('back4app_app_id') || '',
     restKey: localStorage.getItem('back4app_rest_key') || ''
   });
+  const [selectedMeeting, setSelectedMeeting] = useState(null);
+  const [activeView, setActiveView] = useState('list'); // 'list' or 'map'
 
   // Use refs to track state without causing re-renders
   const isRunningRef = useRef(false);
@@ -208,6 +212,10 @@ function App() {
     }
   };
 
+  const handleSelectMeeting = (meeting) => {
+    setSelectedMeeting(meeting);
+  };
+
   return (
     <div className="App">
       <header className="App-header">
@@ -256,13 +264,40 @@ function App() {
 
         <ActivityLog logs={scrapingState.activity_log} />
 
-        <div className="grid-container">
-          <Stats
-            byState={scrapingState.meetings_by_state}
-            byType={scrapingState.meetings_by_type}
-          />
-          <MeetingsList meetings={recentMeetings} />
+        {/* View Toggle */}
+        <div className="view-toggle">
+          <button
+            className={`toggle-btn ${activeView === 'list' ? 'active' : ''}`}
+            onClick={() => setActiveView('list')}
+          >
+            List View
+          </button>
+          <button
+            className={`toggle-btn ${activeView === 'map' ? 'active' : ''}`}
+            onClick={() => setActiveView('map')}
+          >
+            Map View
+          </button>
         </div>
+
+        {activeView === 'list' ? (
+          <div className="grid-container">
+            <Stats
+              byState={scrapingState.meetings_by_state}
+              byType={scrapingState.meetings_by_type}
+            />
+            <MeetingsList
+              meetings={recentMeetings}
+              onSelectMeeting={handleSelectMeeting}
+            />
+          </div>
+        ) : (
+          <MeetingMap
+            meetings={recentMeetings}
+            onSelectMeeting={handleSelectMeeting}
+            showHeatmap={true}
+          />
+        )}
 
         {scrapingState.errors.length > 0 && (
           <div className="errors-section">
@@ -282,6 +317,13 @@ function App() {
           onSave={saveConfig}
           onClose={() => setShowConfig(false)}
           isSaving={isSavingConfig}
+        />
+      )}
+
+      {selectedMeeting && (
+        <MeetingDetail
+          meeting={selectedMeeting}
+          onClose={() => setSelectedMeeting(null)}
         />
       )}
     </div>
