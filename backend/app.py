@@ -41,6 +41,38 @@ REQUEST_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0; +https://github.com/code4recovery)'
 }
 
+# US State population data (2023 estimates, in thousands)
+US_STATE_POPULATION = {
+    "AL": 5108, "AK": 733, "AZ": 7431, "AR": 3067, "CA": 38965,
+    "CO": 5877, "CT": 3617, "DE": 1018, "FL": 22610, "GA": 11029,
+    "HI": 1440, "ID": 1964, "IL": 12582, "IN": 6833, "IA": 3207,
+    "KS": 2940, "KY": 4526, "LA": 4573, "ME": 1395, "MD": 6180,
+    "MA": 7001, "MI": 10037, "MN": 5737, "MS": 2939, "MO": 6196,
+    "MT": 1133, "NE": 1978, "NV": 3194, "NH": 1402, "NJ": 9290,
+    "NM": 2114, "NY": 19571, "NC": 10835, "ND": 783, "OH": 11785,
+    "OK": 4053, "OR": 4233, "PA": 12972, "RI": 1096, "SC": 5373,
+    "SD": 919, "TN": 7126, "TX": 30503, "UT": 3417, "VT": 647,
+    "VA": 8683, "WA": 7812, "WV": 1770, "WI": 5910, "WY": 584,
+    "DC": 678, "PR": 3221,  # Including DC and Puerto Rico
+}
+
+# State names for display
+US_STATE_NAMES = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
+    "CA": "California", "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware",
+    "FL": "Florida", "GA": "Georgia", "HI": "Hawaii", "ID": "Idaho",
+    "IL": "Illinois", "IN": "Indiana", "IA": "Iowa", "KS": "Kansas",
+    "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi",
+    "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada",
+    "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York",
+    "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma",
+    "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina",
+    "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah",
+    "VT": "Vermont", "VA": "Virginia", "WA": "Washington", "WV": "West Virginia",
+    "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia", "PR": "Puerto Rico",
+}
+
 # Global state
 scraping_state = {
     "is_running": False,
@@ -810,6 +842,96 @@ def get_history():
     return jsonify({
         "history": scrape_history
     })
+
+@app.route('/api/coverage', methods=['GET'])
+def get_coverage():
+    """Get coverage analysis - meetings per capita by state"""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({"error": "Back4app not configured"}), 400
+
+    headers = {
+        "X-Parse-Application-Id": BACK4APP_APP_ID,
+        "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+    }
+
+    try:
+        # Get meeting counts by state from Back4app
+        # Using aggregation pipeline to count by state
+        import urllib.parse
+
+        # First, get total count
+        count_url = f"{BACK4APP_URL}?count=1&limit=0"
+        count_response = requests.get(count_url, headers=headers, timeout=10)
+        total_meetings = 0
+        if count_response.status_code == 200:
+            total_meetings = count_response.json().get("count", 0)
+
+        # Get meetings grouped by state (we'll fetch a sample and count)
+        # Parse doesn't support GROUP BY directly, so we'll use a different approach
+        # Fetch all unique states and their counts
+        meetings_by_state = {}
+
+        # Query each state's count individually (more reliable)
+        for state_code in US_STATE_POPULATION.keys():
+            where = json.dumps({"state": state_code})
+            url = f"{BACK4APP_URL}?where={urllib.parse.quote(where)}&count=1&limit=0"
+            response = requests.get(url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                count = response.json().get("count", 0)
+                if count > 0:
+                    meetings_by_state[state_code] = count
+
+        # Calculate coverage metrics
+        coverage_data = []
+        total_us_population = sum(US_STATE_POPULATION.values())  # in thousands
+
+        for state_code, population in US_STATE_POPULATION.items():
+            meetings = meetings_by_state.get(state_code, 0)
+            # Coverage = meetings per 100k population
+            coverage_per_100k = (meetings / population * 100) if population > 0 else 0
+
+            coverage_data.append({
+                "state": state_code,
+                "stateName": US_STATE_NAMES.get(state_code, state_code),
+                "population": population * 1000,  # Convert to actual population
+                "meetings": meetings,
+                "coveragePer100k": round(coverage_per_100k, 2),
+                "hasFeed": any(feed["state"] == state_code for feed in AA_FEEDS.values()),
+            })
+
+        # Sort by coverage (lowest first to show gaps)
+        coverage_data.sort(key=lambda x: x["coveragePer100k"])
+
+        # Calculate summary stats
+        states_with_meetings = [s for s in coverage_data if s["meetings"] > 0]
+        states_without_meetings = [s for s in coverage_data if s["meetings"] == 0]
+
+        avg_coverage = 0
+        if states_with_meetings:
+            avg_coverage = sum(s["coveragePer100k"] for s in states_with_meetings) / len(states_with_meetings)
+
+        # Identify priority states (high population, low/no coverage)
+        priority_states = [
+            s for s in coverage_data
+            if s["population"] > 2000000 and s["coveragePer100k"] < avg_coverage
+        ]
+
+        return jsonify({
+            "summary": {
+                "totalMeetings": total_meetings,
+                "statesWithMeetings": len(states_with_meetings),
+                "statesWithoutMeetings": len(states_without_meetings),
+                "averageCoveragePer100k": round(avg_coverage, 2),
+                "totalUSPopulation": total_us_population * 1000,
+            },
+            "coverage": coverage_data,
+            "priorityStates": priority_states[:10],  # Top 10 priority states
+            "statesWithoutCoverage": states_without_meetings,
+        })
+
+    except Exception as e:
+        print(f"Error getting coverage: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/meetings', methods=['GET'])
 def get_meetings():
