@@ -1,4 +1,5 @@
 import os
+import time
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
@@ -102,6 +103,58 @@ def parse_address(formatted_address):
 
     return result
 
+# Simple in-memory cache for geocoding results
+geocode_cache = {}
+last_geocode_time = 0
+
+def geocode_address(address):
+    """Geocode an address using Nominatim (OpenStreetMap) API"""
+    global last_geocode_time
+
+    if not address or len(address.strip()) < 5:
+        return None, None
+
+    # Check cache first
+    cache_key = address.lower().strip()
+    if cache_key in geocode_cache:
+        return geocode_cache[cache_key]
+
+    # Rate limit: Nominatim requires max 1 request per second
+    elapsed = time.time() - last_geocode_time
+    if elapsed < 1.0:
+        time.sleep(1.0 - elapsed)
+    last_geocode_time = time.time()
+
+    try:
+        # Use Nominatim API (free, no key required)
+        # Important: Include a valid User-Agent per Nominatim usage policy
+        url = "https://nominatim.openstreetmap.org/search"
+        params = {
+            "q": address,
+            "format": "json",
+            "limit": 1
+        }
+        headers = {
+            "User-Agent": "MeetingScraper/1.0 (12-step meeting finder app)"
+        }
+
+        response = requests.get(url, params=params, headers=headers, timeout=5)
+
+        if response.status_code == 200:
+            results = response.json()
+            if results and len(results) > 0:
+                lat = float(results[0]["lat"])
+                lon = float(results[0]["lon"])
+                geocode_cache[cache_key] = (lat, lon)
+                return lat, lon
+
+        geocode_cache[cache_key] = (None, None)
+        return None, None
+
+    except Exception as e:
+        print(f"Geocoding error for '{address}': {e}")
+        return None, None
+
 def normalize_meeting(raw_meeting, source_name, default_state):
     """Normalize meeting data from various feed formats to our standard format"""
     formatted_address = raw_meeting.get('formatted_address', '') or raw_meeting.get('address', '')
@@ -156,6 +209,21 @@ def normalize_meeting(raw_meeting, source_name, default_state):
             longitude = float(longitude)
         except ValueError:
             longitude = None
+
+    # Geocode if coordinates are missing and we have an address
+    if (latitude is None or longitude is None) and formatted_address:
+        # Build a full address for better geocoding results
+        city = addr_parts.get("city") or raw_meeting.get('city', '')
+        geocode_query = formatted_address
+        if city and city not in formatted_address:
+            geocode_query = f"{formatted_address}, {city}"
+        if state and state not in formatted_address:
+            geocode_query = f"{geocode_query}, {state}"
+
+        lat, lon = geocode_address(geocode_query)
+        if lat and lon:
+            latitude = lat
+            longitude = lon
 
     return {
         "objectId": generate_object_id(),
