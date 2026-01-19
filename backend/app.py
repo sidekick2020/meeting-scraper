@@ -216,7 +216,8 @@ def normalize_meeting(raw_meeting, source_name, default_state):
 def save_to_back4app(meeting_data):
     """Save a meeting to back4app"""
     if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
-        return True  # Skip saving but count as success for testing
+        add_log("Back4app not configured - skipping save", "warning")
+        return False  # Return False so it doesn't count as saved
 
     headers = {
         "X-Parse-Application-Id": BACK4APP_APP_ID,
@@ -226,7 +227,13 @@ def save_to_back4app(meeting_data):
 
     try:
         response = requests.post(BACK4APP_URL, headers=headers, json=meeting_data, timeout=10)
-        return response.status_code == 201
+        if response.status_code == 201:
+            return True
+        else:
+            # Log the actual error from Back4app
+            error_detail = response.text[:200] if response.text else "No details"
+            print(f"Back4app error {response.status_code}: {error_detail}")
+            return False
     except Exception as e:
         print(f"Error saving to back4app: {e}")
         return False
