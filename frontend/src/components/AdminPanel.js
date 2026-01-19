@@ -69,9 +69,36 @@ function AdminPanel({ onBackToPublic }) {
       if (response.ok) {
         const data = await response.json();
         setIsConnected(true);
-        setScrapingState(prev => ({ ...prev, ...data }));
+
+        // Only update state if values have actually changed to prevent scroll reset
+        setScrapingState(prev => {
+          // Check if any key values changed
+          const hasChanges =
+            prev.is_running !== data.is_running ||
+            prev.total_found !== data.total_found ||
+            prev.total_saved !== data.total_saved ||
+            prev.current_source !== data.current_source ||
+            prev.current_feed_index !== data.current_feed_index ||
+            prev.current_feed_progress !== data.current_feed_progress ||
+            prev.progress_message !== data.progress_message ||
+            prev.activity_log?.length !== data.activity_log?.length ||
+            prev.errors?.length !== data.errors?.length;
+
+          if (hasChanges) {
+            return { ...prev, ...data };
+          }
+          return prev; // Return same reference to avoid re-render
+        });
+
+        // Only update recent meetings if they changed
         if (data.recent_meetings) {
-          setRecentMeetings(data.recent_meetings);
+          setRecentMeetings(prev => {
+            if (prev.length !== data.recent_meetings.length ||
+                (prev[0]?.objectId !== data.recent_meetings[0]?.objectId)) {
+              return data.recent_meetings;
+            }
+            return prev;
+          });
         }
         isRunningRef.current = data.is_running;
       } else {
