@@ -155,6 +155,89 @@ def geocode_address(address):
         print(f"Geocoding error for '{address}': {e}")
         return None, None
 
+def parse_types_for_accessibility(types):
+    """Extract accessibility and format info from meeting type codes"""
+    # Common AA meeting type codes
+    # X = Wheelchair accessible, BA = Babysitting Available
+    # ASL = American Sign Language, S = Spanish, etc.
+    accessibility = {
+        "wheelchairAccessible": "X" in types or "wheelchair" in str(types).lower(),
+        "hasChildcare": "BA" in types or "CF" in types,
+        "signLanguageAvailable": "ASL" in types,
+    }
+
+    # Determine meeting format from types
+    format_mapping = {
+        "BB": "big_book",
+        "ST": "step_study",
+        "D": "discussion",
+        "SP": "speaker",
+        "B": "beginners",
+        "12x12": "twelve_and_twelve",
+        "LIT": "literature",
+        "MED": "meditation",
+    }
+
+    meeting_format = "discussion"  # default
+    for code, fmt in format_mapping.items():
+        if code in types:
+            meeting_format = fmt
+            break
+
+    return accessibility, meeting_format
+
+def extract_languages(types, notes):
+    """Extract languages from types and notes"""
+    languages = ["English"]  # default
+
+    language_codes = {
+        "S": "Spanish",
+        "FR": "French",
+        "P": "Polish",
+        "JA": "Japanese",
+        "KO": "Korean",
+        "ZH": "Chinese",
+        "RU": "Russian",
+        "VI": "Vietnamese",
+        "FA": "Farsi",
+        "AR": "Arabic",
+        "DE": "German",
+        "IT": "Italian",
+        "PT": "Portuguese",
+    }
+
+    for code, lang in language_codes.items():
+        if code in types:
+            if lang not in languages:
+                languages.append(lang)
+
+    # Check notes for language mentions
+    notes_lower = (notes or "").lower()
+    for lang in ["spanish", "french", "polish", "japanese", "korean", "chinese", "russian"]:
+        if lang in notes_lower and lang.capitalize() not in languages:
+            languages.append(lang.capitalize())
+
+    return languages
+
+def determine_fellowship(meeting_type, types, name):
+    """Determine the fellowship type (AA, NA, Al-Anon, etc.)"""
+    name_lower = (name or "").lower()
+
+    if "na" in name_lower or "narcotics" in name_lower:
+        return "NA"
+    elif "al-anon" in name_lower or "alanon" in name_lower:
+        return "Al-Anon"
+    elif "alateen" in name_lower:
+        return "Alateen"
+    elif "ca" in name_lower and "cocaine" in name_lower:
+        return "CA"
+    elif "oa" in name_lower or "overeaters" in name_lower:
+        return "OA"
+    elif "ga" in name_lower or "gamblers" in name_lower:
+        return "GA"
+
+    return meeting_type or "AA"
+
 def normalize_meeting(raw_meeting, source_name, default_state):
     """Normalize meeting data from various feed formats to our standard format"""
     formatted_address = raw_meeting.get('formatted_address', '') or raw_meeting.get('address', '')
@@ -194,6 +277,30 @@ def normalize_meeting(raw_meeting, source_name, default_state):
         regions = [regions]
     region = raw_meeting.get('region', '') or (regions[0] if regions else '')
 
+    # Extract accessibility and format from types
+    notes = raw_meeting.get('notes', '')
+    accessibility, meeting_format = parse_types_for_accessibility(types)
+    languages = extract_languages(types, notes)
+
+    # Determine fellowship
+    name = raw_meeting.get('name', 'Unknown Meeting')
+    fellowship = determine_fellowship(raw_meeting.get('meeting_type', ''), types, name)
+
+    # Calculate duration if end_time is available
+    duration = None
+    start_time = raw_meeting.get('time', '')
+    end_time = raw_meeting.get('end_time', '')
+    if start_time and end_time:
+        try:
+            from datetime import datetime as dt
+            start = dt.strptime(start_time, "%H:%M")
+            end = dt.strptime(end_time, "%H:%M")
+            duration = int((end - start).seconds / 60)
+            if duration < 0:
+                duration = None
+        except:
+            pass
+
     # Get coordinates if available
     latitude = raw_meeting.get('latitude')
     longitude = raw_meeting.get('longitude')
@@ -228,7 +335,7 @@ def normalize_meeting(raw_meeting, source_name, default_state):
     return {
         "objectId": generate_object_id(),
         # Basic info
-        "name": raw_meeting.get('name', 'Unknown Meeting'),
+        "name": name,
         "slug": raw_meeting.get('slug', ''),
 
         # Location
@@ -243,6 +350,13 @@ def normalize_meeting(raw_meeting, source_name, default_state):
         "subRegion": raw_meeting.get('sub_region', ''),
         "formattedAddress": formatted_address,
 
+        # Enhanced Location
+        "neighborhood": raw_meeting.get('neighborhood', ''),
+        "landmark": raw_meeting.get('landmark', '') or raw_meeting.get('directions', ''),
+        "parkingNotes": raw_meeting.get('parking_notes', ''),
+        "publicTransitNotes": raw_meeting.get('transit_notes', ''),
+        "placeId": raw_meeting.get('place_id', ''),
+
         # Coordinates
         "latitude": latitude,
         "longitude": longitude,
@@ -253,10 +367,26 @@ def normalize_meeting(raw_meeting, source_name, default_state):
         "endTime": raw_meeting.get('end_time', ''),
         "timezone": raw_meeting.get('timezone', ''),
 
-        # Meeting characteristics
-        "meetingType": "AA",
+        # Meeting Details
+        "format": meeting_format,
+        "duration": duration,
+        "averageAttendance": raw_meeting.get('attendance', None),
+        "foundedDate": raw_meeting.get('founded', ''),
+        "isActive": True,
+        "literatureUsed": raw_meeting.get('literature', ''),
+
+        # Fellowship & Meeting characteristics
+        "fellowship": fellowship,
+        "meetingType": fellowship,  # Keep for backwards compatibility
         "types": types,  # Array of type codes like ['O', 'D', 'W']
-        "notes": raw_meeting.get('notes', ''),
+        "notes": notes,
+
+        # Accessibility & Amenities
+        "wheelchairAccessible": accessibility["wheelchairAccessible"],
+        "hasChildcare": accessibility["hasChildcare"],
+        "signLanguageAvailable": accessibility["signLanguageAvailable"],
+        "hasParking": "parking" in notes.lower() if notes else False,
+        "languages": languages,
 
         # Online meeting info
         "isOnline": is_online,
@@ -275,10 +405,22 @@ def normalize_meeting(raw_meeting, source_name, default_state):
         "contactEmail": raw_meeting.get('contact_1_email', ''),
         "contactPhone": raw_meeting.get('contact_1_phone', ''),
 
+        # Verification & Quality
+        "lastVerifiedAt": None,
+        "verifiedBy": None,
+        "dataQualityScore": None,
+        "reportCount": 0,
+
+        # User Engagement (initialized to defaults)
+        "favoriteCount": 0,
+        "checkInCount": 0,
+        "lastCheckInAt": None,
+
         # Metadata
         "sourceType": "web_scraper",
         "sourceFeed": source_name,
         "updatedAt": raw_meeting.get('updated', ''),
+        "scrapedAt": datetime.now().isoformat(),
     }
 
 def save_to_back4app(meeting_data):
