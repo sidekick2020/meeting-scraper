@@ -3,17 +3,20 @@ from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 import requests
 from bs4 import BeautifulSoup
-import threading
 import time
 import random
 import string
 from datetime import datetime
 import json
 import re
+import os
 
 app = Flask(__name__)
 CORS(app, origins="*")
-socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Use gevent async mode for production, threading for local dev
+async_mode = 'gevent' if os.environ.get('FLASK_ENV') == 'production' else 'threading'
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode=async_mode)
 
 # Back4app Configuration
 BACK4APP_APP_ID = None
@@ -313,10 +316,8 @@ def start_scraping():
     if scraping_state["is_running"]:
         return jsonify({"success": False, "message": "Scraper already running"}), 400
 
-    # Start scraper in background thread
-    thread = threading.Thread(target=run_scraper)
-    thread.daemon = True
-    thread.start()
+    # Start scraper using socketio's background task (works with both gevent and threading)
+    socketio.start_background_task(run_scraper)
 
     return jsonify({"success": True, "message": "Scraper started"})
 
