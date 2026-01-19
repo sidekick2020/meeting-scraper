@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-function ConfigModal({ config, onSave, onClose }) {
+function ConfigModal({ config, onSave, onClose, isSaving }) {
   const [appId, setAppId] = useState(config.appId);
   const [restKey, setRestKey] = useState(config.restKey);
 
@@ -14,7 +14,7 @@ function ConfigModal({ config, onSave, onClose }) {
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Back4app Configuration</h2>
-          <button className="modal-close" onClick={onClose}>&times;</button>
+          <button className="modal-close" onClick={onClose} disabled={isSaving}>&times;</button>
         </div>
 
         <form onSubmit={handleSubmit} className="modal-body">
@@ -26,7 +26,7 @@ function ConfigModal({ config, onSave, onClose }) {
               value={appId}
               onChange={(e) => setAppId(e.target.value)}
               placeholder="Enter your Back4app Application ID"
-              required
+              disabled={isSaving}
             />
           </div>
 
@@ -38,7 +38,7 @@ function ConfigModal({ config, onSave, onClose }) {
               value={restKey}
               onChange={(e) => setRestKey(e.target.value)}
               placeholder="Enter your Back4app REST API Key"
-              required
+              disabled={isSaving}
             />
           </div>
 
@@ -49,14 +49,17 @@ function ConfigModal({ config, onSave, onClose }) {
               <li>Click Security & Keys</li>
               <li>Copy Application ID and REST API Key</li>
             </ol>
+            <p style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>
+              (Optional - you can test scraping without credentials)
+            </p>
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
+            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={isSaving}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              Save Configuration
+            <button type="submit" className="btn btn-primary" disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Configuration'}
             </button>
           </div>
         </form>

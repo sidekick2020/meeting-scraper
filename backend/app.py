@@ -1,22 +1,13 @@
 import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from flask_socketio import SocketIO, emit
 import requests
-from bs4 import BeautifulSoup
-import time
 import random
 import string
-from datetime import datetime
-import json
 import re
 
 app = Flask(__name__)
 CORS(app, origins="*")
-
-# Let gunicorn handle async mode via its worker class
-# Don't specify async_mode - let it auto-detect
-socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Back4app Configuration
 BACK4APP_APP_ID = None
@@ -52,11 +43,10 @@ scraping_state = {
     "current_source": "",
     "errors": [],
     "meetings_by_state": {},
-    "meetings_by_type": {"AA": 0, "NA": 0, "Al-Anon": 0, "Other": 0}
+    "meetings_by_type": {"AA": 0, "NA": 0, "Al-Anon": 0, "Other": 0},
+    "recent_meetings": [],
+    "progress_message": ""
 }
-
-# Store recent meetings for display
-recent_meetings = []
 
 def generate_object_id():
     """Generate a 10-character alphanumeric objectId"""
@@ -67,10 +57,7 @@ def parse_address(formatted_address):
     if not formatted_address:
         return {"city": "", "state": "", "postalCode": "", "address": ""}
 
-    # Try to extract city, state, zip from formatted address
-    # Example: "670 E Meadow Dr, Palo Alto, CA 94306, USA"
     parts = formatted_address.split(',')
-
     result = {
         "address": parts[0].strip() if parts else "",
         "city": "",
@@ -82,7 +69,6 @@ def parse_address(formatted_address):
         result["city"] = parts[1].strip()
 
     if len(parts) >= 3:
-        # State and zip often together like "CA 94306"
         state_zip = parts[2].strip()
         match = re.match(r'([A-Z]{2})\s*(\d{5})?', state_zip)
         if match:
@@ -93,28 +79,20 @@ def parse_address(formatted_address):
 
 def normalize_meeting(raw_meeting, source_name, default_state):
     """Normalize meeting data from various feed formats to our standard format"""
-
-    # Parse address components
     formatted_address = raw_meeting.get('formatted_address', '') or raw_meeting.get('address', '')
     addr_parts = parse_address(formatted_address)
 
-    # Determine if online
     is_online = False
     online_url = ""
-
     attendance = raw_meeting.get('attendance_option', '')
     if attendance in ['online', 'hybrid'] or raw_meeting.get('conference_url'):
         is_online = True
         online_url = raw_meeting.get('conference_url', '') or raw_meeting.get('conference_url_notes', '')
 
-    # Get location name
     location_name = raw_meeting.get('location', '') or raw_meeting.get('location_name', '')
-
-    # Get region/state - prefer from data, fall back to default
     state = addr_parts.get("state") or raw_meeting.get('state', '') or default_state
 
-    # Build normalized meeting
-    normalized = {
+    return {
         "objectId": generate_object_id(),
         "name": raw_meeting.get('name', 'Unknown Meeting'),
         "locationName": location_name,
@@ -133,13 +111,10 @@ def normalize_meeting(raw_meeting, source_name, default_state):
         "region": raw_meeting.get('region', '') or (raw_meeting.get('regions', [''])[0] if raw_meeting.get('regions') else ''),
     }
 
-    return normalized
-
 def save_to_back4app(meeting_data):
     """Save a meeting to back4app"""
     if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
-        # Skip saving but don't fail - allows testing without Back4app
-        return True
+        return True  # Skip saving but count as success for testing
 
     headers = {
         "X-Parse-Application-Id": BACK4APP_APP_ID,
@@ -154,162 +129,61 @@ def save_to_back4app(meeting_data):
         print(f"Error saving to back4app: {e}")
         return False
 
-def fetch_meetings_from_feed(feed_name, feed_config):
-    """Fetch meetings from a Meeting Guide API feed"""
+def fetch_and_process_feed(feed_name, feed_config):
+    """Fetch meetings from a single feed and process them"""
     url = feed_config["url"]
     default_state = feed_config["state"]
 
-    try:
-        socketio.emit('progress_update', {
-            'message': f'Fetching meetings from {feed_name}...',
-            'source': feed_name
-        })
-        scraping_state["current_source"] = feed_name
+    scraping_state["current_source"] = feed_name
+    scraping_state["progress_message"] = f"Fetching from {feed_name}..."
 
+    try:
         response = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
         response.raise_for_status()
-
         raw_meetings = response.json()
 
         if not isinstance(raw_meetings, list):
             scraping_state["errors"].append(f"{feed_name}: Invalid response format")
-            return []
+            return 0
 
-        socketio.emit('progress_update', {
-            'message': f'Found {len(raw_meetings)} meetings from {feed_name}',
-            'source': feed_name
-        })
+        scraping_state["progress_message"] = f"Processing {len(raw_meetings)} meetings from {feed_name}..."
 
-        # Normalize all meetings
-        normalized = []
+        saved_count = 0
         for raw in raw_meetings:
-            try:
-                meeting = normalize_meeting(raw, feed_name, default_state)
-                normalized.append(meeting)
-            except Exception as e:
-                # Skip malformed meetings
-                continue
-
-        return normalized
-
-    except requests.exceptions.Timeout:
-        scraping_state["errors"].append(f"{feed_name}: Request timed out")
-        return []
-    except requests.exceptions.RequestException as e:
-        scraping_state["errors"].append(f"{feed_name}: {str(e)}")
-        return []
-    except json.JSONDecodeError as e:
-        scraping_state["errors"].append(f"{feed_name}: Invalid JSON response")
-        return []
-
-def process_and_save_meeting(meeting_data):
-    """Process and save a single meeting"""
-    global recent_meetings
-
-    # Save to back4app
-    saved = save_to_back4app(meeting_data)
-
-    if saved:
-        scraping_state["total_saved"] += 1
-
-        # Update stats
-        state = meeting_data.get("state", "Unknown")
-        meeting_type = meeting_data.get("meetingType", "Other")
-
-        scraping_state["meetings_by_state"][state] = scraping_state["meetings_by_state"].get(state, 0) + 1
-        scraping_state["meetings_by_type"][meeting_type] = scraping_state["meetings_by_type"].get(meeting_type, 0) + 1
-
-        # Keep recent meetings for display (last 20)
-        recent_meetings.insert(0, meeting_data)
-        recent_meetings = recent_meetings[:20]
-
-        # Emit progress update (throttled - every 10 meetings)
-        if scraping_state["total_saved"] % 10 == 0:
-            socketio.emit('meeting_saved', {
-                'total_saved': scraping_state["total_saved"],
-                'total_found': scraping_state["total_found"],
-                'meeting': meeting_data,
-                'stats': {
-                    'by_state': scraping_state["meetings_by_state"],
-                    'by_type': scraping_state["meetings_by_type"]
-                }
-            })
-
-        return True
-    return False
-
-def run_scraper():
-    """Main scraping function that runs in background"""
-    global recent_meetings
-
-    scraping_state["is_running"] = True
-    scraping_state["total_found"] = 0
-    scraping_state["total_saved"] = 0
-    scraping_state["errors"] = []
-    scraping_state["meetings_by_state"] = {}
-    scraping_state["meetings_by_type"] = {"AA": 0, "NA": 0, "Al-Anon": 0, "Other": 0}
-    recent_meetings = []
-
-    socketio.emit('scraper_started', {'message': 'Scraper started!'})
-
-    try:
-        # Fetch from all AA feeds
-        for feed_name, feed_config in AA_FEEDS.items():
             if not scraping_state["is_running"]:
                 break
 
-            meetings = fetch_meetings_from_feed(feed_name, feed_config)
-            scraping_state["total_found"] += len(meetings)
+            try:
+                meeting = normalize_meeting(raw, feed_name, default_state)
 
-            socketio.emit('progress_update', {
-                'message': f'Processing {len(meetings)} meetings from {feed_name}...',
-                'source': feed_name,
-                'total_found': scraping_state["total_found"]
-            })
+                if save_to_back4app(meeting):
+                    saved_count += 1
+                    scraping_state["total_saved"] += 1
 
-            # Process meetings in smaller batches to reduce memory pressure
-            batch_size = 100
-            for i, meeting in enumerate(meetings):
-                if not scraping_state["is_running"]:
-                    break
+                    # Update stats
+                    state = meeting.get("state", "Unknown")
+                    scraping_state["meetings_by_state"][state] = scraping_state["meetings_by_state"].get(state, 0) + 1
+                    scraping_state["meetings_by_type"]["AA"] = scraping_state["meetings_by_type"].get("AA", 0) + 1
 
-                process_and_save_meeting(meeting)
+                    # Keep recent meetings (last 20)
+                    scraping_state["recent_meetings"].insert(0, meeting)
+                    scraping_state["recent_meetings"] = scraping_state["recent_meetings"][:20]
 
-                # Yield control more frequently to prevent worker timeout
-                if i % batch_size == 0:
-                    socketio.sleep(0.1)  # Use socketio.sleep for gevent compatibility
-                    # Send progress update
-                    socketio.emit('progress_update', {
-                        'message': f'Processed {i}/{len(meetings)} from {feed_name}...',
-                        'source': feed_name,
-                        'total_found': scraping_state["total_found"],
-                        'total_saved': scraping_state["total_saved"]
-                    })
+            except Exception as e:
+                continue
 
-            # Clear the meetings list to free memory
-            del meetings
+        scraping_state["total_found"] += len(raw_meetings)
+        return saved_count
 
-            # Delay between feeds
-            socketio.sleep(1)
-
-        # Final update
-        socketio.emit('scraper_completed', {
-            'total_found': scraping_state["total_found"],
-            'total_saved': scraping_state["total_saved"],
-            'stats': {
-                'by_state': scraping_state["meetings_by_state"],
-                'by_type': scraping_state["meetings_by_type"]
-            },
-            'errors': scraping_state["errors"]
-        })
-
+    except requests.exceptions.Timeout:
+        scraping_state["errors"].append(f"{feed_name}: Request timed out")
+        return 0
+    except requests.exceptions.RequestException as e:
+        scraping_state["errors"].append(f"{feed_name}: {str(e)}")
+        return 0
     except Exception as e:
-        scraping_state["errors"].append(f"Scraper error: {str(e)}")
-        socketio.emit('scraper_error', {'error': str(e)})
-
-    finally:
-        scraping_state["is_running"] = False
-        scraping_state["current_source"] = ""
+        scraping_state["errors"].append(f"{feed_name}: {str(e)}")
+        return 0
 
 @app.route('/api/config', methods=['POST'])
 def set_config():
@@ -324,28 +198,75 @@ def set_config():
 
 @app.route('/api/start', methods=['POST'])
 def start_scraping():
-    """Start the scraping process"""
+    """Start the scraping process - runs synchronously one feed at a time"""
     if scraping_state["is_running"]:
         return jsonify({"success": False, "message": "Scraper already running"}), 400
 
-    # Start scraper using socketio's background task (works with both gevent and threading)
-    socketio.start_background_task(run_scraper)
+    # Reset state
+    scraping_state["is_running"] = True
+    scraping_state["total_found"] = 0
+    scraping_state["total_saved"] = 0
+    scraping_state["errors"] = []
+    scraping_state["meetings_by_state"] = {}
+    scraping_state["meetings_by_type"] = {"AA": 0, "NA": 0, "Al-Anon": 0, "Other": 0}
+    scraping_state["recent_meetings"] = []
+    scraping_state["progress_message"] = "Starting..."
 
     return jsonify({"success": True, "message": "Scraper started"})
+
+@app.route('/api/scrape-next', methods=['POST'])
+def scrape_next_feed():
+    """Scrape the next feed in the queue - called by frontend to process one feed at a time"""
+    if not scraping_state["is_running"]:
+        return jsonify({"success": False, "message": "Scraper not running", "done": True})
+
+    data = request.json or {}
+    feed_index = data.get('feed_index', 0)
+
+    feed_names = list(AA_FEEDS.keys())
+
+    if feed_index >= len(feed_names):
+        # All feeds processed
+        scraping_state["is_running"] = False
+        scraping_state["current_source"] = ""
+        scraping_state["progress_message"] = "Completed!"
+        return jsonify({
+            "success": True,
+            "done": True,
+            "total_found": scraping_state["total_found"],
+            "total_saved": scraping_state["total_saved"]
+        })
+
+    feed_name = feed_names[feed_index]
+    feed_config = AA_FEEDS[feed_name]
+
+    saved = fetch_and_process_feed(feed_name, feed_config)
+
+    return jsonify({
+        "success": True,
+        "done": False,
+        "feed_index": feed_index + 1,
+        "feed_name": feed_name,
+        "saved": saved,
+        "total_found": scraping_state["total_found"],
+        "total_saved": scraping_state["total_saved"],
+        "stats": {
+            "by_state": scraping_state["meetings_by_state"],
+            "by_type": scraping_state["meetings_by_type"]
+        }
+    })
 
 @app.route('/api/stop', methods=['POST'])
 def stop_scraping():
     """Stop the scraping process"""
     scraping_state["is_running"] = False
-    return jsonify({"success": True, "message": "Scraper stopping..."})
+    scraping_state["progress_message"] = "Stopped"
+    return jsonify({"success": True, "message": "Scraper stopped"})
 
 @app.route('/api/status', methods=['GET'])
 def get_status():
     """Get current scraping status"""
-    return jsonify({
-        **scraping_state,
-        "recent_meetings": recent_meetings
-    })
+    return jsonify(scraping_state)
 
 @app.route('/api/feeds', methods=['GET'])
 def get_feeds():
@@ -357,20 +278,7 @@ def get_feeds():
         ]
     })
 
-@socketio.on('connect')
-def handle_connect():
-    print('Client connected')
-    emit('status_update', {
-        **scraping_state,
-        "recent_meetings": recent_meetings
-    })
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    print('Client disconnected')
-
 if __name__ == '__main__':
-    import os
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') != 'production'
-    socketio.run(app, host='0.0.0.0', port=port, debug=debug, allow_unsafe_werkzeug=True)
+    app.run(host='0.0.0.0', port=port, debug=debug)
