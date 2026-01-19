@@ -100,27 +100,6 @@ function AdminPanel({ onBackToPublic }) {
     };
   }, [scrapingState.is_running, checkConnection]);
 
-  const processNextFeed = useCallback(async (feedIndex) => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/scrape-next`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ feed_index: feedIndex })
-      });
-      const data = await response.json();
-      if (data.success && !data.done) {
-        setTimeout(() => processNextFeed(data.feed_index), 500);
-      }
-    } catch (error) {
-      console.error('Error processing feed:', error);
-      setScrapingState(prev => ({
-        ...prev,
-        is_running: false,
-        errors: [...prev.errors, error.message]
-      }));
-    }
-  }, []);
-
   const startScraping = async () => {
     try {
       const response = await fetch(`${BACKEND_URL}/api/start`, {
@@ -129,6 +108,8 @@ function AdminPanel({ onBackToPublic }) {
       });
       const data = await response.json();
       if (data.success) {
+        // Reset local state - backend runs in background thread
+        // Frontend will receive updates via polling /api/status
         setScrapingState(prev => ({
           ...prev,
           is_running: true,
@@ -144,7 +125,6 @@ function AdminPanel({ onBackToPublic }) {
         }));
         setRecentMeetings([]);
         isRunningRef.current = true;
-        processNextFeed(0);
       } else {
         alert(data.message);
       }

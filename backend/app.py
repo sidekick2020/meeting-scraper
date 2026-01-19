@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import threading
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
@@ -288,7 +289,7 @@ def to_parse_date(date_str):
     except:
         return None
 
-def normalize_meeting(raw_meeting, source_name, default_state):
+def normalize_meeting(raw_meeting, source_name, default_state, skip_geocoding=False):
     """Normalize meeting data from various feed formats to our standard format"""
     formatted_address = raw_meeting.get('formatted_address', '') or raw_meeting.get('address', '')
     addr_parts = parse_address(formatted_address)
@@ -378,7 +379,8 @@ def normalize_meeting(raw_meeting, source_name, default_state):
             longitude = None
 
     # Geocode if coordinates are missing and we have an address
-    if (latitude is None or longitude is None) and formatted_address:
+    # Skip geocoding during bulk scrape for performance (1 sec per call rate limit)
+    if not skip_geocoding and (latitude is None or longitude is None) and formatted_address:
         # Build a full address for better geocoding results
         city = addr_parts.get("city") or raw_meeting.get('city', '')
         geocode_query = formatted_address
@@ -589,6 +591,7 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
 
         saved_count = 0
         duplicate_count = 0
+        error_count = 0
         for idx, raw in enumerate(raw_meetings):
             if not scraping_state["is_running"]:
                 add_log("Scraping stopped by user", "warning")
@@ -596,8 +599,13 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
 
             scraping_state["current_feed_progress"] = idx + 1
 
+            # Update progress message every 10 meetings
+            if idx % 10 == 0:
+                scraping_state["progress_message"] = f"Processing meeting {idx + 1}/{total_in_feed} from {feed_name}..."
+
             try:
-                meeting = normalize_meeting(raw, feed_name, default_state)
+                # Skip geocoding during bulk scrape for real-time progress updates
+                meeting = normalize_meeting(raw, feed_name, default_state, skip_geocoding=True)
 
                 result = save_to_back4app(meeting)
                 if result == True:
@@ -614,8 +622,11 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
                     scraping_state["recent_meetings"] = scraping_state["recent_meetings"][:20]
                 elif result == "duplicate":
                     duplicate_count += 1
+                else:
+                    error_count += 1
 
             except Exception as e:
+                error_count += 1
                 continue
 
         scraping_state["total_found"] += total_in_feed
@@ -715,9 +726,44 @@ def test_save():
             "error": str(e)
         }), 500
 
+def run_scraper_in_background():
+    """Background thread function to process all feeds"""
+    feed_names = list(AA_FEEDS.keys())
+
+    for idx, feed_name in enumerate(feed_names):
+        if not scraping_state["is_running"]:
+            add_log("Scraping stopped by user", "warning")
+            break
+
+        feed_config = AA_FEEDS[feed_name]
+        fetch_and_process_feed(feed_name, feed_config, idx)
+
+    # Mark as complete
+    if scraping_state["is_running"]:
+        scraping_state["is_running"] = False
+        scraping_state["current_source"] = ""
+        scraping_state["progress_message"] = "Completed!"
+        add_log(f"All feeds completed! Total: {scraping_state['total_found']} found, {scraping_state['total_saved']} saved", "success")
+
+        # Save to scrape history
+        history_entry = {
+            "id": generate_object_id(),
+            "started_at": scraping_state["started_at"],
+            "completed_at": datetime.now().isoformat(),
+            "total_found": scraping_state["total_found"],
+            "total_saved": scraping_state["total_saved"],
+            "feeds_processed": len(feed_names),
+            "meetings_by_state": dict(scraping_state["meetings_by_state"]),
+            "errors": list(scraping_state["errors"]),
+            "status": "completed"
+        }
+        scrape_history.insert(0, history_entry)
+        while len(scrape_history) > 50:
+            scrape_history.pop()
+
 @app.route('/api/start', methods=['POST'])
 def start_scraping():
-    """Start the scraping process - runs synchronously one feed at a time"""
+    """Start the scraping process - runs in background thread for real-time updates"""
     from datetime import datetime
 
     if scraping_state["is_running"]:
@@ -739,6 +785,10 @@ def start_scraping():
     scraping_state["started_at"] = datetime.now().isoformat()
 
     add_log(f"Scraping started - {len(AA_FEEDS)} feeds to process", "info")
+
+    # Start background thread
+    thread = threading.Thread(target=run_scraper_in_background, daemon=True)
+    thread.start()
 
     return jsonify({"success": True, "message": "Scraper started"})
 
