@@ -599,6 +599,7 @@ def check_duplicates_batch(unique_keys):
 def save_to_back4app_batch(meetings):
     """Save multiple meetings to Back4app in a single batch request (up to 50)"""
     if not BACK4APP_APP_ID or not BACK4APP_REST_KEY or not meetings:
+        add_log(f"Batch save skipped: config={bool(BACK4APP_APP_ID)}, meetings={len(meetings) if meetings else 0}", "warning")
         return {"saved": 0, "errors": 0}
 
     headers = {
@@ -629,12 +630,19 @@ def save_to_back4app_batch(meetings):
             results = response.json()
             saved = sum(1 for r in results if "success" in r)
             errors = sum(1 for r in results if "error" in r)
+            # Log first error if any for debugging
+            if errors > 0:
+                first_error = next((r for r in results if "error" in r), None)
+                if first_error:
+                    add_log(f"Batch had {errors} errors. First: {first_error.get('error', {})}", "warning")
             return {"saved": saved, "errors": errors}
         else:
-            error_detail = response.text[:200] if response.text else "No details"
+            error_detail = response.text[:500] if response.text else "No details"
+            add_log(f"Batch save failed: {response.status_code} - {error_detail[:100]}", "error")
             print(f"Batch save error {response.status_code}: {error_detail}")
             return {"saved": 0, "errors": len(meetings)}
     except Exception as e:
+        add_log(f"Batch save exception: {e}", "error")
         print(f"Error in batch save: {e}")
         return {"saved": 0, "errors": len(meetings)}
 
@@ -727,6 +735,10 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
                     duplicate_count += 1
                 else:
                     meetings_to_save.append(meeting)
+
+            # Debug: log duplicate check results
+            if batch_num == 1:
+                add_log(f"Batch 1 debug: {len(batch_keys)} keys checked, {len(existing_keys)} found existing, {len(meetings_to_save)} to save", "info")
 
             # Step 3: Batch save non-duplicates (1 request for up to 50 meetings)
             if meetings_to_save:
