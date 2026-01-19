@@ -96,6 +96,7 @@ scraping_state = {
 
 # Scrape history - stores last 50 scrape runs
 scrape_history = []
+current_scrape_object_id = None  # Tracks Back4app objectId for in-progress scrape updates
 
 def add_log(message, level="info"):
     """Add a message to the activity log"""
@@ -728,10 +729,13 @@ def test_save():
 
 def save_scrape_history(status="completed", feeds_processed=0):
     """Save scrape run to history (both in-memory and Back4app)"""
+    global current_scrape_object_id
+
     history_entry = {
-        "id": generate_object_id(),
+        "id": scraping_state.get("scrape_id") or generate_object_id(),
         "started_at": scraping_state["started_at"],
-        "completed_at": datetime.now().isoformat(),
+        "completed_at": datetime.now().isoformat() if status != "in_progress" else None,
+        "last_updated": datetime.now().isoformat(),
         "total_found": scraping_state["total_found"],
         "total_saved": scraping_state["total_saved"],
         "feeds_processed": feeds_processed,
@@ -740,10 +744,14 @@ def save_scrape_history(status="completed", feeds_processed=0):
         "status": status
     }
 
-    # Save to in-memory history
-    scrape_history.insert(0, history_entry)
-    while len(scrape_history) > 50:
-        scrape_history.pop()
+    # Update or insert in-memory history
+    existing_idx = next((i for i, h in enumerate(scrape_history) if h.get("id") == history_entry["id"]), None)
+    if existing_idx is not None:
+        scrape_history[existing_idx] = history_entry
+    else:
+        scrape_history.insert(0, history_entry)
+        while len(scrape_history) > 50:
+            scrape_history.pop()
 
     # Also persist to Back4app for durability across restarts
     if BACK4APP_APP_ID and BACK4APP_REST_KEY:
@@ -753,10 +761,24 @@ def save_scrape_history(status="completed", feeds_processed=0):
                 "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
                 "Content-Type": "application/json"
             }
-            history_url = "https://parseapi.back4app.com/classes/ScrapeHistory"
-            response = requests.post(history_url, headers=headers, json=history_entry, timeout=10)
-            if response.status_code == 201:
-                add_log(f"Scrape history saved to Back4app", "info")
+
+            # If we have an existing Back4app objectId, update it; otherwise create new
+            if current_scrape_object_id and status == "in_progress":
+                # Update existing record
+                history_url = f"https://parseapi.back4app.com/classes/ScrapeHistory/{current_scrape_object_id}"
+                response = requests.put(history_url, headers=headers, json=history_entry, timeout=10)
+            else:
+                # Create new record
+                history_url = "https://parseapi.back4app.com/classes/ScrapeHistory"
+                response = requests.post(history_url, headers=headers, json=history_entry, timeout=10)
+                if response.status_code == 201:
+                    # Store the objectId for future updates
+                    result = response.json()
+                    current_scrape_object_id = result.get("objectId")
+
+            if response.status_code in [200, 201]:
+                if status != "in_progress":
+                    add_log(f"Scrape history saved to Back4app", "info")
             else:
                 error_detail = response.text[:200] if response.text else "No details"
                 add_log(f"Failed to save history to Back4app: {response.status_code} - {error_detail}", "warning")
@@ -781,6 +803,9 @@ def run_scraper_in_background():
         fetch_and_process_feed(feed_name, feed_config, idx)
         feeds_completed += 1
 
+        # Save periodic checkpoint after each feed completes (in case of crash/restart)
+        save_scrape_history(status="in_progress", feeds_processed=feeds_completed)
+
     # Mark as complete
     scraping_state["is_running"] = False
     scraping_state["current_source"] = ""
@@ -793,6 +818,7 @@ def run_scraper_in_background():
 @app.route('/api/start', methods=['POST'])
 def start_scraping():
     """Start the scraping process - runs in background thread for real-time updates"""
+    global current_scrape_object_id
     from datetime import datetime
 
     if scraping_state["is_running"]:
@@ -812,6 +838,8 @@ def start_scraping():
     scraping_state["current_feed_total"] = 0
     scraping_state["activity_log"] = []
     scraping_state["started_at"] = datetime.now().isoformat()
+    scraping_state["scrape_id"] = generate_object_id()  # Unique ID for this scrape run
+    current_scrape_object_id = None  # Reset for new scrape
 
     add_log(f"Scraping started - {len(AA_FEEDS)} feeds to process", "info")
 

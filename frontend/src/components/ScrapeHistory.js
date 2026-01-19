@@ -94,9 +94,15 @@ function ScrapeHistory() {
               >
                 <div className="history-entry-main">
                   <span className={`history-status status-${entry.status}`}>
-                    {entry.status === 'completed' ? 'Completed' : entry.status}
+                    {entry.status === 'completed' ? 'Completed' :
+                     entry.status === 'in_progress' ? 'In Progress' :
+                     entry.status === 'stopped' ? 'Stopped' : entry.status}
                   </span>
-                  <span className="history-date">{formatDate(entry.completed_at)}</span>
+                  <span className="history-date">
+                    {entry.status === 'in_progress'
+                      ? `Started ${formatDate(entry.started_at)}`
+                      : formatDate(entry.completed_at)}
+                  </span>
                 </div>
                 <div className="history-entry-stats">
                   <span className="history-stat">
