@@ -1,5 +1,6 @@
 import os
 import time
+import json
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
@@ -322,6 +323,16 @@ def normalize_meeting(raw_meeting, source_name, default_state):
     latitude = raw_meeting.get('latitude')
     longitude = raw_meeting.get('longitude')
 
+    # Parse coordinates from string format "lat,lng"
+    coordinates_str = raw_meeting.get('coordinates', '')
+    if coordinates_str and not latitude and not longitude:
+        try:
+            lat_str, lng_str = coordinates_str.split(',')
+            latitude = float(lat_str.strip())
+            longitude = float(lng_str.strip())
+        except (ValueError, AttributeError):
+            pass
+
     # Try to parse as float if they're strings
     if latitude and isinstance(latitude, str):
         try:
@@ -349,8 +360,15 @@ def normalize_meeting(raw_meeting, source_name, default_state):
             latitude = lat
             longitude = lon
 
+    # Generate unique key for deduplication (name + location + day + time)
+    day = raw_meeting.get('day', 0)
+    meeting_time = raw_meeting.get('time', '')
+    unique_key = f"{name}|{location_name}|{day}|{meeting_time}".lower().strip()
+
     return {
         "objectId": generate_object_id(),
+        "uniqueKey": unique_key,  # For deduplication
+
         # Basic info
         "name": name,
         "slug": raw_meeting.get('slug', ''),
@@ -418,8 +436,23 @@ def normalize_meeting(raw_meeting, source_name, default_state):
 
         # Contact info
         "contactName": raw_meeting.get('contact_1_name', ''),
-        "contactEmail": raw_meeting.get('contact_1_email', ''),
+        "contactEmail": raw_meeting.get('contact_1_email', '') or raw_meeting.get('email', ''),
         "contactPhone": raw_meeting.get('contact_1_phone', ''),
+
+        # Entity/Organization info (from some feeds)
+        "entityName": raw_meeting.get('entity', ''),
+        "entityEmail": raw_meeting.get('entity_email', ''),
+        "entityPhone": raw_meeting.get('entity_phone', ''),
+        "entityUrl": raw_meeting.get('entity_url', ''),
+
+        # Source URLs
+        "meetingUrl": raw_meeting.get('url', ''),
+        "locationUrl": raw_meeting.get('location_url', ''),
+        "editUrl": raw_meeting.get('edit_url', ''),
+
+        # Additional flags
+        "approximate": raw_meeting.get('approximate', False),
+        "feedbackEmails": raw_meeting.get('feedback_emails', []),
 
         # Verification & Quality
         "lastVerifiedAt": None,
@@ -440,11 +473,40 @@ def normalize_meeting(raw_meeting, source_name, default_state):
         "scrapedAt": {"__type": "Date", "iso": datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")},
     }
 
-def save_to_back4app(meeting_data):
-    """Save a meeting to back4app"""
+def check_duplicate(unique_key):
+    """Check if a meeting with this unique key already exists"""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return False
+
+    headers = {
+        "X-Parse-Application-Id": BACK4APP_APP_ID,
+        "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+    }
+
+    try:
+        import urllib.parse
+        where = json.dumps({"uniqueKey": unique_key})
+        url = f"{BACK4APP_URL}?where={urllib.parse.quote(where)}&limit=1&keys=objectId"
+        response = requests.get(url, headers=headers, timeout=5)
+
+        if response.status_code == 200:
+            data = response.json()
+            return len(data.get("results", [])) > 0
+        return False
+    except:
+        return False
+
+def save_to_back4app(meeting_data, skip_duplicate_check=False):
+    """Save a meeting to back4app, optionally checking for duplicates"""
     if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
         add_log("Back4app not configured - skipping save", "warning")
         return False  # Return False so it doesn't count as saved
+
+    # Check for duplicates using uniqueKey
+    if not skip_duplicate_check:
+        unique_key = meeting_data.get("uniqueKey")
+        if unique_key and check_duplicate(unique_key):
+            return "duplicate"  # Return special value for duplicates
 
     headers = {
         "X-Parse-Application-Id": BACK4APP_APP_ID,
@@ -494,6 +556,7 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
         add_log(f"Found {total_in_feed} meetings in {feed_name}", "info")
 
         saved_count = 0
+        duplicate_count = 0
         for idx, raw in enumerate(raw_meetings):
             if not scraping_state["is_running"]:
                 add_log("Scraping stopped by user", "warning")
@@ -504,7 +567,8 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
             try:
                 meeting = normalize_meeting(raw, feed_name, default_state)
 
-                if save_to_back4app(meeting):
+                result = save_to_back4app(meeting)
+                if result == True:
                     saved_count += 1
                     scraping_state["total_saved"] += 1
 
@@ -516,12 +580,17 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
                     # Keep recent meetings (last 20)
                     scraping_state["recent_meetings"].insert(0, meeting)
                     scraping_state["recent_meetings"] = scraping_state["recent_meetings"][:20]
+                elif result == "duplicate":
+                    duplicate_count += 1
 
             except Exception as e:
                 continue
 
         scraping_state["total_found"] += total_in_feed
-        add_log(f"Completed {feed_name}: saved {saved_count}/{total_in_feed} meetings", "success")
+        log_msg = f"Completed {feed_name}: saved {saved_count}/{total_in_feed} meetings"
+        if duplicate_count > 0:
+            log_msg += f" ({duplicate_count} duplicates skipped)"
+        add_log(log_msg, "success")
         return saved_count
 
     except requests.exceptions.Timeout:
