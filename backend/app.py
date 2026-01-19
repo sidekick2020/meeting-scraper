@@ -9,15 +9,37 @@ import random
 import string
 from datetime import datetime
 import json
+import re
 
 app = Flask(__name__)
 CORS(app, origins="*")
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Back4app Configuration
-BACK4APP_APP_ID = "YOUR_APP_ID"  # User needs to fill this
-BACK4APP_REST_KEY = "YOUR_REST_KEY"  # User needs to fill this
+BACK4APP_APP_ID = None
+BACK4APP_REST_KEY = None
 BACK4APP_URL = "https://parseapi.back4app.com/classes/Meeting"
+
+# Known working AA Meeting Guide API feeds (verified January 2026)
+AA_FEEDS = {
+    "Palo Alto (Bay Area)": {
+        "url": "https://sheets.code4recovery.org/storage/12Ga8uwMG4WJ8pZ_SEU7vNETp_aQZ-2yNVsYDFqIwHyE.json",
+        "state": "CA"
+    },
+    "San Diego": {
+        "url": "https://aasandiego.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CA"
+    },
+    "Phoenix": {
+        "url": "https://aaphoenix.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AZ"
+    },
+}
+
+# Request headers to avoid 406 errors
+REQUEST_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0; +https://github.com/code4recovery)'
+}
 
 # Global state
 scraping_state = {
@@ -30,211 +52,259 @@ scraping_state = {
     "meetings_by_type": {"AA": 0, "NA": 0, "Al-Anon": 0, "Other": 0}
 }
 
+# Store recent meetings for display
+recent_meetings = []
+
 def generate_object_id():
     """Generate a 10-character alphanumeric objectId"""
     return ''.join(random.choices(string.ascii_letters + string.digits, k=10))
 
-def get_timestamp():
-    """Get current timestamp"""
-    return datetime.now().strftime('%a %b %d %Y %H:%M:%S GMT%z (Central Standard Time)')
+def parse_address(formatted_address):
+    """Parse a formatted address into components"""
+    if not formatted_address:
+        return {"city": "", "state": "", "postalCode": "", "address": ""}
+
+    # Try to extract city, state, zip from formatted address
+    # Example: "670 E Meadow Dr, Palo Alto, CA 94306, USA"
+    parts = formatted_address.split(',')
+
+    result = {
+        "address": parts[0].strip() if parts else "",
+        "city": "",
+        "state": "",
+        "postalCode": ""
+    }
+
+    if len(parts) >= 2:
+        result["city"] = parts[1].strip()
+
+    if len(parts) >= 3:
+        # State and zip often together like "CA 94306"
+        state_zip = parts[2].strip()
+        match = re.match(r'([A-Z]{2})\s*(\d{5})?', state_zip)
+        if match:
+            result["state"] = match.group(1)
+            result["postalCode"] = match.group(2) or ""
+
+    return result
+
+def normalize_meeting(raw_meeting, source_name, default_state):
+    """Normalize meeting data from various feed formats to our standard format"""
+
+    # Parse address components
+    formatted_address = raw_meeting.get('formatted_address', '') or raw_meeting.get('address', '')
+    addr_parts = parse_address(formatted_address)
+
+    # Determine if online
+    is_online = False
+    online_url = ""
+
+    attendance = raw_meeting.get('attendance_option', '')
+    if attendance in ['online', 'hybrid'] or raw_meeting.get('conference_url'):
+        is_online = True
+        online_url = raw_meeting.get('conference_url', '') or raw_meeting.get('conference_url_notes', '')
+
+    # Get location name
+    location_name = raw_meeting.get('location', '') or raw_meeting.get('location_name', '')
+
+    # Get region/state - prefer from data, fall back to default
+    state = addr_parts.get("state") or raw_meeting.get('state', '') or default_state
+
+    # Build normalized meeting
+    normalized = {
+        "objectId": generate_object_id(),
+        "name": raw_meeting.get('name', 'Unknown Meeting'),
+        "locationName": location_name,
+        "address": addr_parts.get("address") or formatted_address,
+        "city": addr_parts.get("city") or raw_meeting.get('city', ''),
+        "state": state,
+        "postalCode": addr_parts.get("postalCode") or raw_meeting.get('postal_code', ''),
+        "day": raw_meeting.get('day', 0),
+        "time": raw_meeting.get('time', ''),
+        "meetingType": "AA",
+        "isOnline": is_online,
+        "onlineUrl": online_url,
+        "notes": raw_meeting.get('notes', ''),
+        "sourceType": "web_scraper",
+        "sourceFeed": source_name,
+        "region": raw_meeting.get('region', '') or (raw_meeting.get('regions', [''])[0] if raw_meeting.get('regions') else ''),
+    }
+
+    return normalized
 
 def save_to_back4app(meeting_data):
     """Save a meeting to back4app"""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        # Skip saving but don't fail - allows testing without Back4app
+        return True
+
     headers = {
         "X-Parse-Application-Id": BACK4APP_APP_ID,
         "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
         "Content-Type": "application/json"
     }
-    
-    # Convert meeting data to back4app format
-    payload = {
-        "objectId": meeting_data.get("objectId"),
-        "state": meeting_data.get("state"),
-        "sourceType": meeting_data.get("sourceType", "web_scraper"),
-        "time": meeting_data.get("time"),
-        "address": meeting_data.get("address"),
-        "name": meeting_data.get("name"),
-        "meetingType": meeting_data.get("meetingType"),
-        "locationName": meeting_data.get("locationName"),
-        "isOnline": meeting_data.get("isOnline", False),
-        "searchLocation": meeting_data.get("searchLocation"),
-        "day": meeting_data.get("day"),
-        "city": meeting_data.get("city"),
-        "notes": meeting_data.get("notes", ""),
-        "postalCode": meeting_data.get("postalCode"),
-        "onlineUrl": meeting_data.get("onlineUrl")
-    }
-    
+
     try:
-        response = requests.post(BACK4APP_URL, headers=headers, json=payload)
+        response = requests.post(BACK4APP_URL, headers=headers, json=meeting_data, timeout=10)
         return response.status_code == 201
     except Exception as e:
         print(f"Error saving to back4app: {e}")
         return False
 
-def scrape_ny_aa_meetings():
-    """Scrape AA meetings from NY Intergroup"""
+def fetch_meetings_from_feed(feed_name, feed_config):
+    """Fetch meetings from a Meeting Guide API feed"""
+    url = feed_config["url"]
+    default_state = feed_config["state"]
+
     try:
-        url = "https://www.nyintergroup.org/meetings/?type=active"
-        response = requests.get(url, timeout=30)
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        # This is a simplified example - actual parsing would be more complex
-        meetings = []
-        
-        # Update: You'll need to parse the actual HTML structure
-        # For now, returning sample structure
-        
-        return meetings
-    except Exception as e:
-        scraping_state["errors"].append(f"NY AA error: {str(e)}")
+        socketio.emit('progress_update', {
+            'message': f'Fetching meetings from {feed_name}...',
+            'source': feed_name
+        })
+        scraping_state["current_source"] = feed_name
+
+        response = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
+        response.raise_for_status()
+
+        raw_meetings = response.json()
+
+        if not isinstance(raw_meetings, list):
+            scraping_state["errors"].append(f"{feed_name}: Invalid response format")
+            return []
+
+        socketio.emit('progress_update', {
+            'message': f'Found {len(raw_meetings)} meetings from {feed_name}',
+            'source': feed_name
+        })
+
+        # Normalize all meetings
+        normalized = []
+        for raw in raw_meetings:
+            try:
+                meeting = normalize_meeting(raw, feed_name, default_state)
+                normalized.append(meeting)
+            except Exception as e:
+                # Skip malformed meetings
+                continue
+
+        return normalized
+
+    except requests.exceptions.Timeout:
+        scraping_state["errors"].append(f"{feed_name}: Request timed out")
+        return []
+    except requests.exceptions.RequestException as e:
+        scraping_state["errors"].append(f"{feed_name}: {str(e)}")
+        return []
+    except json.JSONDecodeError as e:
+        scraping_state["errors"].append(f"{feed_name}: Invalid JSON response")
         return []
 
-def scrape_aa_meetings_by_state(state_code, state_name):
-    """Scrape AA meetings for a specific state"""
-    meetings = []
-    
-    try:
-        # Different states have different AA websites
-        # This would need to be customized per state
-        socketio.emit('progress_update', {
-            'message': f'Scraping AA meetings in {state_name}...',
-            'source': f'AA - {state_name}'
-        })
-        
-        # Add actual scraping logic here based on state
-        
-    except Exception as e:
-        scraping_state["errors"].append(f"AA {state_name} error: {str(e)}")
-    
-    return meetings
+def process_and_save_meeting(meeting_data):
+    """Process and save a single meeting"""
+    global recent_meetings
 
-def scrape_na_meetings_by_region(region_name, region_url):
-    """Scrape NA meetings for a specific region"""
-    meetings = []
-    
-    try:
-        socketio.emit('progress_update', {
-            'message': f'Scraping NA meetings in {region_name}...',
-            'source': f'NA - {region_name}'
-        })
-        
-        # Add actual NA scraping logic here
-        
-    except Exception as e:
-        scraping_state["errors"].append(f"NA {region_name} error: {str(e)}")
-    
-    return meetings
-
-def process_and_save_meeting(meeting_raw, meeting_type):
-    """Process a raw meeting and save to back4app"""
-    meeting_data = {
-        "objectId": generate_object_id(),
-        "updatedAt": get_timestamp(),
-        "createdAt": get_timestamp(),
-        "locationName": meeting_raw.get("location_name", ""),
-        "notes": meeting_raw.get("notes", ""),
-        "city": meeting_raw.get("city", ""),
-        "name": meeting_raw.get("name", ""),
-        "time": meeting_raw.get("time", ""),
-        "state": meeting_raw.get("state", ""),
-        "address": meeting_raw.get("address", ""),
-        "meetingType": meeting_type,
-        "sourceType": "web_scraper",
-        "day": meeting_raw.get("day", 0),
-        "isOnline": meeting_raw.get("is_online", False),
-        "searchLocation": meeting_raw.get("search_location", ""),
-        "postalCode": meeting_raw.get("postal_code", ""),
-        "onlineUrl": meeting_raw.get("online_url", "")
-    }
-    
     # Save to back4app
-    if save_to_back4app(meeting_data):
+    saved = save_to_back4app(meeting_data)
+
+    if saved:
         scraping_state["total_saved"] += 1
-        
+
         # Update stats
         state = meeting_data.get("state", "Unknown")
+        meeting_type = meeting_data.get("meetingType", "Other")
+
         scraping_state["meetings_by_state"][state] = scraping_state["meetings_by_state"].get(state, 0) + 1
         scraping_state["meetings_by_type"][meeting_type] = scraping_state["meetings_by_type"].get(meeting_type, 0) + 1
-        
-        # Emit progress update
-        socketio.emit('meeting_saved', {
-            'total_saved': scraping_state["total_saved"],
-            'meeting': meeting_data,
-            'stats': {
-                'by_state': scraping_state["meetings_by_state"],
-                'by_type': scraping_state["meetings_by_type"]
-            }
-        })
-        
+
+        # Keep recent meetings for display (last 20)
+        recent_meetings.insert(0, meeting_data)
+        recent_meetings = recent_meetings[:20]
+
+        # Emit progress update (throttled - every 10 meetings)
+        if scraping_state["total_saved"] % 10 == 0:
+            socketio.emit('meeting_saved', {
+                'total_saved': scraping_state["total_saved"],
+                'total_found': scraping_state["total_found"],
+                'meeting': meeting_data,
+                'stats': {
+                    'by_state': scraping_state["meetings_by_state"],
+                    'by_type': scraping_state["meetings_by_type"]
+                }
+            })
+
         return True
     return False
 
 def run_scraper():
     """Main scraping function that runs in background"""
+    global recent_meetings
+
     scraping_state["is_running"] = True
     scraping_state["total_found"] = 0
     scraping_state["total_saved"] = 0
     scraping_state["errors"] = []
-    
+    scraping_state["meetings_by_state"] = {}
+    scraping_state["meetings_by_type"] = {"AA": 0, "NA": 0, "Al-Anon": 0, "Other": 0}
+    recent_meetings = []
+
     socketio.emit('scraper_started', {'message': 'Scraper started!'})
-    
-    # List of states to scrape
-    states = [
-        ("NY", "New York"),
-        ("CA", "California"),
-        ("TX", "Texas"),
-        ("FL", "Florida"),
-        ("IL", "Illinois"),
-        ("PA", "Pennsylvania"),
-        ("OH", "Ohio"),
-        ("GA", "Georgia"),
-        ("NC", "North Carolina"),
-        ("MI", "Michigan"),
-        # Add more states...
-    ]
-    
+
     try:
-        # Scrape AA meetings
-        for state_code, state_name in states:
+        # Fetch from all AA feeds
+        for feed_name, feed_config in AA_FEEDS.items():
             if not scraping_state["is_running"]:
                 break
-            
-            meetings = scrape_aa_meetings_by_state(state_code, state_name)
-            
+
+            meetings = fetch_meetings_from_feed(feed_name, feed_config)
+            scraping_state["total_found"] += len(meetings)
+
+            socketio.emit('progress_update', {
+                'message': f'Processing {len(meetings)} meetings from {feed_name}...',
+                'source': feed_name,
+                'total_found': scraping_state["total_found"]
+            })
+
+            # Process each meeting
             for meeting in meetings:
-                scraping_state["total_found"] += 1
-                process_and_save_meeting(meeting, "AA")
-                time.sleep(0.1)  # Rate limiting
-        
-        # Scrape NA meetings
-        # Add NA regions here
-        
+                if not scraping_state["is_running"]:
+                    break
+
+                process_and_save_meeting(meeting)
+
+                # Small delay to avoid overwhelming the system
+                time.sleep(0.01)
+
+            # Delay between feeds
+            time.sleep(0.5)
+
+        # Final update
         socketio.emit('scraper_completed', {
             'total_found': scraping_state["total_found"],
             'total_saved': scraping_state["total_saved"],
             'stats': {
                 'by_state': scraping_state["meetings_by_state"],
                 'by_type': scraping_state["meetings_by_type"]
-            }
+            },
+            'errors': scraping_state["errors"]
         })
-        
+
     except Exception as e:
         scraping_state["errors"].append(f"Scraper error: {str(e)}")
         socketio.emit('scraper_error', {'error': str(e)})
-    
+
     finally:
         scraping_state["is_running"] = False
+        scraping_state["current_source"] = ""
 
 @app.route('/api/config', methods=['POST'])
 def set_config():
     """Set back4app configuration"""
     global BACK4APP_APP_ID, BACK4APP_REST_KEY
-    
+
     data = request.json
     BACK4APP_APP_ID = data.get('appId')
     BACK4APP_REST_KEY = data.get('restKey')
-    
+
     return jsonify({"success": True, "message": "Configuration saved"})
 
 @app.route('/api/start', methods=['POST'])
@@ -242,12 +312,12 @@ def start_scraping():
     """Start the scraping process"""
     if scraping_state["is_running"]:
         return jsonify({"success": False, "message": "Scraper already running"}), 400
-    
+
     # Start scraper in background thread
     thread = threading.Thread(target=run_scraper)
     thread.daemon = True
     thread.start()
-    
+
     return jsonify({"success": True, "message": "Scraper started"})
 
 @app.route('/api/stop', methods=['POST'])
@@ -259,12 +329,28 @@ def stop_scraping():
 @app.route('/api/status', methods=['GET'])
 def get_status():
     """Get current scraping status"""
-    return jsonify(scraping_state)
+    return jsonify({
+        **scraping_state,
+        "recent_meetings": recent_meetings
+    })
+
+@app.route('/api/feeds', methods=['GET'])
+def get_feeds():
+    """Get list of configured feeds"""
+    return jsonify({
+        "feeds": [
+            {"name": name, "state": config["state"]}
+            for name, config in AA_FEEDS.items()
+        ]
+    })
 
 @socketio.on('connect')
 def handle_connect():
     print('Client connected')
-    emit('status_update', scraping_state)
+    emit('status_update', {
+        **scraping_state,
+        "recent_meetings": recent_meetings
+    })
 
 @socketio.on('disconnect')
 def handle_disconnect():
