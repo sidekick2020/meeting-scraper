@@ -545,6 +545,58 @@ def set_config():
 
     return jsonify({"success": True, "message": "Configuration saved"})
 
+@app.route('/api/test-save', methods=['POST'])
+def test_save():
+    """Test saving a single meeting to Back4app - for debugging"""
+    # Check config
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({
+            "success": False,
+            "error": "Back4app not configured",
+            "hasAppId": bool(BACK4APP_APP_ID),
+            "hasRestKey": bool(BACK4APP_REST_KEY)
+        }), 400
+
+    # Fetch one meeting from the first feed
+    feed_name = list(AA_FEEDS.keys())[0]
+    feed_config = AA_FEEDS[feed_name]
+
+    try:
+        response = requests.get(feed_config["url"], headers=REQUEST_HEADERS, timeout=30)
+        response.raise_for_status()
+        raw_meetings = response.json()
+
+        if not raw_meetings or not isinstance(raw_meetings, list):
+            return jsonify({"success": False, "error": "No meetings found in feed"}), 400
+
+        # Get the first meeting
+        raw_meeting = raw_meetings[0]
+        meeting = normalize_meeting(raw_meeting, feed_name, feed_config["state"])
+
+        # Try to save to Back4app
+        headers = {
+            "X-Parse-Application-Id": BACK4APP_APP_ID,
+            "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+            "Content-Type": "application/json"
+        }
+
+        save_response = requests.post(BACK4APP_URL, headers=headers, json=meeting, timeout=10)
+
+        return jsonify({
+            "success": save_response.status_code == 201,
+            "statusCode": save_response.status_code,
+            "response": save_response.text[:500] if save_response.text else None,
+            "meetingName": meeting.get("name"),
+            "meetingAddress": meeting.get("formattedAddress"),
+            "meetingData": meeting
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
 @app.route('/api/start', methods=['POST'])
 def start_scraping():
     """Start the scraping process - runs synchronously one feed at a time"""
