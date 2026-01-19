@@ -6,21 +6,36 @@ import AdminPanel from './components/AdminPanel';
 import DeploymentBanner from './components/DeploymentBanner';
 
 function SignInModal({ onClose }) {
-  const { signIn } = useAuth();
+  const { signIn, authError, clearError, allowedDomains } = useAuth();
 
   const handleSignIn = () => {
     signIn();
   };
 
+  const handleClose = () => {
+    clearError();
+    onClose();
+  };
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={handleClose}>
       <div className="sign-in-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Admin Sign In</h2>
-          <button className="modal-close" onClick={onClose}>&times;</button>
+          <button className="modal-close" onClick={handleClose}>&times;</button>
         </div>
         <div className="sign-in-body">
           <p>Sign in with your Google account to access the admin dashboard.</p>
+          <p className="sign-in-domains">
+            Authorized domains: {allowedDomains.join(', ')}
+          </p>
+
+          {authError && (
+            <div className="auth-error">
+              {authError}
+            </div>
+          )}
+
           <button className="btn btn-google" onClick={handleSignIn}>
             <svg viewBox="0 0 24 24" width="20" height="20">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>

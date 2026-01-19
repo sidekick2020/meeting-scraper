@@ -7,6 +7,7 @@ import MeetingsList from './MeetingsList';
 import ActivityLog from './ActivityLog';
 import MeetingMap from './MeetingMap';
 import MeetingDetail from './MeetingDetail';
+import ScrapeHistory from './ScrapeHistory';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -228,6 +229,7 @@ function AdminPanel({ onBackToPublic }) {
 
         <Dashboard scrapingState={scrapingState} />
         <ActivityLog logs={scrapingState.activity_log} />
+        <ScrapeHistory />
 
         <div className="view-toggle">
           <button

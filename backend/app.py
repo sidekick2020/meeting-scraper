@@ -59,6 +59,9 @@ scraping_state = {
     "started_at": None,
 }
 
+# Scrape history - stores last 50 scrape runs
+scrape_history = []
+
 def add_log(message, level="info"):
     """Add a message to the activity log"""
     from datetime import datetime
@@ -360,6 +363,24 @@ def scrape_next_feed():
         scraping_state["current_feed_progress"] = 0
         scraping_state["current_feed_total"] = 0
         add_log(f"All feeds completed! Total: {scraping_state['total_found']} found, {scraping_state['total_saved']} saved", "success")
+
+        # Save to scrape history
+        history_entry = {
+            "id": generate_object_id(),
+            "started_at": scraping_state["started_at"],
+            "completed_at": datetime.now().isoformat(),
+            "total_found": scraping_state["total_found"],
+            "total_saved": scraping_state["total_saved"],
+            "feeds_processed": len(feed_names),
+            "meetings_by_state": dict(scraping_state["meetings_by_state"]),
+            "errors": list(scraping_state["errors"]),
+            "status": "completed"
+        }
+        scrape_history.insert(0, history_entry)
+        # Keep only last 50 entries
+        while len(scrape_history) > 50:
+            scrape_history.pop()
+
         return jsonify({
             "success": True,
             "done": True,
@@ -415,6 +436,13 @@ def get_version():
     return jsonify({
         "version": BUILD_VERSION,
         "started_at": BUILD_VERSION
+    })
+
+@app.route('/api/history', methods=['GET'])
+def get_history():
+    """Get scrape history"""
+    return jsonify({
+        "history": scrape_history
     })
 
 @app.route('/api/meetings', methods=['GET'])

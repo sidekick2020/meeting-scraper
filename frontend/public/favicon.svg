@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Top triangle -->
+  <polygon points="50,5 35,30 65,30" fill="#1a1a2e"/>
+  <!-- Bottom left triangle -->
+  <polygon points="20,90 5,65 35,65" fill="#1a1a2e"/>
+  <!-- Bottom right triangle -->
+  <polygon points="80,90 65,65 95,65" fill="#1a1a2e"/>
+  <!-- Center circle -->
+  <circle cx="50" cy="50" r="25" fill="#c5cae9"/>
+  <!-- Number 1 -->
+  <text x="50" y="58" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="#1a1a2e">1</text>
+</svg>
