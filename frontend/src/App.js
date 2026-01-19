@@ -37,6 +37,8 @@ function App() {
     restKey: localStorage.getItem('back4app_rest_key') || ''
   });
 
+  // Use refs to track state without causing re-renders
+  const isRunningRef = useRef(false);
   const pollIntervalRef = useRef(null);
 
   // Check connection to backend
@@ -46,10 +48,19 @@ function App() {
       if (response.ok) {
         const data = await response.json();
         setIsConnected(true);
-        setScrapingState(data);
+
+        // Update state, preserving is_running from server
+        setScrapingState(prev => ({
+          ...prev,
+          ...data
+        }));
+
         if (data.recent_meetings) {
           setRecentMeetings(data.recent_meetings);
         }
+
+        // Update ref for polling logic
+        isRunningRef.current = data.is_running;
       } else {
         setIsConnected(false);
       }
@@ -58,26 +69,35 @@ function App() {
     }
   }, []);
 
-  // Dynamic polling - faster when scraping is active
+  // Set up polling - use ref to avoid recreating interval on every state change
   useEffect(() => {
     checkConnection();
 
-    const startPolling = () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-      const interval = scrapingState.is_running ? POLL_INTERVAL_ACTIVE : POLL_INTERVAL_IDLE;
-      pollIntervalRef.current = setInterval(checkConnection, interval);
-    };
-
-    startPolling();
+    // Start with idle polling
+    pollIntervalRef.current = setInterval(checkConnection, POLL_INTERVAL_IDLE);
 
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
       }
     };
-  }, [checkConnection, scrapingState.is_running]);
+  }, [checkConnection]);
+
+  // Adjust polling speed based on running state
+  useEffect(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+
+    const interval = scrapingState.is_running ? POLL_INTERVAL_ACTIVE : POLL_INTERVAL_IDLE;
+    pollIntervalRef.current = setInterval(checkConnection, interval);
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, [scrapingState.is_running, checkConnection]);
 
   // Process feeds one at a time
   const processNextFeed = useCallback(async (feedIndex) => {
@@ -91,38 +111,11 @@ function App() {
       const data = await response.json();
 
       if (data.success) {
-        // Update state
-        setScrapingState(prev => ({
-          ...prev,
-          total_found: data.total_found,
-          total_saved: data.total_saved,
-          current_source: data.feed_name || '',
-          meetings_by_state: data.stats?.by_state || prev.meetings_by_state,
-          meetings_by_type: data.stats?.by_type || prev.meetings_by_type
-        }));
-
-        // Fetch updated status to get recent meetings and activity log
-        const statusResponse = await fetch(`${BACKEND_URL}/api/status`);
-        if (statusResponse.ok) {
-          const statusData = await statusResponse.json();
-          setScrapingState(statusData);
-          if (statusData.recent_meetings) {
-            setRecentMeetings(statusData.recent_meetings);
-          }
-        }
-
         if (!data.done) {
-          // Process next feed
+          // Process next feed after a short delay
           setTimeout(() => processNextFeed(data.feed_index), 500);
-        } else {
-          // All done
-          setScrapingState(prev => ({
-            ...prev,
-            is_running: false,
-            current_source: '',
-            progress_message: 'Completed!'
-          }));
         }
+        // Status updates come from polling, no need to set state here
       }
     } catch (error) {
       console.error('Error processing feed:', error);
@@ -144,6 +137,7 @@ function App() {
       const data = await response.json();
 
       if (data.success) {
+        // Set running state immediately for responsive UI
         setScrapingState(prev => ({
           ...prev,
           is_running: true,
@@ -158,6 +152,7 @@ function App() {
           activity_log: []
         }));
         setRecentMeetings([]);
+        isRunningRef.current = true;
 
         // Start processing feeds
         processNextFeed(0);
@@ -181,6 +176,7 @@ function App() {
         ...prev,
         is_running: false
       }));
+      isRunningRef.current = false;
     } catch (error) {
       console.error('Error stopping scraper:', error);
     }
