@@ -5,8 +5,12 @@ import requests
 import random
 import string
 import re
+from datetime import datetime
 
 app = Flask(__name__)
+
+# Build version - generated at startup time
+BUILD_VERSION = datetime.now().strftime("%Y%m%d%H%M%S")
 CORS(app, origins="*")
 
 # Back4app Configuration
@@ -403,6 +407,14 @@ def get_feeds():
             {"name": name, "state": config["state"]}
             for name, config in AA_FEEDS.items()
         ]
+    })
+
+@app.route('/api/version', methods=['GET'])
+def get_version():
+    """Get build version for deployment detection"""
+    return jsonify({
+        "version": BUILD_VERSION,
+        "started_at": BUILD_VERSION
     })
 
 if __name__ == '__main__':

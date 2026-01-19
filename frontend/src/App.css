@@ -2,6 +2,67 @@
   min-height: 100vh;
 }
 
+/* Deployment Banner */
+.deployment-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  padding: 0.75rem 1rem;
+  text-align: center;
+  font-weight: 500;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.deployment-banner.deploying {
+  background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+  color: #1a1a2e;
+}
+
+.deployment-banner.restarting {
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+}
+
+.deployment-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.deployment-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Add top padding to body when banner is shown */
+.deployment-banner ~ .App-header {
+  margin-top: 48px;
+}
+
 /* Header */
 .App-header {
   background: rgba(0, 0, 0, 0.3);

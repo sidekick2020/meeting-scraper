@@ -7,6 +7,7 @@ import MeetingsList from './components/MeetingsList';
 import ActivityLog from './components/ActivityLog';
 import MeetingMap from './components/MeetingMap';
 import MeetingDetail from './components/MeetingDetail';
+import DeploymentBanner from './components/DeploymentBanner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -218,6 +219,7 @@ function App() {
 
   return (
     <div className="App">
+      <DeploymentBanner />
       <header className="App-header">
         <div className="header-content">
           <h1>12-Step Meeting Scraper</h1>
