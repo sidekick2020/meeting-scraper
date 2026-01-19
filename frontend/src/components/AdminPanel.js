@@ -9,6 +9,7 @@ import MeetingMap from './MeetingMap';
 import MeetingDetail from './MeetingDetail';
 import ScrapeHistory from './ScrapeHistory';
 import CoverageAnalysis from './CoverageAnalysis';
+import DevDocs from './DevDocs';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -44,6 +45,7 @@ function AdminPanel({ onBackToPublic }) {
   const [backendConfigured, setBackendConfigured] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [activeView, setActiveView] = useState('list');
+  const [showDocs, setShowDocs] = useState(false);
 
   const isRunningRef = useRef(false);
   const pollIntervalRef = useRef(null);
@@ -232,11 +234,9 @@ function AdminPanel({ onBackToPublic }) {
                         </svg>
                         Manage Users
                       </a>
-                      <a
-                        href="https://www.code4recovery.org/docs"
+                      <button
                         className="dropdown-item"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        onClick={() => { setShowDocs(true); setShowUserMenu(false); }}
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -246,7 +246,7 @@ function AdminPanel({ onBackToPublic }) {
                           <polyline points="10,9 9,9 8,9"/>
                         </svg>
                         Developer Docs
-                      </a>
+                      </button>
                       <a
                         href="https://dashboard.render.com"
                         className="dropdown-item"
@@ -374,6 +374,10 @@ function AdminPanel({ onBackToPublic }) {
           meeting={selectedMeeting}
           onClose={() => setSelectedMeeting(null)}
         />
+      )}
+
+      {showDocs && (
+        <DevDocs onClose={() => setShowDocs(false)} />
       )}
     </div>
   );
