@@ -13,9 +13,9 @@ app = Flask(__name__)
 BUILD_VERSION = datetime.now().strftime("%Y%m%d%H%M%S")
 CORS(app, origins="*")
 
-# Back4app Configuration
-BACK4APP_APP_ID = None
-BACK4APP_REST_KEY = None
+# Back4app Configuration - read from environment variables
+BACK4APP_APP_ID = os.environ.get('BACK4APP_APP_ID')
+BACK4APP_REST_KEY = os.environ.get('BACK4APP_REST_KEY')
 BACK4APP_URL = "https://parseapi.back4app.com/classes/Meeting"
 
 # Known working AA Meeting Guide API feeds (verified January 2026)
@@ -306,14 +306,25 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
         add_log(error_msg, "error")
         return 0
 
+@app.route('/api/config', methods=['GET'])
+def get_config():
+    """Check if back4app is configured"""
+    return jsonify({
+        "configured": bool(BACK4APP_APP_ID and BACK4APP_REST_KEY),
+        "hasAppId": bool(BACK4APP_APP_ID),
+        "hasRestKey": bool(BACK4APP_REST_KEY)
+    })
+
 @app.route('/api/config', methods=['POST'])
 def set_config():
-    """Set back4app configuration"""
+    """Set back4app configuration (overrides env vars)"""
     global BACK4APP_APP_ID, BACK4APP_REST_KEY
 
     data = request.json
-    BACK4APP_APP_ID = data.get('appId')
-    BACK4APP_REST_KEY = data.get('restKey')
+    if data.get('appId'):
+        BACK4APP_APP_ID = data.get('appId')
+    if data.get('restKey'):
+        BACK4APP_REST_KEY = data.get('restKey')
 
     return jsonify({"success": True, "message": "Configuration saved"})
 

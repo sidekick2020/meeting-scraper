@@ -39,11 +39,25 @@ function AdminPanel({ onBackToPublic }) {
     appId: localStorage.getItem('back4app_app_id') || '',
     restKey: localStorage.getItem('back4app_rest_key') || ''
   });
+  const [backendConfigured, setBackendConfigured] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [activeView, setActiveView] = useState('list');
 
   const isRunningRef = useRef(false);
   const pollIntervalRef = useRef(null);
+
+  // Check if backend has Back4app configured via env vars
+  const checkBackendConfig = useCallback(async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/config`);
+      if (response.ok) {
+        const data = await response.json();
+        setBackendConfigured(data.configured);
+      }
+    } catch (error) {
+      console.error('Error checking config:', error);
+    }
+  }, []);
 
   const checkConnection = useCallback(async () => {
     try {
@@ -66,11 +80,12 @@ function AdminPanel({ onBackToPublic }) {
 
   useEffect(() => {
     checkConnection();
+    checkBackendConfig();
     pollIntervalRef.current = setInterval(checkConnection, POLL_INTERVAL_IDLE);
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [checkConnection]);
+  }, [checkConnection, checkBackendConfig]);
 
   useEffect(() => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -220,9 +235,14 @@ function AdminPanel({ onBackToPublic }) {
             )}
           </div>
 
-          {!config.appId && !config.restKey && (
+          {!backendConfigured && !config.appId && !config.restKey && (
             <div className="warning-box">
               Configure Back4app credentials to save meetings to database
+            </div>
+          )}
+          {backendConfigured && (
+            <div className="success-box">
+              Back4app configured via environment variables
             </div>
           )}
         </div>
