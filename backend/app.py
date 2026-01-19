@@ -639,7 +639,16 @@ def save_to_back4app_batch(meetings):
         return {"saved": 0, "errors": len(meetings)}
 
 def fetch_and_process_feed(feed_name, feed_config, feed_index):
-    """Fetch meetings from a single feed and process them using batch operations"""
+    """Fetch meetings from a single feed and process them using batch operations.
+
+    Processing flow (batches of 50):
+    1. Normalize 50 raw meetings
+    2. Check duplicates for those 50 (1 query)
+    3. Save non-duplicates (1 batch save)
+    4. Repeat until done
+
+    This keeps memory low and provides real-time feedback.
+    """
     url = feed_config["url"]
     default_state = feed_config["state"]
 
@@ -663,99 +672,82 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
 
         total_in_feed = len(raw_meetings)
         scraping_state["current_feed_total"] = total_in_feed
-        scraping_state["progress_message"] = f"Processing {total_in_feed} meetings from {feed_name}..."
         add_log(f"Found {total_in_feed} meetings in {feed_name}", "info")
 
-        # Phase 1: Normalize all meetings and collect unique keys
-        scraping_state["progress_message"] = f"Normalizing {total_in_feed} meetings..."
-        normalized_meetings = []
-        unique_keys = []
-
-        for idx, raw in enumerate(raw_meetings):
-            if not scraping_state["is_running"]:
-                add_log("Scraping stopped by user", "warning")
-                return 0
-
-            meeting_name = raw.get('name', 'Unknown Meeting')
-            meeting_city = raw.get('city', '') or ''
-
-            # Update progress for UI
-            scraping_state["current_feed_progress"] = idx + 1
-            scraping_state["current_meeting"] = {
-                "name": meeting_name,
-                "city": meeting_city,
-                "index": idx + 1,
-                "total": total_in_feed
-            }
-
-            try:
-                meeting = normalize_meeting(raw, feed_name, default_state, skip_geocoding=True)
-                normalized_meetings.append(meeting)
-                if meeting.get("uniqueKey"):
-                    unique_keys.append(meeting["uniqueKey"])
-            except Exception as e:
-                continue
-
-        # Phase 2: Batch check for duplicates
-        scraping_state["progress_message"] = f"Checking for duplicates..."
-        scraping_state["current_meeting"] = None
-        existing_keys = check_duplicates_batch(unique_keys)
-        duplicate_count = 0
-
-        # Filter out duplicates
-        meetings_to_save = []
-        for meeting in normalized_meetings:
-            if meeting.get("uniqueKey") in existing_keys:
-                duplicate_count += 1
-            else:
-                meetings_to_save.append(meeting)
-
-        add_log(f"Found {duplicate_count} duplicates, saving {len(meetings_to_save)} new meetings", "info")
-
-        # Phase 3: Batch save in chunks of 50 (Parse limit)
         saved_count = 0
+        duplicate_count = 0
         error_count = 0
         batch_size = 50
 
-        for i in range(0, len(meetings_to_save), batch_size):
+        # Process in batches of 50: normalize -> check duplicates -> save
+        for batch_start in range(0, total_in_feed, batch_size):
             if not scraping_state["is_running"]:
                 add_log("Scraping stopped by user", "warning")
                 break
 
-            batch = meetings_to_save[i:i + batch_size]
-            batch_num = (i // batch_size) + 1
-            total_batches = (len(meetings_to_save) + batch_size - 1) // batch_size
+            batch_end = min(batch_start + batch_size, total_in_feed)
+            batch_num = (batch_start // batch_size) + 1
+            total_batches = (total_in_feed + batch_size - 1) // batch_size
 
-            scraping_state["progress_message"] = f"Saving batch {batch_num}/{total_batches}..."
-            scraping_state["current_feed_progress"] = min(i + batch_size, len(meetings_to_save))
+            scraping_state["progress_message"] = f"Processing batch {batch_num}/{total_batches}..."
+            scraping_state["current_feed_progress"] = batch_end
 
-            # Show first meeting in batch for context
-            if batch:
-                first_meeting = batch[0]
+            # Step 1: Normalize this batch
+            batch_meetings = []
+            batch_keys = []
+
+            for idx in range(batch_start, batch_end):
+                raw = raw_meetings[idx]
+                meeting_name = raw.get('name', 'Unknown Meeting')
+                meeting_city = raw.get('city', '') or ''
+
                 scraping_state["current_meeting"] = {
-                    "name": first_meeting.get("name", "Unknown"),
-                    "city": first_meeting.get("city", ""),
-                    "index": i + 1,
-                    "total": len(meetings_to_save)
+                    "name": meeting_name,
+                    "city": meeting_city,
+                    "index": idx + 1,
+                    "total": total_in_feed
                 }
 
-            result = save_to_back4app_batch(batch)
-            saved_count += result["saved"]
-            error_count += result["errors"]
-            scraping_state["total_saved"] += result["saved"]
+                try:
+                    meeting = normalize_meeting(raw, feed_name, default_state, skip_geocoding=True)
+                    batch_meetings.append(meeting)
+                    if meeting.get("uniqueKey"):
+                        batch_keys.append(meeting["uniqueKey"])
+                except Exception as e:
+                    error_count += 1
+                    continue
 
-            # Update stats for saved meetings
-            for meeting in batch[:result["saved"]]:
-                state = meeting.get("state", "Unknown")
-                scraping_state["meetings_by_state"][state] = scraping_state["meetings_by_state"].get(state, 0) + 1
-                scraping_state["meetings_by_type"]["AA"] = scraping_state["meetings_by_type"].get("AA", 0) + 1
+            # Step 2: Check duplicates for this batch (1 query for up to 50 keys)
+            existing_keys = check_duplicates_batch(batch_keys) if batch_keys else set()
 
-                # Keep recent meetings (last 20)
-                scraping_state["recent_meetings"].insert(0, meeting)
-                scraping_state["recent_meetings"] = scraping_state["recent_meetings"][:20]
+            # Filter out duplicates
+            meetings_to_save = []
+            for meeting in batch_meetings:
+                if meeting.get("uniqueKey") in existing_keys:
+                    duplicate_count += 1
+                else:
+                    meetings_to_save.append(meeting)
 
-            # Log batch progress
-            add_log(f"Batch {batch_num}: saved {result['saved']}/{len(batch)}", "info")
+            # Step 3: Batch save non-duplicates (1 request for up to 50 meetings)
+            if meetings_to_save:
+                result = save_to_back4app_batch(meetings_to_save)
+                saved_count += result["saved"]
+                error_count += result["errors"]
+                scraping_state["total_saved"] += result["saved"]
+
+                # Update stats for saved meetings
+                for meeting in meetings_to_save[:result["saved"]]:
+                    state = meeting.get("state", "Unknown")
+                    scraping_state["meetings_by_state"][state] = scraping_state["meetings_by_state"].get(state, 0) + 1
+                    scraping_state["meetings_by_type"]["AA"] = scraping_state["meetings_by_type"].get("AA", 0) + 1
+
+                    # Keep recent meetings (last 20)
+                    scraping_state["recent_meetings"].insert(0, meeting)
+                    scraping_state["recent_meetings"] = scraping_state["recent_meetings"][:20]
+
+                add_log(f"Batch {batch_num}: saved {result['saved']}, {len(batch_meetings) - len(meetings_to_save)} duplicates", "info")
+            else:
+                add_log(f"Batch {batch_num}: all {len(batch_meetings)} were duplicates", "info")
 
         scraping_state["total_found"] += total_in_feed
         scraping_state["current_meeting"] = None
