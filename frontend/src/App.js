@@ -1,11 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './App.css';
 import Dashboard from './components/Dashboard';
 import ConfigModal from './components/ConfigModal';
 import Stats from './components/Stats';
 import MeetingsList from './components/MeetingsList';
+import ActivityLog from './components/ActivityLog';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+
+// Polling intervals
+const POLL_INTERVAL_ACTIVE = 500;  // 500ms when scraping
+const POLL_INTERVAL_IDLE = 2000;   // 2s when idle
 
 function App() {
   const [isConnected, setIsConnected] = useState(false);
@@ -17,7 +22,12 @@ function App() {
     errors: [],
     meetings_by_state: {},
     meetings_by_type: { AA: 0, NA: 0, 'Al-Anon': 0, Other: 0 },
-    progress_message: ''
+    progress_message: '',
+    current_feed_index: 0,
+    total_feeds: 3,
+    current_feed_progress: 0,
+    current_feed_total: 0,
+    activity_log: []
   });
   const [recentMeetings, setRecentMeetings] = useState([]);
   const [showConfig, setShowConfig] = useState(false);
@@ -26,6 +36,8 @@ function App() {
     appId: localStorage.getItem('back4app_app_id') || '',
     restKey: localStorage.getItem('back4app_rest_key') || ''
   });
+
+  const pollIntervalRef = useRef(null);
 
   // Check connection to backend
   const checkConnection = useCallback(async () => {
@@ -46,12 +58,26 @@ function App() {
     }
   }, []);
 
-  // Poll for status updates
+  // Dynamic polling - faster when scraping is active
   useEffect(() => {
     checkConnection();
-    const interval = setInterval(checkConnection, 2000);
-    return () => clearInterval(interval);
-  }, [checkConnection]);
+
+    const startPolling = () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+      const interval = scrapingState.is_running ? POLL_INTERVAL_ACTIVE : POLL_INTERVAL_IDLE;
+      pollIntervalRef.current = setInterval(checkConnection, interval);
+    };
+
+    startPolling();
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, [checkConnection, scrapingState.is_running]);
 
   // Process feeds one at a time
   const processNextFeed = useCallback(async (feedIndex) => {
@@ -75,10 +101,11 @@ function App() {
           meetings_by_type: data.stats?.by_type || prev.meetings_by_type
         }));
 
-        // Fetch updated status to get recent meetings
+        // Fetch updated status to get recent meetings and activity log
         const statusResponse = await fetch(`${BACKEND_URL}/api/status`);
         if (statusResponse.ok) {
           const statusData = await statusResponse.json();
+          setScrapingState(statusData);
           if (statusData.recent_meetings) {
             setRecentMeetings(statusData.recent_meetings);
           }
@@ -95,7 +122,6 @@ function App() {
             current_source: '',
             progress_message: 'Completed!'
           }));
-          alert(`Scraping completed! Found ${data.total_found} meetings, saved ${data.total_saved}.`);
         }
       }
     } catch (error) {
@@ -125,7 +151,11 @@ function App() {
           total_saved: 0,
           errors: [],
           meetings_by_state: {},
-          meetings_by_type: { AA: 0, NA: 0, 'Al-Anon': 0, Other: 0 }
+          meetings_by_type: { AA: 0, NA: 0, 'Al-Anon': 0, Other: 0 },
+          current_feed_index: 0,
+          current_feed_progress: 0,
+          current_feed_total: 0,
+          activity_log: []
         }));
         setRecentMeetings([]);
 
@@ -227,6 +257,8 @@ function App() {
         </div>
 
         <Dashboard scrapingState={scrapingState} />
+
+        <ActivityLog logs={scrapingState.activity_log} />
 
         <div className="grid-container">
           <Stats

@@ -45,8 +45,26 @@ scraping_state = {
     "meetings_by_state": {},
     "meetings_by_type": {"AA": 0, "NA": 0, "Al-Anon": 0, "Other": 0},
     "recent_meetings": [],
-    "progress_message": ""
+    "progress_message": "",
+    # Detailed progress tracking
+    "current_feed_index": 0,
+    "total_feeds": len(AA_FEEDS),
+    "current_feed_progress": 0,
+    "current_feed_total": 0,
+    "activity_log": [],
+    "started_at": None,
 }
+
+def add_log(message, level="info"):
+    """Add a message to the activity log"""
+    from datetime import datetime
+    entry = {
+        "timestamp": datetime.now().isoformat(),
+        "message": message,
+        "level": level
+    }
+    scraping_state["activity_log"].insert(0, entry)
+    scraping_state["activity_log"] = scraping_state["activity_log"][:50]
 
 def generate_object_id():
     """Generate a 10-character alphanumeric objectId"""
@@ -129,13 +147,17 @@ def save_to_back4app(meeting_data):
         print(f"Error saving to back4app: {e}")
         return False
 
-def fetch_and_process_feed(feed_name, feed_config):
+def fetch_and_process_feed(feed_name, feed_config, feed_index):
     """Fetch meetings from a single feed and process them"""
     url = feed_config["url"]
     default_state = feed_config["state"]
 
     scraping_state["current_source"] = feed_name
+    scraping_state["current_feed_index"] = feed_index
+    scraping_state["current_feed_progress"] = 0
+    scraping_state["current_feed_total"] = 0
     scraping_state["progress_message"] = f"Fetching from {feed_name}..."
+    add_log(f"Starting feed: {feed_name}", "info")
 
     try:
         response = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
@@ -143,15 +165,23 @@ def fetch_and_process_feed(feed_name, feed_config):
         raw_meetings = response.json()
 
         if not isinstance(raw_meetings, list):
-            scraping_state["errors"].append(f"{feed_name}: Invalid response format")
+            error_msg = f"{feed_name}: Invalid response format"
+            scraping_state["errors"].append(error_msg)
+            add_log(error_msg, "error")
             return 0
 
-        scraping_state["progress_message"] = f"Processing {len(raw_meetings)} meetings from {feed_name}..."
+        total_in_feed = len(raw_meetings)
+        scraping_state["current_feed_total"] = total_in_feed
+        scraping_state["progress_message"] = f"Processing {total_in_feed} meetings from {feed_name}..."
+        add_log(f"Found {total_in_feed} meetings in {feed_name}", "info")
 
         saved_count = 0
-        for raw in raw_meetings:
+        for idx, raw in enumerate(raw_meetings):
             if not scraping_state["is_running"]:
+                add_log("Scraping stopped by user", "warning")
                 break
+
+            scraping_state["current_feed_progress"] = idx + 1
 
             try:
                 meeting = normalize_meeting(raw, feed_name, default_state)
@@ -172,17 +202,24 @@ def fetch_and_process_feed(feed_name, feed_config):
             except Exception as e:
                 continue
 
-        scraping_state["total_found"] += len(raw_meetings)
+        scraping_state["total_found"] += total_in_feed
+        add_log(f"Completed {feed_name}: saved {saved_count}/{total_in_feed} meetings", "success")
         return saved_count
 
     except requests.exceptions.Timeout:
-        scraping_state["errors"].append(f"{feed_name}: Request timed out")
+        error_msg = f"{feed_name}: Request timed out"
+        scraping_state["errors"].append(error_msg)
+        add_log(error_msg, "error")
         return 0
     except requests.exceptions.RequestException as e:
-        scraping_state["errors"].append(f"{feed_name}: {str(e)}")
+        error_msg = f"{feed_name}: {str(e)}"
+        scraping_state["errors"].append(error_msg)
+        add_log(error_msg, "error")
         return 0
     except Exception as e:
-        scraping_state["errors"].append(f"{feed_name}: {str(e)}")
+        error_msg = f"{feed_name}: {str(e)}"
+        scraping_state["errors"].append(error_msg)
+        add_log(error_msg, "error")
         return 0
 
 @app.route('/api/config', methods=['POST'])
@@ -199,6 +236,8 @@ def set_config():
 @app.route('/api/start', methods=['POST'])
 def start_scraping():
     """Start the scraping process - runs synchronously one feed at a time"""
+    from datetime import datetime
+
     if scraping_state["is_running"]:
         return jsonify({"success": False, "message": "Scraper already running"}), 400
 
@@ -211,6 +250,13 @@ def start_scraping():
     scraping_state["meetings_by_type"] = {"AA": 0, "NA": 0, "Al-Anon": 0, "Other": 0}
     scraping_state["recent_meetings"] = []
     scraping_state["progress_message"] = "Starting..."
+    scraping_state["current_feed_index"] = 0
+    scraping_state["current_feed_progress"] = 0
+    scraping_state["current_feed_total"] = 0
+    scraping_state["activity_log"] = []
+    scraping_state["started_at"] = datetime.now().isoformat()
+
+    add_log(f"Scraping started - {len(AA_FEEDS)} feeds to process", "info")
 
     return jsonify({"success": True, "message": "Scraper started"})
 
@@ -230,6 +276,9 @@ def scrape_next_feed():
         scraping_state["is_running"] = False
         scraping_state["current_source"] = ""
         scraping_state["progress_message"] = "Completed!"
+        scraping_state["current_feed_progress"] = 0
+        scraping_state["current_feed_total"] = 0
+        add_log(f"All feeds completed! Total: {scraping_state['total_found']} found, {scraping_state['total_saved']} saved", "success")
         return jsonify({
             "success": True,
             "done": True,
@@ -240,7 +289,7 @@ def scrape_next_feed():
     feed_name = feed_names[feed_index]
     feed_config = AA_FEEDS[feed_name]
 
-    saved = fetch_and_process_feed(feed_name, feed_config)
+    saved = fetch_and_process_feed(feed_name, feed_config, feed_index)
 
     return jsonify({
         "success": True,
@@ -261,6 +310,7 @@ def stop_scraping():
     """Stop the scraping process"""
     scraping_state["is_running"] = False
     scraping_state["progress_message"] = "Stopped"
+    add_log("Scraping stopped by user", "warning")
     return jsonify({"success": True, "message": "Scraper stopped"})
 
 @app.route('/api/status', methods=['GET'])

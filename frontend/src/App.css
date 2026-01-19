@@ -166,28 +166,50 @@
 /* Progress */
 .progress-section {
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 0.5rem;
-  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
 }
 
 .progress-header {
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
-  color: #9ca3af;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.progress-source {
+  font-size: 0.9rem;
+  color: #d1d5db;
+  font-weight: 500;
+}
+
+.progress-percent {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #667eea;
 }
 
 .progress-bar {
-  height: 6px;
+  height: 8px;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
+  border-radius: 4px;
   overflow: hidden;
+}
+
+.progress-bar-small {
+  height: 4px;
 }
 
 .progress-bar-fill {
   height: 100%;
   background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-  border-radius: 3px;
-  width: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-bar-fill-secondary {
+  background: linear-gradient(90deg, #4ade80 0%, #22c55e 100%);
 }
 
 .progress-bar-fill.animated {
@@ -197,6 +219,106 @@
 @keyframes progress-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+}
+
+.feed-progress {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.feed-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.progress-message {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* Activity Log */
+.activity-log {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.activity-log h3 {
+  margin-bottom: 1rem;
+  font-size: 1.125rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.activity-log-container {
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.8rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+
+.activity-log-empty {
+  text-align: center;
+  padding: 1.5rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.log-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.log-entry:last-child {
+  border-bottom: none;
+}
+
+.log-icon {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+}
+
+.log-time {
+  flex-shrink: 0;
+  color: #6b7280;
+  min-width: 70px;
+}
+
+.log-message {
+  color: #d1d5db;
+  word-break: break-word;
+}
+
+.log-info .log-message {
+  color: #93c5fd;
+}
+
+.log-success .log-message {
+  color: #86efac;
+}
+
+.log-warning .log-message {
+  color: #fcd34d;
+}
+
+.log-error .log-message {
+  color: #fca5a5;
 }
 
 /* Grid container */
