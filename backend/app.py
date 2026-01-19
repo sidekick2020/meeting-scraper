@@ -726,40 +726,64 @@ def test_save():
             "error": str(e)
         }), 500
 
+def save_scrape_history(status="completed", feeds_processed=0):
+    """Save scrape run to history (both in-memory and Back4app)"""
+    history_entry = {
+        "id": generate_object_id(),
+        "started_at": scraping_state["started_at"],
+        "completed_at": datetime.now().isoformat(),
+        "total_found": scraping_state["total_found"],
+        "total_saved": scraping_state["total_saved"],
+        "feeds_processed": feeds_processed,
+        "meetings_by_state": dict(scraping_state["meetings_by_state"]),
+        "errors": list(scraping_state["errors"]),
+        "status": status
+    }
+
+    # Save to in-memory history
+    scrape_history.insert(0, history_entry)
+    while len(scrape_history) > 50:
+        scrape_history.pop()
+
+    # Also persist to Back4app for durability across restarts
+    if BACK4APP_APP_ID and BACK4APP_REST_KEY:
+        try:
+            headers = {
+                "X-Parse-Application-Id": BACK4APP_APP_ID,
+                "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+                "Content-Type": "application/json"
+            }
+            history_url = "https://parseapi.back4app.com/classes/ScrapeHistory"
+            requests.post(history_url, headers=headers, json=history_entry, timeout=10)
+        except Exception as e:
+            print(f"Error saving history to Back4app: {e}")
+
+    return history_entry
+
 def run_scraper_in_background():
     """Background thread function to process all feeds"""
     feed_names = list(AA_FEEDS.keys())
+    feeds_completed = 0
 
     for idx, feed_name in enumerate(feed_names):
         if not scraping_state["is_running"]:
             add_log("Scraping stopped by user", "warning")
-            break
+            # Save history even when stopped
+            save_scrape_history(status="stopped", feeds_processed=feeds_completed)
+            return
 
         feed_config = AA_FEEDS[feed_name]
         fetch_and_process_feed(feed_name, feed_config, idx)
+        feeds_completed += 1
 
     # Mark as complete
-    if scraping_state["is_running"]:
-        scraping_state["is_running"] = False
-        scraping_state["current_source"] = ""
-        scraping_state["progress_message"] = "Completed!"
-        add_log(f"All feeds completed! Total: {scraping_state['total_found']} found, {scraping_state['total_saved']} saved", "success")
+    scraping_state["is_running"] = False
+    scraping_state["current_source"] = ""
+    scraping_state["progress_message"] = "Completed!"
+    add_log(f"All feeds completed! Total: {scraping_state['total_found']} found, {scraping_state['total_saved']} saved", "success")
 
-        # Save to scrape history
-        history_entry = {
-            "id": generate_object_id(),
-            "started_at": scraping_state["started_at"],
-            "completed_at": datetime.now().isoformat(),
-            "total_found": scraping_state["total_found"],
-            "total_saved": scraping_state["total_saved"],
-            "feeds_processed": len(feed_names),
-            "meetings_by_state": dict(scraping_state["meetings_by_state"]),
-            "errors": list(scraping_state["errors"]),
-            "status": "completed"
-        }
-        scrape_history.insert(0, history_entry)
-        while len(scrape_history) > 50:
-            scrape_history.pop()
+    # Save to scrape history
+    save_scrape_history(status="completed", feeds_processed=feeds_completed)
 
 @app.route('/api/start', methods=['POST'])
 def start_scraping():
@@ -888,10 +912,42 @@ def get_version():
 
 @app.route('/api/history', methods=['GET'])
 def get_history():
-    """Get scrape history"""
-    return jsonify({
-        "history": scrape_history
-    })
+    """Get scrape history - from memory and Back4app"""
+    # If we have in-memory history, return it
+    if scrape_history:
+        return jsonify({"history": scrape_history})
+
+    # Otherwise try to fetch from Back4app
+    if BACK4APP_APP_ID and BACK4APP_REST_KEY:
+        try:
+            headers = {
+                "X-Parse-Application-Id": BACK4APP_APP_ID,
+                "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+            }
+            history_url = "https://parseapi.back4app.com/classes/ScrapeHistory?order=-createdAt&limit=50"
+            response = requests.get(history_url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("results", [])
+                # Transform Back4app format to our expected format
+                history = []
+                for item in results:
+                    history.append({
+                        "id": item.get("id") or item.get("objectId"),
+                        "started_at": item.get("started_at"),
+                        "completed_at": item.get("completed_at"),
+                        "total_found": item.get("total_found", 0),
+                        "total_saved": item.get("total_saved", 0),
+                        "feeds_processed": item.get("feeds_processed", 0),
+                        "meetings_by_state": item.get("meetings_by_state", {}),
+                        "errors": item.get("errors", []),
+                        "status": item.get("status", "completed")
+                    })
+                return jsonify({"history": history})
+        except Exception as e:
+            print(f"Error fetching history from Back4app: {e}")
+
+    return jsonify({"history": []})
 
 @app.route('/api/coverage', methods=['GET'])
 def get_coverage():
