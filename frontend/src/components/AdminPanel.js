@@ -464,7 +464,7 @@ function AdminPanel({ onBackToPublic }) {
                     className="btn btn-primary btn-large"
                     disabled={!isConnected}
                   >
-                    Start Scraping
+                    Select Sources & Start
                   </button>
                 ) : (
                   <>
@@ -480,6 +480,12 @@ function AdminPanel({ onBackToPublic }) {
                   Reset
                 </button>
               </div>
+
+              {feeds.length > 0 && !scrapingState.is_running && (
+                <p className="sources-hint">
+                  {feeds.length} source{feeds.length !== 1 ? 's' : ''} available to scrape
+                </p>
+              )}
 
               {!backendConfigured && !config.appId && !config.restKey && (
                 <div className="warning-box">
