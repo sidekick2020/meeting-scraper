@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.2] - 2026-01-20
+
+### New Features
+- **Alabama Meeting Feeds**: Added meeting data sources for Alabama
+  - Birmingham AA feed (TSML format)
+  - West Alabama AA feed covering Tuscaloosa, Jasper, Fayette areas
+  - Alabama NA feed with BMLT support covering all 11 NA service areas
+- **BMLT Feed Support**: Added support for BMLT (Basic Meeting List Toolkit) API format
+  - Automatic transformation from BMLT to standard format
+  - Enables scraping NA meetings from BMLT-powered sites
+
 ## [1.3.1] - 2026-01-20
 
 ### Documentation

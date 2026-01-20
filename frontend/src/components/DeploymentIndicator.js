@@ -3,16 +3,56 @@ import React, { useState, useEffect, useRef } from 'react';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 const CHECK_INTERVAL = 5000; // Check every 5 seconds
 const FAILURE_THRESHOLD = 3; // Number of consecutive failures before showing deploying
+const TYPICAL_DEPLOY_TIME = 120; // Typical deployment takes ~2 minutes
 
 function DeploymentIndicator() {
   const [backendStatus, setBackendStatus] = useState('stable'); // 'stable', 'deploying', 'updating'
   const [frontendStatus, setFrontendStatus] = useState('stable'); // 'stable', 'updating'
   const [expanded, setExpanded] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [currentTask, setCurrentTask] = useState('Monitoring services...');
 
   const initialBackendVersionRef = useRef(null);
   const initialFrontendVersionRef = useRef(null);
   const backendFailsRef = useRef(0);
   const frontendFailsRef = useRef(0);
+  const deployStartTimeRef = useRef(null);
+
+  // Track elapsed time when deploying
+  useEffect(() => {
+    const isDeploying = backendStatus !== 'stable' || frontendStatus !== 'stable';
+
+    if (isDeploying && !deployStartTimeRef.current) {
+      deployStartTimeRef.current = Date.now();
+    } else if (!isDeploying) {
+      deployStartTimeRef.current = null;
+      setElapsedTime(0);
+    }
+
+    if (isDeploying) {
+      const timer = setInterval(() => {
+        if (deployStartTimeRef.current) {
+          setElapsedTime(Math.floor((Date.now() - deployStartTimeRef.current) / 1000));
+        }
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [backendStatus, frontendStatus]);
+
+  // Update current task based on status
+  useEffect(() => {
+    if (backendStatus === 'deploying') {
+      setCurrentTask('Waiting for backend to restart...');
+    } else if (backendStatus === 'updating') {
+      setCurrentTask('New backend version detected, refreshing...');
+    } else if (frontendStatus === 'updating') {
+      setCurrentTask('New frontend version detected, refreshing...');
+    } else if (backendStatus === 'stable' && frontendStatus === 'stable') {
+      setCurrentTask('All services stable');
+    } else {
+      setCurrentTask('Checking deployment status...');
+    }
+  }, [backendStatus, frontendStatus]);
 
   // Check backend status
   useEffect(() => {
@@ -42,7 +82,8 @@ function DeploymentIndicator() {
             setTimeout(() => {
               window.location.reload();
             }, 3000);
-          } else if (backendStatus !== 'stable') {
+          } else {
+            // Backend is responding and version matches - always reset to stable
             setBackendStatus('stable');
           }
         } else {
@@ -63,7 +104,7 @@ function DeploymentIndicator() {
     checkBackend();
     const interval = setInterval(checkBackend, CHECK_INTERVAL);
     return () => clearInterval(interval);
-  }, [backendStatus]);
+  }, []); // Remove backendStatus from deps to avoid stale closures
 
   // Check frontend status
   useEffect(() => {
@@ -95,8 +136,8 @@ function DeploymentIndicator() {
             setTimeout(() => {
               window.location.reload();
             }, 3000);
-          } else if (frontendStatus !== 'stable') {
-            // Deployment finished, version matches - reset to stable
+          } else {
+            // Frontend is responding and version matches - always reset to stable
             setFrontendStatus('stable');
           }
         } else {
@@ -117,7 +158,7 @@ function DeploymentIndicator() {
     checkFrontend();
     const interval = setInterval(checkFrontend, CHECK_INTERVAL);
     return () => clearInterval(interval);
-  }, [frontendStatus]);
+  }, []); // Remove frontendStatus from deps to avoid stale closures
 
   const isDeploying = backendStatus !== 'stable' || frontendStatus !== 'stable';
 
@@ -137,6 +178,23 @@ function DeploymentIndicator() {
     return `${type} stable`;
   };
 
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  };
+
+  const getProgress = () => {
+    // Estimate progress based on typical deploy time
+    const progress = Math.min((elapsedTime / TYPICAL_DEPLOY_TIME) * 100, 95);
+    return Math.round(progress);
+  };
+
+  const getEstimatedRemaining = () => {
+    const remaining = Math.max(TYPICAL_DEPLOY_TIME - elapsedTime, 5);
+    return formatTime(remaining);
+  };
+
   return (
     <div
       className={`deployment-indicator ${expanded ? 'expanded' : ''}`}
@@ -145,11 +203,30 @@ function DeploymentIndicator() {
       <div className="deployment-indicator-header">
         <div className="deployment-indicator-spinner"></div>
         <span className="deployment-indicator-title">Deployment in progress</span>
+        <span className="deployment-indicator-time">{formatTime(elapsedTime)}</span>
         <span className="deployment-indicator-expand">{expanded ? '▼' : '▲'}</span>
       </div>
 
       {expanded && (
         <div className="deployment-indicator-details">
+          {/* Current Task */}
+          <div className="deployment-current-task">
+            <span className="task-label">Current:</span>
+            <span className="task-name">{currentTask}</span>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="deployment-progress">
+            <div className="progress-bar">
+              <div
+                className="progress-fill"
+                style={{ width: `${getProgress()}%` }}
+              ></div>
+            </div>
+            <span className="progress-text">{getProgress()}%</span>
+          </div>
+
+          {/* Service Status */}
           <div className={`deployment-status-row ${backendStatus}`}>
             <span className="status-icon">{getStatusIcon(backendStatus)}</span>
             <span className="status-text">{getStatusText('Backend', backendStatus)}</span>
@@ -158,8 +235,10 @@ function DeploymentIndicator() {
             <span className="status-icon">{getStatusIcon(frontendStatus)}</span>
             <span className="status-text">{getStatusText('Frontend', frontendStatus)}</span>
           </div>
+
+          {/* Estimated Time */}
           <div className="deployment-indicator-note">
-            Page will refresh when ready
+            ~{getEstimatedRemaining()} remaining • Page will refresh when ready
           </div>
         </div>
       )}
