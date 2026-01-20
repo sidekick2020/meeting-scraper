@@ -15,10 +15,20 @@ All notable changes to this project will be documented in this file.
 - **Side Panel**: Fixed legibility issues in light mode with proper theme variable usage
 - **Logo Display**: Fixed SVG logo cutoff by expanding viewBox with padding
 - **Skeleton Loading**: Added shimmer animation for users table loading state
+- **Dark/Light Mode Toggle**: Added theme toggle in profile dropdown to switch between dark and light modes
+- **Light Mode Improvements**: Comprehensive light mode styling overhaul
+  - Darker blue accent color (#1a4fd8) for better visibility
+  - Sidebar with lighter background, darker/bolder text, and visible vertical divider
+  - Search inputs with clear rounded borders and visible placeholder text
+  - Documentation with improved text contrast and indentation
+  - Better form input styling with visible borders and focus states
+- **Map Style**: Changed to CartoDB Voyager tiles for better contrast while remaining subtle
 
 ### New Features
 - **Downloadable Model Files**: Added Meeting.swift and Meeting.kt files for iOS/Android integration
 - **CC Email for Invites**: Added ability to CC someone when sending user invitations
+- **API Version Setting**: Added API version selector in Settings to switch between v1 (stable) and v2-beta
+- **In-App Release Notes**: Added Release Notes tab in Settings to view latest updates
 - **Comprehensive Query Docs**: Added extensive query examples for iOS (Swift) and Android (Kotlin)
   - Filter by meeting type (AA, NA, etc.)
   - Filter online/hybrid meetings

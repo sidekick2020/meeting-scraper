@@ -2,10 +2,51 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
+// Release notes content
+const RELEASE_NOTES = `
+## Latest Updates
+
+### Performance Improvements
+- **Faster Initial Load**: Reduced initial meeting request from 1000 to 100 for quicker first-load performance
+- **Coverage Analysis Optimization**: Fixed timeout by replacing 52 sequential API calls with single batched fetch
+- **Map Bounds Loading**: Fixed JSON encoding for bounds queries to properly load meetings when panning map
+
+### UI/UX Improvements
+- **Dark/Light Mode Toggle**: Added theme toggle in profile dropdown to switch between modes
+- **Light Mode Improvements**: Comprehensive styling overhaul with darker blue accent, better sidebar contrast, and visible search inputs
+- **Map Visibility**: Added explicit opacity settings to ensure map tiles are fully visible
+- **Card Visibility**: Improved meeting card visibility in light mode with stronger borders
+- **Side Panel**: Fixed legibility issues in light mode with proper theme variable usage
+- **Logo Display**: Fixed SVG logo cutoff by expanding viewBox with padding
+- **Skeleton Loading**: Added shimmer animation for users table loading state
+
+### New Features
+- **Downloadable Model Files**: Added Meeting.swift and Meeting.kt files for iOS/Android integration
+- **CC Email for Invites**: Added ability to CC someone when sending user invitations
+- **Comprehensive Query Docs**: Added extensive query examples for iOS (Swift) and Android (Kotlin)
+  - Filter by meeting type, online/hybrid meetings, city and state
+  - Filter by type codes (Women, Beginners, etc.)
+  - Search by name, pagination, compound queries
+
+### Bug Fixes
+- **Start New Scrape**: Fixed app hang when clicking "Start New Scrape" by showing feed selector first
+- **Team Members Timeout**: Increased API timeout from 8s to 30s for loading team members
+- **Invite Email Timeout**: Added 15s timeout to SMTP connection to prevent indefinite hang
+- **Loading Indicators**: Added spinner to invite button for better feedback during submission
+`;
+
+const API_VERSIONS = [
+  { version: 'v1', label: 'v1 (Stable)', description: 'Current stable API version' },
+  { version: 'v2-beta', label: 'v2 Beta', description: 'New features, may have breaking changes' }
+];
+
 function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   const [activeTab, setActiveTab] = useState('config');
   const [appId, setAppId] = useState(config.appId);
   const [restKey, setRestKey] = useState(config.restKey);
+
+  // API Version state
+  const [apiVersion, setApiVersion] = useState(localStorage.getItem('api_version') || 'v1');
 
   // Users state
   const [users, setUsers] = useState([]);
@@ -17,6 +58,12 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   const [inviting, setInviting] = useState(false);
   const [userError, setUserError] = useState('');
   const [userSuccess, setUserSuccess] = useState('');
+
+  // Handle API version change
+  const handleApiVersionChange = (version) => {
+    setApiVersion(version);
+    localStorage.setItem('api_version', version);
+  };
 
   // Check if current user is admin
   const isAdmin = currentUser?.role === 'admin' || currentUser?.isOwner || currentUser?.email === 'chris.thompson@sobersidekick.com';
@@ -215,6 +262,29 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
               Users
             </button>
           )}
+          <button
+            className={`settings-tab ${activeTab === 'api' ? 'active' : ''}`}
+            onClick={() => setActiveTab('api')}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="16,18 22,12 16,6"/>
+              <polyline points="8,6 2,12 8,18"/>
+            </svg>
+            API
+          </button>
+          <button
+            className={`settings-tab ${activeTab === 'releases' ? 'active' : ''}`}
+            onClick={() => setActiveTab('releases')}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14,2 14,8 20,8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10,9 9,9 8,9"/>
+            </svg>
+            Release Notes
+          </button>
         </div>
 
         <div className="settings-content">
@@ -454,6 +524,73 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
                   ))}
                 </div>
               )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'api' && (
+            <div className="api-version-section">
+              <h3>API Version</h3>
+              <p className="section-description">
+                Select which API version to use for data requests. Changes take effect immediately.
+              </p>
+
+              <div className="api-version-options">
+                {API_VERSIONS.map((v) => (
+                  <label
+                    key={v.version}
+                    className={`api-version-option ${apiVersion === v.version ? 'selected' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="apiVersion"
+                      value={v.version}
+                      checked={apiVersion === v.version}
+                      onChange={() => handleApiVersionChange(v.version)}
+                    />
+                    <div className="version-radio"></div>
+                    <div className="version-info">
+                      <span className="version-label">{v.label}</span>
+                      <span className="version-description">{v.description}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              <div className="api-endpoint-info">
+                <h4>Current Endpoint</h4>
+                <code className="endpoint-url">
+                  {BACKEND_URL}/api/{apiVersion}/meetings
+                </code>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'releases' && (
+            <div className="release-notes-section">
+              <div className="release-notes-content">
+                {RELEASE_NOTES.split('\n').map((line, index) => {
+                  if (line.startsWith('## ')) {
+                    return <h2 key={index}>{line.replace('## ', '')}</h2>;
+                  } else if (line.startsWith('### ')) {
+                    return <h3 key={index}>{line.replace('### ', '')}</h3>;
+                  } else if (line.startsWith('- **')) {
+                    const match = line.match(/- \*\*(.+?)\*\*: (.+)/);
+                    if (match) {
+                      return (
+                        <div key={index} className="release-item">
+                          <strong>{match[1]}:</strong> {match[2]}
+                        </div>
+                      );
+                    }
+                    return <p key={index}>{line}</p>;
+                  } else if (line.startsWith('  - ')) {
+                    return <div key={index} className="release-subitem">{line.replace('  - ', '')}</div>;
+                  } else if (line.trim()) {
+                    return <p key={index}>{line}</p>;
+                  }
+                  return null;
+                })}
               </div>
             </div>
           )}
