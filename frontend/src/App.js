@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './App.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import MeetingsExplorer from './components/MeetingsExplorer';
 import AdminPanel from './components/AdminPanel';
 import DeploymentBanner from './components/DeploymentBanner';
@@ -104,9 +105,11 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
