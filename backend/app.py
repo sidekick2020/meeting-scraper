@@ -1589,7 +1589,7 @@ def get_meetings():
             'order': '-createdAt'
         }
         if where:
-            params['where'] = str(where).replace("'", '"')
+            params['where'] = json.dumps(where)
 
         query_string = urllib.parse.urlencode(params)
         url = f"{BACK4APP_URL}?{query_string}"
