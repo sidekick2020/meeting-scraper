@@ -9,12 +9,19 @@ function CoverageAnalysis() {
   const [showAllStates, setShowAllStates] = useState(false);
 
   const fetchCoverage = useCallback(async (isInitialLoad = false) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     try {
       // Only show loading spinner on initial load, not refreshes
       if (isInitialLoad) {
         setLoading(true);
       }
-      const response = await fetch(`${BACKEND_URL}/api/coverage`);
+      const response = await fetch(`${BACKEND_URL}/api/coverage`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
       if (response.ok) {
         const data = await response.json();
         setCoverage(data);
@@ -23,7 +30,12 @@ function CoverageAnalysis() {
         setError('Failed to load coverage data');
       }
     } catch (err) {
-      setError('Error connecting to server');
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        setError('Request timed out. Please try again.');
+      } else {
+        setError('Error connecting to server');
+      }
     } finally {
       setLoading(false);
     }
@@ -51,7 +63,11 @@ function CoverageAnalysis() {
     return (
       <div className="coverage-analysis">
         <h3>Coverage Analysis</h3>
-        <div className="loading">Loading coverage data...</div>
+        <div className="coverage-loading">
+          <div className="loading-spinner"></div>
+          <p>Loading coverage data...</p>
+          <p className="loading-hint">Analyzing state-by-state meeting coverage</p>
+        </div>
       </div>
     );
   }

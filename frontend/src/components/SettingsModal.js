@@ -23,8 +23,17 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
     setUserError('');
+
+    // Create abort controller with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
     try {
-      const response = await fetch(`${BACKEND_URL}/api/users`);
+      const response = await fetch(`${BACKEND_URL}/api/users`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
       if (response.ok) {
         const data = await response.json();
         setUsers(data.users || []);
@@ -33,7 +42,12 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
         setUserError(data.error || 'Failed to load users');
       }
     } catch (error) {
-      setUserError('Failed to connect to server');
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        setUserError('Request timed out. Please try again.');
+      } else {
+        setUserError('Failed to connect to server');
+      }
     } finally {
       setLoadingUsers(false);
     }

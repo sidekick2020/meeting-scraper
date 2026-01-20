@@ -1365,8 +1365,8 @@ def get_history():
                 "X-Parse-Application-Id": BACK4APP_APP_ID,
                 "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
             }
-            history_url = "https://parseapi.back4app.com/classes/ScrapeHistory?order=-createdAt&limit=50"
-            response = requests.get(history_url, headers=headers, timeout=10)
+            history_url = "https://parseapi.back4app.com/classes/ScrapeHistory?order=-createdAt&limit=20"
+            response = requests.get(history_url, headers=headers, timeout=6)
             if response.status_code == 200:
                 data = response.json()
                 results = data.get("results", [])
@@ -1577,7 +1577,7 @@ def get_meetings():
         params = {
             'limit': min(limit, 1000),
             'skip': skip,
-            'order': '-updatedAt'
+            'order': '-createdAt'
         }
         if where:
             params['where'] = str(where).replace("'", '"')
@@ -1849,7 +1849,7 @@ def get_users():
                 'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
             },
             params={'order': '-createdAt', 'limit': 100},
-            timeout=15
+            timeout=8
         )
 
         if response.status_code == 200:

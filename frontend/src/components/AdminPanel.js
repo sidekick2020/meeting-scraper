@@ -54,6 +54,8 @@ function AdminPanel({ onBackToPublic }) {
   const [feeds, setFeeds] = useState([]);
   const [selectedFeeds, setSelectedFeeds] = useState([]);
   const [showFeedSelector, setShowFeedSelector] = useState(false);
+  const [isStartingScrape, setIsStartingScrape] = useState(false);
+  const [scrapeError, setScrapeError] = useState(null);
 
   // Directory state
   const [directoryMeetings, setDirectoryMeetings] = useState([]);
@@ -62,7 +64,7 @@ function AdminPanel({ onBackToPublic }) {
   const [directoryState, setDirectoryState] = useState('');
   const [directoryPage, setDirectoryPage] = useState(0);
   const [directoryTotal, setDirectoryTotal] = useState(0);
-  const DIRECTORY_PAGE_SIZE = 50;
+  const DIRECTORY_PAGE_SIZE = 10;
 
   const isRunningRef = useRef(false);
   const pollIntervalRef = useRef(null);
@@ -117,19 +119,27 @@ function AdminPanel({ onBackToPublic }) {
   // Fetch directory meetings
   const fetchDirectoryMeetings = useCallback(async (page = 0, search = '', state = '') => {
     setDirectoryLoading(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     try {
       let url = `${BACKEND_URL}/api/meetings?limit=${DIRECTORY_PAGE_SIZE}&skip=${page * DIRECTORY_PAGE_SIZE}`;
       if (search) url += `&search=${encodeURIComponent(search)}`;
       if (state) url += `&state=${encodeURIComponent(state)}`;
 
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
       if (response.ok) {
         const data = await response.json();
         setDirectoryMeetings(data.meetings || []);
         setDirectoryTotal(data.total || 0);
       }
     } catch (error) {
-      console.error('Error fetching directory meetings:', error);
+      clearTimeout(timeoutId);
+      if (error.name !== 'AbortError') {
+        console.error('Error fetching directory meetings:', error);
+      }
     } finally {
       setDirectoryLoading(false);
     }
@@ -235,6 +245,9 @@ function AdminPanel({ onBackToPublic }) {
   };
 
   const startScraping = async (abandonOld = false) => {
+    setIsStartingScrape(true);
+    setScrapeError(null);
+
     try {
       const body = abandonOld && unfinishedScrape
         ? { abandon_scrape_id: unfinishedScrape.objectId, force: true, selected_feeds: selectedFeeds }
@@ -261,7 +274,11 @@ function AdminPanel({ onBackToPublic }) {
           current_feed_progress: 0,
           current_feed_total: 0,
           current_meeting: null,
-          activity_log: []
+          activity_log: [{
+            type: 'success',
+            message: `Scraping started with ${selectedFeeds.length} source${selectedFeeds.length !== 1 ? 's' : ''}`,
+            timestamp: new Date().toISOString()
+          }]
         }));
         setRecentMeetings([]);
         setUnfinishedScrape(null); // Clear any unfinished scrape notice
@@ -269,11 +286,13 @@ function AdminPanel({ onBackToPublic }) {
         setShowFeedSelector(false);
         isRunningRef.current = true;
       } else {
-        alert(data.message);
+        setScrapeError(data.message || 'Failed to start scraping');
       }
     } catch (error) {
       console.error('Error starting scraper:', error);
-      alert('Failed to start scraper');
+      setScrapeError(`Failed to start scraper: ${error.message}`);
+    } finally {
+      setIsStartingScrape(false);
     }
   };
 
@@ -481,13 +500,20 @@ function AdminPanel({ onBackToPublic }) {
                 </button>
               </div>
 
-              {feeds.length > 0 && !scrapingState.is_running && (
+              {!isConnected && (
+                <div className="connecting-box">
+                  <span className="connecting-spinner"></span>
+                  Connecting to backend...
+                </div>
+              )}
+
+              {isConnected && feeds.length > 0 && !scrapingState.is_running && (
                 <p className="sources-hint">
                   {feeds.length} source{feeds.length !== 1 ? 's' : ''} available to scrape
                 </p>
               )}
 
-              {!backendConfigured && !config.appId && !config.restKey && (
+              {isConnected && !backendConfigured && !config.appId && !config.restKey && (
                 <div className="warning-box">
                   Configure Back4app credentials to save meetings to database
                 </div>
@@ -976,30 +1002,44 @@ function AdminPanel({ onBackToPublic }) {
               Choose which data sources to include in this scrape.
             </p>
 
+            {scrapeError && (
+              <div className="error-box">
+                {scrapeError}
+              </div>
+            )}
+
             <div className="feed-selector-actions">
-              <button onClick={selectAllFeeds} className="btn btn-ghost btn-sm">
+              <button onClick={selectAllFeeds} className="btn btn-ghost btn-sm" disabled={isStartingScrape}>
                 Select All
               </button>
-              <button onClick={selectNoFeeds} className="btn btn-ghost btn-sm">
+              <button onClick={selectNoFeeds} className="btn btn-ghost btn-sm" disabled={isStartingScrape}>
                 Select None
               </button>
             </div>
 
             <div className="feed-selector-list">
-              {feeds.map((feed) => (
-                <label key={feed.name} className="feed-selector-item">
-                  <input
-                    type="checkbox"
-                    checked={selectedFeeds.includes(feed.name)}
-                    onChange={() => toggleFeedSelection(feed.name)}
-                  />
-                  <span className="feed-checkbox"></span>
-                  <div className="feed-item-info">
-                    <span className="feed-item-name">{feed.name}</span>
-                    <span className="feed-item-state">{feed.state}</span>
-                  </div>
-                </label>
-              ))}
+              {feeds.length === 0 ? (
+                <div className="feed-selector-empty">
+                  <p>No data sources available</p>
+                  <p className="hint">Check backend connection</p>
+                </div>
+              ) : (
+                feeds.map((feed) => (
+                  <label key={feed.name} className={`feed-selector-item ${isStartingScrape ? 'disabled' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={selectedFeeds.includes(feed.name)}
+                      onChange={() => toggleFeedSelection(feed.name)}
+                      disabled={isStartingScrape}
+                    />
+                    <span className="feed-checkbox"></span>
+                    <div className="feed-item-info">
+                      <span className="feed-item-name">{feed.name}</span>
+                      <span className="feed-item-state">{feed.state}</span>
+                    </div>
+                  </label>
+                ))
+              )}
             </div>
 
             <div className="feed-selector-footer">
@@ -1008,17 +1048,25 @@ function AdminPanel({ onBackToPublic }) {
               </span>
               <div className="feed-selector-buttons">
                 <button
-                  onClick={() => setShowFeedSelector(false)}
+                  onClick={() => { setShowFeedSelector(false); setScrapeError(null); }}
                   className="btn btn-ghost"
+                  disabled={isStartingScrape}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => startScraping(false)}
                   className="btn btn-primary"
-                  disabled={selectedFeeds.length === 0}
+                  disabled={selectedFeeds.length === 0 || isStartingScrape}
                 >
-                  Start Scraping
+                  {isStartingScrape ? (
+                    <>
+                      <span className="btn-spinner"></span>
+                      Starting...
+                    </>
+                  ) : (
+                    'Start Scraping'
+                  )}
                 </button>
               </div>
             </div>

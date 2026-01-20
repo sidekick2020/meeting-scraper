@@ -8,14 +8,24 @@ function ScrapeHistory() {
   const [expandedId, setExpandedId] = useState(null);
 
   const fetchHistory = useCallback(async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     try {
-      const response = await fetch(`${BACKEND_URL}/api/history`);
+      const response = await fetch(`${BACKEND_URL}/api/history`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
       if (response.ok) {
         const data = await response.json();
         setHistory(data.history || []);
       }
     } catch (error) {
-      console.error('Error fetching history:', error);
+      clearTimeout(timeoutId);
+      if (error.name !== 'AbortError') {
+        console.error('Error fetching history:', error);
+      }
     } finally {
       setIsLoading(false);
     }
