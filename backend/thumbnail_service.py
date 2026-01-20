@@ -39,12 +39,144 @@ MEETING_TYPE_COLORS = {
     'Other': {'primary': '#f59e0b', 'secondary': '#d97706', 'accent': '#fbbf24'},
 }
 
-# Icons for meeting types (SVG paths)
+# Base icons for meeting types (SVG paths) - emotive character silhouettes
 MEETING_TYPE_ICONS = {
-    'AA': '<circle cx="50" cy="35" r="15" fill="{accent}" opacity="0.8"/><path d="M35 75 L50 45 L65 75 Z" fill="{accent}" opacity="0.6"/>',
-    'NA': '<circle cx="50" cy="50" r="20" fill="none" stroke="{accent}" stroke-width="3"/><path d="M40 50 L60 50 M50 40 L50 60" stroke="{accent}" stroke-width="3"/>',
-    'Al-Anon': '<circle cx="40" cy="45" r="12" fill="{accent}" opacity="0.7"/><circle cx="60" cy="45" r="12" fill="{accent}" opacity="0.7"/><path d="M50 65 Q40 55 50 45 Q60 55 50 65" fill="{accent}" opacity="0.5"/>',
-    'Other': '<rect x="35" y="35" width="30" height="30" rx="5" fill="{accent}" opacity="0.7"/>',
+    # Fox silhouette (confident, friendly)
+    'AA': '''<g transform="translate(35, 25)" opacity="0.85">
+      <ellipse cx="15" cy="25" rx="12" ry="15" fill="{accent}"/>
+      <polygon points="5,15 15,0 25,15" fill="{accent}"/>
+      <circle cx="10" cy="22" r="2" fill="{secondary}"/>
+      <circle cx="20" cy="22" r="2" fill="{secondary}"/>
+      <ellipse cx="15" cy="28" rx="3" ry="2" fill="{secondary}"/>
+    </g>''',
+    # Owl silhouette (wise, watchful)
+    'NA': '''<g transform="translate(35, 22)" opacity="0.85">
+      <ellipse cx="15" cy="22" rx="14" ry="18" fill="{accent}"/>
+      <circle cx="9" cy="18" r="6" fill="{secondary}"/>
+      <circle cx="21" cy="18" r="6" fill="{secondary}"/>
+      <circle cx="9" cy="18" r="3" fill="{accent}"/>
+      <circle cx="21" cy="18" r="3" fill="{accent}"/>
+      <polygon points="15,24 12,30 18,30" fill="{secondary}"/>
+      <polygon points="3,8 9,16 3,16" fill="{accent}"/>
+      <polygon points="27,8 21,16 27,16" fill="{accent}"/>
+    </g>''',
+    # Butterfly silhouette (transformation, grace)
+    'Al-Anon': '''<g transform="translate(32, 22)" opacity="0.85">
+      <ellipse cx="18" cy="25" rx="3" ry="12" fill="{accent}"/>
+      <ellipse cx="8" cy="18" rx="8" ry="10" fill="{accent}"/>
+      <ellipse cx="28" cy="18" rx="8" ry="10" fill="{accent}"/>
+      <ellipse cx="6" cy="32" rx="5" ry="7" fill="{accent}"/>
+      <ellipse cx="30" cy="32" rx="5" ry="7" fill="{accent}"/>
+      <circle cx="18" cy="12" r="3" fill="{accent}"/>
+      <path d="M16,9 Q14,4 12,6" stroke="{accent}" stroke-width="1.5" fill="none"/>
+      <path d="M20,9 Q22,4 24,6" stroke="{accent}" stroke-width="1.5" fill="none"/>
+    </g>''',
+    # Hedgehog silhouette (cozy, friendly)
+    'Other': '''<g transform="translate(32, 25)" opacity="0.85">
+      <ellipse cx="18" cy="22" rx="16" ry="14" fill="{accent}"/>
+      <path d="M5,15 L2,8 L8,12" fill="{accent}"/>
+      <path d="M12,10 L10,2 L16,8" fill="{accent}"/>
+      <path d="M20,8 L22,0 L26,6" fill="{accent}"/>
+      <path d="M28,12 L34,6 L32,14" fill="{accent}"/>
+      <circle cx="12" cy="20" r="2" fill="{secondary}"/>
+      <circle cx="22" cy="20" r="2" fill="{secondary}"/>
+      <ellipse cx="17" cy="26" rx="4" ry="3" fill="{secondary}"/>
+    </g>''',
+}
+
+# Emotive icons for specific meeting themes (SVG paths)
+EMOTIVE_ICONS = {
+    # Fox at podium - speaker meetings
+    'speaker': '''<g transform="translate(30, 18)" opacity="0.85">
+      <rect x="12" y="35" width="16" height="20" rx="2" fill="{secondary}" opacity="0.6"/>
+      <ellipse cx="20" cy="22" rx="10" ry="12" fill="{accent}"/>
+      <polygon points="12,14 20,2 28,14" fill="{accent}"/>
+      <circle cx="16" cy="19" r="2" fill="{secondary}"/>
+      <circle cx="24" cy="19" r="2" fill="{secondary}"/>
+      <path d="M30,28 L38,20" stroke="{accent}" stroke-width="3" stroke-linecap="round"/>
+    </g>''',
+    # Surprised owl - bloopers
+    'bloopers': '''<g transform="translate(30, 18)" opacity="0.85">
+      <ellipse cx="20" cy="28" rx="16" ry="20" fill="{accent}"/>
+      <circle cx="13" cy="22" r="8" fill="white"/>
+      <circle cx="27" cy="22" r="8" fill="white"/>
+      <circle cx="13" cy="22" r="5" fill="{secondary}"/>
+      <circle cx="27" cy="22" r="5" fill="{secondary}"/>
+      <ellipse cx="20" cy="36" rx="4" ry="3" fill="{secondary}"/>
+      <path d="M5,10 Q10,5 15,12" stroke="{accent}" stroke-width="2" fill="none"/>
+      <path d="M35,10 Q30,5 25,12" stroke="{accent}" stroke-width="2" fill="none"/>
+      <path d="M8,40 Q4,50 12,48 Q8,55 18,50" stroke="{accent}" stroke-width="2" fill="{accent}" opacity="0.5"/>
+    </g>''',
+    # Warm mugs - discussion
+    'discussion': '''<g transform="translate(25, 25)" opacity="0.85">
+      <rect x="5" y="15" width="18" height="22" rx="3" fill="{accent}"/>
+      <path d="M23,20 Q30,20 30,28 Q30,35 23,35" stroke="{accent}" stroke-width="2" fill="none"/>
+      <rect x="27" y="15" width="18" height="22" rx="3" fill="{accent}" opacity="0.7"/>
+      <path d="M45,20 Q52,20 52,28 Q52,35 45,35" stroke="{accent}" stroke-width="2" fill="none" opacity="0.7"/>
+      <path d="M12,10 Q14,5 16,10" stroke="{secondary}" stroke-width="1.5" fill="none" opacity="0.6"/>
+      <path d="M34,10 Q36,5 38,10" stroke="{secondary}" stroke-width="1.5" fill="none" opacity="0.5"/>
+    </g>''',
+    # Peaceful panda - meditation
+    'meditation': '''<g transform="translate(30, 20)" opacity="0.85">
+      <ellipse cx="20" cy="28" rx="16" ry="18" fill="white"/>
+      <ellipse cx="20" cy="28" rx="16" ry="18" fill="{accent}" opacity="0.2"/>
+      <ellipse cx="10" cy="22" rx="6" ry="5" fill="{secondary}"/>
+      <ellipse cx="30" cy="22" rx="6" ry="5" fill="{secondary}"/>
+      <path d="M8,24 Q12,22 16,24" stroke="{secondary}" stroke-width="1.5" fill="none"/>
+      <path d="M24,24 Q28,22 32,24" stroke="{secondary}" stroke-width="1.5" fill="none"/>
+      <ellipse cx="20" cy="32" rx="4" ry="2" fill="{secondary}"/>
+      <circle cx="8" cy="12" r="6" fill="{secondary}"/>
+      <circle cx="32" cy="12" r="6" fill="{secondary}"/>
+    </g>''',
+    # Party hedgehog - celebration
+    'celebration': '''<g transform="translate(30, 15)" opacity="0.85">
+      <ellipse cx="20" cy="32" rx="14" ry="12" fill="{accent}"/>
+      <path d="M8,25 L4,16 L12,22" fill="{accent}"/>
+      <path d="M16,22 L14,12 L20,20" fill="{accent}"/>
+      <path d="M24,20 L28,10 L30,18" fill="{accent}"/>
+      <polygon points="20,5 15,20 25,20" fill="{secondary}"/>
+      <circle cx="15" cy="30" r="2" fill="{secondary}"/>
+      <circle cx="25" cy="30" r="2" fill="{secondary}"/>
+      <path d="M16,36 Q20,40 24,36" stroke="{secondary}" stroke-width="1.5" fill="none"/>
+      <circle cx="8" cy="45" r="3" fill="{accent}" opacity="0.5"/>
+      <circle cx="35" cy="40" r="2" fill="{accent}" opacity="0.4"/>
+      <circle cx="40" cy="50" r="2.5" fill="{accent}" opacity="0.3"/>
+    </g>''',
+    # Welcoming bear - newcomer
+    'newcomer': '''<g transform="translate(30, 18)" opacity="0.85">
+      <ellipse cx="20" cy="28" rx="14" ry="16" fill="{accent}"/>
+      <circle cx="10" cy="12" r="6" fill="{accent}"/>
+      <circle cx="30" cy="12" r="6" fill="{accent}"/>
+      <circle cx="14" cy="24" r="2.5" fill="{secondary}"/>
+      <circle cx="26" cy="24" r="2.5" fill="{secondary}"/>
+      <ellipse cx="20" cy="32" rx="5" ry="3" fill="{secondary}"/>
+      <path d="M4,35 Q0,25 4,20" stroke="{accent}" stroke-width="4" stroke-linecap="round"/>
+      <path d="M36,35 Q40,25 36,20" stroke="{accent}" stroke-width="4" stroke-linecap="round"/>
+    </g>''',
+    # Climbing turtle - steps
+    'steps': '''<g transform="translate(25, 22)" opacity="0.85">
+      <rect x="5" y="40" width="15" height="8" fill="{secondary}" opacity="0.4"/>
+      <rect x="20" y="30" width="15" height="8" fill="{secondary}" opacity="0.5"/>
+      <rect x="35" y="20" width="15" height="8" fill="{secondary}" opacity="0.6"/>
+      <ellipse cx="32" cy="22" rx="10" ry="8" fill="{accent}"/>
+      <circle cx="40" cy="18" r="5" fill="{accent}"/>
+      <circle cx="42" cy="17" r="1.5" fill="{secondary}"/>
+      <ellipse cx="25" cy="26" rx="3" ry="2" fill="{accent}"/>
+      <ellipse cx="38" cy="26" rx="3" ry="2" fill="{accent}"/>
+    </g>''',
+    # Reading owl - literature
+    'literature': '''<g transform="translate(28, 18)" opacity="0.85">
+      <rect x="8" y="38" width="28" height="18" rx="2" fill="{secondary}" opacity="0.5"/>
+      <rect x="10" y="40" width="24" height="14" fill="white" opacity="0.3"/>
+      <ellipse cx="22" cy="25" rx="14" ry="16" fill="{accent}"/>
+      <circle cx="16" cy="22" r="5" fill="white"/>
+      <circle cx="28" cy="22" r="5" fill="white"/>
+      <circle cx="16" cy="23" r="2.5" fill="{secondary}"/>
+      <circle cx="28" cy="23" r="2.5" fill="{secondary}"/>
+      <polygon points="22,28 19,34 25,34" fill="{secondary}"/>
+      <rect x="14" cy="18" width="4" height="1.5" rx="0.5" fill="{secondary}" transform="rotate(-10, 16, 18)"/>
+      <rect x="26" cy="18" width="4" height="1.5" rx="0.5" fill="{secondary}" transform="rotate(10, 28, 18)"/>
+    </g>''',
 }
 
 
@@ -54,114 +186,298 @@ def generate_meeting_hash(meeting):
     return hashlib.md5(key_data.encode()).hexdigest()[:12]
 
 
+# Emotive scene mappings - character-based illustrations for different meeting themes
+EMOTIVE_THEMES = {
+    # Speaker/presentation meetings - heroic, inspiring vibes
+    'speaker': {
+        'keywords': ['speaker', 'speaking', 'talk', 'presentation', 'keynote', 'lecture', 'share'],
+        'scene': 'adorable cartoon fox standing confidently at a podium with a gentle spotlight, inspiring pose with one paw raised, warm encouraging atmosphere',
+        'mood': 'confident and inspiring'
+    },
+    # Fun/comedy meetings - playful and silly
+    'bloopers': {
+        'keywords': ['blooper', 'fun', 'funny', 'laugh', 'comedy', 'humor', 'silly', 'goofy', 'oops'],
+        'scene': 'cute cartoon owl with surprised wide eyes and ruffled feathers, comically tangled in colorful streamers, playful oops moment',
+        'mood': 'playful and lighthearted'
+    },
+    # Discussion/sharing meetings - cozy and intimate
+    'discussion': {
+        'keywords': ['discussion', 'share', 'sharing', 'talk', 'chat', 'conversation', 'story', 'stories'],
+        'scene': 'cozy cartoon scene with warm mugs of cocoa on a table, soft cushions, gentle lamplight creating intimate atmosphere',
+        'mood': 'warm and inviting'
+    },
+    # Meditation/mindfulness meetings - zen and peaceful
+    'meditation': {
+        'keywords': ['meditation', 'meditate', 'mindful', 'mindfulness', 'breathing', 'zen', 'reflect', 'reflection'],
+        'scene': 'serene cartoon panda sitting peacefully on a lily pad, soft lotus flowers floating nearby, gentle ripples in calm water',
+        'mood': 'peaceful and centered'
+    },
+    # Celebration/milestone meetings - joyful and festive
+    'celebration': {
+        'keywords': ['celebration', 'celebrate', 'birthday', 'anniversary', 'milestone', 'achievement', 'congrats', 'victory'],
+        'scene': 'joyful cartoon hedgehog wearing a tiny party hat, surrounded by floating balloons and confetti, beaming with pride',
+        'mood': 'joyful and celebratory'
+    },
+    # Newcomer/welcome meetings - warm and welcoming
+    'newcomer': {
+        'keywords': ['newcomer', 'welcome', 'first', 'introduction', 'intro', 'beginner', 'new member', 'orientation'],
+        'scene': 'friendly cartoon bear holding an open door with warm light spilling out, welcoming gesture with cozy interior visible',
+        'mood': 'welcoming and supportive'
+    },
+    # Step work meetings - journey and progress
+    'steps': {
+        'keywords': ['step', 'steps', '12 step', 'twelve step', 'working', 'work'],
+        'scene': 'determined cartoon turtle climbing gentle stone steps in a garden, each step glowing softly, sense of steady progress',
+        'mood': 'determined and hopeful'
+    },
+    # Literature/study meetings - thoughtful and curious
+    'literature': {
+        'keywords': ['literature', 'book', 'study', 'reading', 'big book', 'text', 'chapter'],
+        'scene': 'wise cartoon owl perched on stack of cozy books, reading glasses slightly askew, surrounded by soft candlelight',
+        'mood': 'thoughtful and curious'
+    },
+    # Women's meetings - empowering and supportive
+    'women': {
+        'keywords': ['women', 'woman', 'ladies', 'sisterhood', 'girls'],
+        'scene': 'graceful cartoon butterflies in a circle formation, soft lavender and rose colors, garden of blooming flowers',
+        'mood': 'empowering and nurturing'
+    },
+    # Men's meetings - strong and supportive
+    'men': {
+        'keywords': ['men', 'mans', 'mens', 'brotherhood', 'guys', 'stag'],
+        'scene': 'strong cartoon oak tree with deep roots visible, protective branches forming a sheltering canopy, steady and grounded',
+        'mood': 'strong and supportive'
+    },
+    # Young people meetings - energetic and vibrant
+    'young': {
+        'keywords': ['young', 'youth', 'teen', 'college', 'university', 'student'],
+        'scene': 'energetic cartoon hummingbird mid-flight among vibrant wildflowers, sense of motion and possibility',
+        'mood': 'energetic and hopeful'
+    },
+    # Gratitude meetings - thankful and warm
+    'gratitude': {
+        'keywords': ['gratitude', 'grateful', 'thankful', 'blessing', 'blessed', 'appreciation'],
+        'scene': 'content cartoon squirrel hugging a golden acorn, autumn leaves gently falling, warm sunset glow',
+        'mood': 'thankful and content'
+    },
+    # Solution/problem-solving meetings - clarity and insight
+    'solution': {
+        'keywords': ['solution', 'solve', 'answer', 'clarity', 'insight', 'breakthrough'],
+        'scene': 'clever cartoon raccoon with a lightbulb glowing softly above head, moment of realization, gentle sparkles',
+        'mood': 'insightful and clear'
+    },
+    # LGBTQ+ meetings - inclusive and colorful
+    'lgbtq': {
+        'keywords': ['lgbtq', 'lgbt', 'pride', 'rainbow', 'queer', 'inclusive'],
+        'scene': 'cheerful cartoon chameleon in gentle rainbow gradient colors, sitting on a branch with heart-shaped leaves',
+        'mood': 'inclusive and vibrant'
+    },
+    # Early morning meetings - fresh start energy
+    'morning': {
+        'keywords': ['sunrise', 'morning', 'dawn', 'early', 'breakfast', 'am', 'daybreak'],
+        'scene': 'sleepy but hopeful cartoon rooster stretching toward a soft pink sunrise, dewdrops on grass, fresh new day',
+        'mood': 'fresh and hopeful'
+    },
+    # Evening/night meetings - reflective and calm
+    'evening': {
+        'keywords': ['sunset', 'evening', 'night', 'dusk', 'twilight', 'pm', 'late'],
+        'scene': 'peaceful cartoon fireflies glowing gently in a dusky meadow, crescent moon rising, calm end of day',
+        'mood': 'reflective and peaceful'
+    },
+}
+
+
 def generate_ai_prompt(meeting):
-    """Generate a descriptive prompt for AI image generation based on meeting data."""
+    """Generate a descriptive prompt for AI image generation based on meeting data.
+
+    Creates emotive, character-based illustrations that are simple but expressive.
+    Uses cute animal characters and scenes to convey the meeting's mood and purpose.
+    """
     meeting_name = meeting.get('name', '')
     meeting_type = meeting.get('meetingType', 'AA')
     city = meeting.get('city', '')
     state = meeting.get('state', '')
     is_online = meeting.get('isOnline', False)
 
-    # Cartoonish style base
-    style = "cartoon style, vibrant colors, friendly illustration, cute and welcoming, soft rounded shapes, warm lighting, digital art, Pixar-inspired"
+    # Soft, expressive style - not loud but emotive
+    style = "soft watercolor illustration style, gentle pastel colors, expressive cartoon character, warm and inviting, simple composition, subtle emotions, Studio Ghibli inspired gentleness, cozy atmosphere"
 
     # Extract keywords from meeting name for imagery
     name_lower = meeting_name.lower() if meeting_name else ''
 
-    # Determine scene based on meeting name keywords
     scene_elements = []
+    mood = None
 
-    # Nature/outdoor keywords
-    if any(word in name_lower for word in ['sunrise', 'morning', 'dawn', 'early']):
-        scene_elements.append('beautiful sunrise over hills')
-    elif any(word in name_lower for word in ['sunset', 'evening', 'dusk']):
-        scene_elements.append('warm sunset sky with orange and pink clouds')
-    elif any(word in name_lower for word in ['mountain', 'hill', 'peak']):
-        scene_elements.append('majestic cartoon mountains')
-    elif any(word in name_lower for word in ['beach', 'ocean', 'sea', 'coast']):
-        scene_elements.append('peaceful cartoon beach with gentle waves')
-    elif any(word in name_lower for word in ['lake', 'river', 'water']):
-        scene_elements.append('serene cartoon lake reflecting the sky')
-    elif any(word in name_lower for word in ['garden', 'flower', 'bloom']):
-        scene_elements.append('colorful cartoon flower garden')
-    elif any(word in name_lower for word in ['forest', 'tree', 'wood', 'grove']):
-        scene_elements.append('friendly cartoon forest with tall trees')
-    elif any(word in name_lower for word in ['park', 'meadow', 'field']):
-        scene_elements.append('sunny cartoon park with green grass')
+    # First, check for emotive themes (character-based)
+    matched_theme = None
+    for theme_name, theme_data in EMOTIVE_THEMES.items():
+        if any(keyword in name_lower for keyword in theme_data['keywords']):
+            matched_theme = theme_data
+            break
 
-    # Time/celestial keywords
-    elif any(word in name_lower for word in ['star', 'night', 'moon']):
-        scene_elements.append('whimsical night sky with twinkling cartoon stars')
-    elif any(word in name_lower for word in ['sun', 'bright', 'light', 'ray']):
-        scene_elements.append('bright cheerful sun with warm rays')
-    elif any(word in name_lower for word in ['rainbow', 'color']):
-        scene_elements.append('cheerful cartoon rainbow arching across the sky')
+    if matched_theme:
+        scene_elements.append(matched_theme['scene'])
+        mood = matched_theme['mood']
 
-    # Hope/recovery keywords
-    elif any(word in name_lower for word in ['hope', 'new', 'fresh', 'start', 'beginning']):
-        scene_elements.append('sunrise with a winding path leading forward')
-    elif any(word in name_lower for word in ['serenity', 'peace', 'calm', 'tranquil']):
-        scene_elements.append('peaceful zen garden with smooth stones')
-    elif any(word in name_lower for word in ['strength', 'strong', 'courage']):
-        scene_elements.append('sturdy cartoon lighthouse on rocky coast')
-    elif any(word in name_lower for word in ['together', 'unity', 'group', 'circle']):
-        scene_elements.append('warm campfire circle under starry sky')
-    elif any(word in name_lower for word in ['heart', 'love', 'care']):
-        scene_elements.append('cozy cottage with warm glowing windows')
-    elif any(word in name_lower for word in ['path', 'way', 'road', 'journey']):
-        scene_elements.append('winding cartoon path through rolling hills')
-    elif any(word in name_lower for word in ['bridge', 'cross']):
-        scene_elements.append('charming cartoon bridge over gentle stream')
-
-    # Location-based imagery
-    elif city or state:
-        if state in ['CA', 'California']:
-            scene_elements.append('cartoon California coastline with palm trees')
-        elif state in ['AZ', 'Arizona']:
-            scene_elements.append('cartoon desert landscape with colorful cacti')
-        elif state in ['CO', 'Colorado']:
-            scene_elements.append('cartoon Rocky Mountain scenery')
-        elif state in ['FL', 'Florida']:
-            scene_elements.append('tropical cartoon beach with palm trees')
-        elif state in ['NY', 'New York']:
-            scene_elements.append('cozy cartoon city park with trees')
-        elif state in ['TX', 'Texas']:
-            scene_elements.append('cartoon prairie with wildflowers')
-        else:
-            scene_elements.append('friendly cartoon landscape with rolling hills')
-
-    # Default scene if no keywords matched
+    # If no emotive theme matched, fall back to nature/location-based scenes
     if not scene_elements:
-        scene_elements.append('peaceful cartoon landscape with gentle hills and a winding path')
+        # Nature/outdoor keywords with emotive characters
+        if any(word in name_lower for word in ['mountain', 'hill', 'peak', 'summit']):
+            scene_elements.append('brave cartoon mountain goat standing atop gentle peaks, gazing at horizon with quiet determination')
+            mood = 'adventurous and determined'
+        elif any(word in name_lower for word in ['beach', 'ocean', 'sea', 'coast', 'shore']):
+            scene_elements.append('content cartoon sea turtle gliding through crystal clear waters, peaceful expression, gentle waves')
+            mood = 'peaceful and free'
+        elif any(word in name_lower for word in ['lake', 'river', 'water', 'stream']):
+            scene_elements.append('serene cartoon frog sitting on lily pad, watching dragonflies dance over calm reflective water')
+            mood = 'tranquil and present'
+        elif any(word in name_lower for word in ['garden', 'flower', 'bloom', 'rose']):
+            scene_elements.append('gentle cartoon bunny among blooming flowers, nose twitching happily, soft petals floating')
+            mood = 'gentle and growing'
+        elif any(word in name_lower for word in ['forest', 'tree', 'wood', 'grove']):
+            scene_elements.append('curious cartoon deer peeking through friendly forest trees, dappled sunlight, mushrooms dotting the ground')
+            mood = 'curious and grounded'
+        elif any(word in name_lower for word in ['park', 'meadow', 'field', 'grass']):
+            scene_elements.append('happy cartoon mouse having a picnic in sunny meadow, tiny blanket with acorn treats')
+            mood = 'carefree and content'
 
-    # Meeting type colors
+        # Celestial/time keywords
+        elif any(word in name_lower for word in ['star', 'moon', 'night', 'sky']):
+            scene_elements.append('dreamy cartoon bat with big gentle eyes watching shooting stars, wrapped in cozy wings')
+            mood = 'dreamy and wonder-filled'
+        elif any(word in name_lower for word in ['sun', 'bright', 'light', 'shine']):
+            scene_elements.append('cheerful cartoon sunflower with a subtle smile, face turned toward warm gentle sunbeams')
+            mood = 'bright and optimistic'
+
+        # Hope/recovery keywords with emotive characters
+        elif any(word in name_lower for word in ['hope', 'new', 'fresh', 'start', 'beginning', 'restart']):
+            scene_elements.append('tiny cartoon sprout pushing through soil with determined expression, first rays of sunlight touching leaves')
+            mood = 'hopeful and resilient'
+        elif any(word in name_lower for word in ['serenity', 'peace', 'calm', 'tranquil', 'quiet']):
+            scene_elements.append('zen cartoon sloth hanging peacefully from branch, eyes closed in contentment, gentle breeze')
+            mood = 'serene and present'
+        elif any(word in name_lower for word in ['strength', 'strong', 'courage', 'brave', 'power']):
+            scene_elements.append('noble cartoon lion cub with gentle but confident expression, small mane blowing in breeze')
+            mood = 'strong and courageous'
+        elif any(word in name_lower for word in ['together', 'unity', 'group', 'circle', 'community']):
+            scene_elements.append('circle of different cartoon animals holding paws around warm campfire, sense of belonging')
+            mood = 'connected and supported'
+        elif any(word in name_lower for word in ['heart', 'love', 'care', 'compassion']):
+            scene_elements.append('caring cartoon elephant gently cradling a tiny bird in trunk, tender moment of kindness')
+            mood = 'loving and compassionate'
+        elif any(word in name_lower for word in ['path', 'way', 'road', 'journey', 'walk']):
+            scene_elements.append('determined cartoon caterpillar on leaf bridge over stream, looking toward distant butterfly silhouette')
+            mood = 'journeying and transforming'
+        elif any(word in name_lower for word in ['bridge', 'cross', 'connect']):
+            scene_elements.append('two cartoon otters meeting in the middle of a log bridge, paws touching in greeting')
+            mood = 'bridging and connecting'
+        elif any(word in name_lower for word in ['freedom', 'free', 'soar', 'fly']):
+            scene_elements.append('joyful cartoon bird with wings spread wide against soft clouds, expression of pure freedom')
+            mood = 'free and unburdened'
+        elif any(word in name_lower for word in ['heal', 'healing', 'recover', 'recovery']):
+            scene_elements.append('gentle cartoon phoenix chick emerging from soft embers, tiny wings beginning to glow with new life')
+            mood = 'healing and renewing'
+
+    # Location-based fallback with regional character themes
+    if not scene_elements and (city or state):
+        if state in ['CA', 'California']:
+            scene_elements.append('laid-back cartoon sea otter floating on back among kelp, watching pacific sunset')
+            mood = 'relaxed and coastal'
+        elif state in ['AZ', 'Arizona']:
+            scene_elements.append('wise cartoon roadrunner pausing on desert rock, saguaro cacti silhouetted against warm sky')
+            mood = 'resilient and warm'
+        elif state in ['CO', 'Colorado']:
+            scene_elements.append('adventurous cartoon chipmunk atop rocky mountain overlook, tiny hiking pack')
+            mood = 'adventurous and elevated'
+        elif state in ['FL', 'Florida']:
+            scene_elements.append('cheerful cartoon manatee floating in crystal springs, surrounded by gentle bubbles')
+            mood = 'gentle and tropical'
+        elif state in ['NY', 'New York']:
+            scene_elements.append('friendly cartoon pigeon in cozy central park setting, autumn leaves falling softly')
+            mood = 'urban and connected'
+        elif state in ['TX', 'Texas']:
+            scene_elements.append('proud cartoon armadillo under big starry Texas sky, bluebonnets blooming')
+            mood = 'proud and expansive'
+        elif state in ['WA', 'Washington']:
+            scene_elements.append('thoughtful cartoon salmon leaping through misty waterfall, evergreen forest backdrop')
+            mood = 'determined and fresh'
+        elif state in ['OR', 'Oregon']:
+            scene_elements.append('quirky cartoon beaver building by peaceful stream, moss-covered trees')
+            mood = 'industrious and natural'
+        else:
+            scene_elements.append('friendly cartoon robin on fence post overlooking rolling countryside, gentle breeze')
+            mood = 'grounded and hopeful'
+
+    # Default emotive scene if nothing matched
+    if not scene_elements:
+        scene_elements.append('warm cartoon hedgehog curled up by window, soft rain outside, cup of tea nearby, peaceful contentment')
+        mood = 'cozy and safe'
+
+    # Meeting type color accents (subtle, not overwhelming)
     type_colors = {
-        'AA': 'blue and gold accents',
-        'NA': 'green and teal accents',
-        'Al-Anon': 'purple and lavender accents',
-        'Other': 'warm orange and yellow accents',
+        'AA': 'soft blue and warm gold accents',
+        'NA': 'gentle green and teal accents',
+        'Al-Anon': 'soft purple and lavender accents',
+        'Other': 'warm peach and soft yellow accents',
     }
     colors = type_colors.get(meeting_type, type_colors['Other'])
 
-    # Online meeting modifier
+    # Online meeting subtle modifier
     if is_online:
-        scene_elements.append('with floating friendly clouds')
+        scene_elements.append('with soft glowing connection lines in background')
 
     scene = ', '.join(scene_elements)
 
-    prompt = f"{scene}, {colors}, {style}. No text, no words, no letters, no people, no faces, no hands. Safe for all audiences, family friendly."
+    # Build prompt with emotive guidance
+    mood_guidance = f"Convey a {mood} feeling." if mood else ""
+
+    prompt = f"{scene}, {colors}, {style}. {mood_guidance} No text, no words, no letters. Keep it simple and expressive. Safe for all audiences, family friendly."
 
     return prompt
 
 
+def get_emotive_icon_for_meeting(meeting, colors):
+    """Get the appropriate emotive icon based on meeting name keywords."""
+    meeting_name = meeting.get('name', '')
+    name_lower = meeting_name.lower() if meeting_name else ''
+
+    # Check for emotive theme keywords
+    emotive_keyword_map = {
+        'speaker': ['speaker', 'speaking', 'talk', 'presentation', 'keynote', 'lecture'],
+        'bloopers': ['blooper', 'fun', 'funny', 'laugh', 'comedy', 'humor', 'silly', 'goofy', 'oops'],
+        'discussion': ['discussion', 'sharing', 'chat', 'conversation', 'story', 'stories'],
+        'meditation': ['meditation', 'meditate', 'mindful', 'mindfulness', 'breathing', 'zen', 'reflect'],
+        'celebration': ['celebration', 'celebrate', 'birthday', 'anniversary', 'milestone', 'achievement'],
+        'newcomer': ['newcomer', 'welcome', 'introduction', 'intro', 'beginner', 'orientation'],
+        'steps': ['step', 'steps', '12 step', 'twelve step'],
+        'literature': ['literature', 'book', 'study', 'reading', 'big book', 'text', 'chapter'],
+    }
+
+    for theme, keywords in emotive_keyword_map.items():
+        if any(keyword in name_lower for keyword in keywords):
+            if theme in EMOTIVE_ICONS:
+                return EMOTIVE_ICONS[theme].format(**colors)
+
+    # Fall back to meeting type icon
+    meeting_type = meeting.get('meetingType', 'AA')
+    if meeting_type not in MEETING_TYPE_ICONS:
+        meeting_type = 'Other'
+    return MEETING_TYPE_ICONS[meeting_type].format(**colors)
+
+
 def generate_svg_placeholder(meeting):
-    """Generate an SVG placeholder thumbnail - instant, no API needed."""
+    """Generate an SVG placeholder thumbnail - instant, no API needed.
+
+    Uses emotive character-based icons that match the meeting theme.
+    """
     meeting_type = meeting.get('meetingType', 'AA')
     if meeting_type not in MEETING_TYPE_COLORS:
         meeting_type = 'Other'
 
     colors = MEETING_TYPE_COLORS[meeting_type]
-    icon = MEETING_TYPE_ICONS[meeting_type].format(**colors)
+
+    # Get appropriate emotive icon based on meeting name
+    icon = get_emotive_icon_for_meeting(meeting, colors)
 
     # Use meeting hash for unique gradient angle
     meeting_hash = generate_meeting_hash(meeting)
@@ -169,21 +485,27 @@ def generate_svg_placeholder(meeting):
 
     # Generate unique pattern based on hash
     hash_int = int(meeting_hash, 16)
-    pattern_opacity = 0.05 + (hash_int % 10) / 100
+    pattern_opacity = 0.03 + (hash_int % 8) / 100  # Subtle pattern
 
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 100 75">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%" gradientTransform="rotate({angle})">
       <stop offset="0%" style="stop-color:{colors['primary']};stop-opacity:1" />
-      <stop offset="100%" style="stop-color:{colors['secondary']};stop-opacity:1" />
+      <stop offset="50%" style="stop-color:{colors['secondary']};stop-opacity:1" />
+      <stop offset="100%" style="stop-color:{colors['primary']};stop-opacity:0.9" />
     </linearGradient>
-    <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-      <circle cx="5" cy="5" r="1" fill="white" opacity="{pattern_opacity}"/>
+    <pattern id="dots" width="8" height="8" patternUnits="userSpaceOnUse">
+      <circle cx="4" cy="4" r="0.8" fill="white" opacity="{pattern_opacity}"/>
     </pattern>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0.3"/>
+    </filter>
   </defs>
   <rect width="100" height="75" fill="url(#bg)"/>
-  <rect width="100" height="75" fill="url(#grid)"/>
-  {icon}
+  <rect width="100" height="75" fill="url(#dots)"/>
+  <g filter="url(#soft)">
+    {icon}
+  </g>
 </svg>'''
 
     return svg
