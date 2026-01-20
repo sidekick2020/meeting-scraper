@@ -35,7 +35,80 @@ AA_FEEDS = {
         "url": "https://aaphoenix.org/wp-admin/admin-ajax.php?action=meetings",
         "state": "AZ"
     },
+    "Birmingham AA": {
+        "url": "https://birminghamaa.org/wp/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
+    "West Alabama AA": {
+        "url": "https://westalaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
 }
+
+# BMLT (Basic Meeting List Toolkit) feeds for NA meetings
+# These use a different API format and need transformation
+NA_FEEDS = {
+    "Alabama NA": {
+        "url": "https://bmlt.sezf.org/main_server/client_interface/json/?switcher=GetSearchResults&services[]=80&services[]=81&services[]=82&services[]=83&services[]=85&services[]=86&services[]=87&services[]=88&services[]=89&services[]=92&services[]=125",
+        "state": "AL",
+        "type": "bmlt"
+    },
+}
+
+def transform_bmlt_to_tsml(bmlt_meeting):
+    """Transform BMLT meeting format to TSML-compatible format"""
+    # BMLT weekday is 1-7 (Sunday=1), TSML uses 0-6 (Sunday=0)
+    weekday = int(bmlt_meeting.get('weekday_tinyint', 1)) - 1
+
+    # Convert time from "HH:MM:SS" to "HH:MM"
+    start_time = bmlt_meeting.get('start_time', '')
+    if start_time and len(start_time) > 5:
+        start_time = start_time[:5]
+
+    # Build formatted address
+    street = bmlt_meeting.get('location_street', '')
+    city = bmlt_meeting.get('location_municipality', '')
+    state = bmlt_meeting.get('location_province', '')
+    postal = bmlt_meeting.get('location_postal_code_1', '')
+    formatted_address = ', '.join(filter(None, [street, city, f"{state} {postal}".strip()]))
+
+    # Determine if online/hybrid based on venue_type
+    venue_type = bmlt_meeting.get('venue_type', '1')
+    is_online = venue_type == '2'
+    is_hybrid = venue_type == '3'
+
+    return {
+        'name': bmlt_meeting.get('meeting_name', 'NA Meeting'),
+        'day': weekday,
+        'time': start_time,
+        'end_time': '',
+        'location': bmlt_meeting.get('location_text', '') or bmlt_meeting.get('location_info', ''),
+        'location_name': bmlt_meeting.get('location_text', '') or bmlt_meeting.get('location_info', ''),
+        'formatted_address': formatted_address,
+        'address': street,
+        'city': city,
+        'state': state,
+        'postal_code': postal,
+        'latitude': bmlt_meeting.get('latitude'),
+        'longitude': bmlt_meeting.get('longitude'),
+        'types': bmlt_meeting.get('formats', '').split(',') if bmlt_meeting.get('formats') else [],
+        'meeting_type': 'NA',
+        'notes': bmlt_meeting.get('comments', ''),
+        'location_notes': bmlt_meeting.get('location_info', ''),
+        'conference_url': bmlt_meeting.get('virtual_meeting_link', ''),
+        'conference_phone': bmlt_meeting.get('phone_meeting_number', ''),
+        'attendance_option': 'online' if is_online else ('hybrid' if is_hybrid else 'in_person'),
+        'region': bmlt_meeting.get('service_body_name', ''),
+    }
+
+def get_all_feeds():
+    """Get combined dictionary of all feeds (AA + NA)"""
+    all_feeds = {}
+    for name, config in AA_FEEDS.items():
+        all_feeds[name] = {**config, "type": "tsml"}
+    for name, config in NA_FEEDS.items():
+        all_feeds[name] = config  # Already has type
+    return all_feeds
 
 # Request headers to avoid 406 errors
 REQUEST_HEADERS = {
@@ -87,7 +160,7 @@ scraping_state = {
     "progress_message": "",
     # Detailed progress tracking
     "current_feed_index": 0,
-    "total_feeds": len(AA_FEEDS),
+    "total_feeds": len(AA_FEEDS) + len(NA_FEEDS),
     "current_feed_progress": 0,
     "current_feed_total": 0,
     "current_meeting": None,  # Current meeting being processed
@@ -700,6 +773,12 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
             add_log(error_msg, "error")
             return 0
 
+        # Transform BMLT meetings to TSML-compatible format
+        feed_type = feed_config.get("type", "tsml")
+        if feed_type == "bmlt":
+            add_log(f"Transforming {len(raw_meetings)} BMLT meetings to standard format", "info")
+            raw_meetings = [transform_bmlt_to_tsml(m) for m in raw_meetings]
+
         total_in_feed = len(raw_meetings)
         scraping_state["current_feed_total"] = total_in_feed
         add_log(f"Found {total_in_feed} meetings in {feed_name}", "info")
@@ -1109,12 +1188,14 @@ def run_scraper_in_background(start_from_feed=0, selected_feeds=None):
         start_from_feed: Index to start from (for resuming)
         selected_feeds: Optional list of feed names to process. If None, process all.
     """
+    all_feeds = get_all_feeds()
+
     # Get list of feeds to process
     if selected_feeds:
         # Filter to only selected feeds that exist
-        feed_names = [name for name in selected_feeds if name in AA_FEEDS]
+        feed_names = [name for name in selected_feeds if name in all_feeds]
     else:
-        feed_names = list(AA_FEEDS.keys())
+        feed_names = list(all_feeds.keys())
 
     # Update total feeds count
     scraping_state["total_feeds"] = len(feed_names)
@@ -1132,7 +1213,7 @@ def run_scraper_in_background(start_from_feed=0, selected_feeds=None):
             save_scrape_history(status="stopped", feeds_processed=feeds_completed)
             return
 
-        feed_config = AA_FEEDS[feed_name]
+        feed_config = all_feeds[feed_name]
         fetch_and_process_feed(feed_name, feed_config, idx)
         feeds_completed += 1
 
@@ -1209,13 +1290,14 @@ def start_scraping():
     scraping_state["scrape_id"] = resume_scrape_id or generate_object_id()  # Use existing or new ID
 
     # Get selected feeds (optional - if not provided, all feeds are used)
+    all_feeds = get_all_feeds()
     selected_feeds = data.get('selected_feeds', None)
     if selected_feeds:
-        feeds_to_process = [name for name in selected_feeds if name in AA_FEEDS]
+        feeds_to_process = [name for name in selected_feeds if name in all_feeds]
         scraping_state["total_feeds"] = len(feeds_to_process)
     else:
-        feeds_to_process = list(AA_FEEDS.keys())
-        scraping_state["total_feeds"] = len(AA_FEEDS)
+        feeds_to_process = list(all_feeds.keys())
+        scraping_state["total_feeds"] = len(all_feeds)
 
     if resume_scrape_id:
         current_scrape_object_id = data.get('resume_object_id')
@@ -1247,7 +1329,8 @@ def scrape_next_feed():
     data = request.json or {}
     feed_index = data.get('feed_index', 0)
 
-    feed_names = list(AA_FEEDS.keys())
+    all_feeds = get_all_feeds()
+    feed_names = list(all_feeds.keys())
 
     if feed_index >= len(feed_names):
         # All feeds processed
@@ -1283,7 +1366,7 @@ def scrape_next_feed():
         })
 
     feed_name = feed_names[feed_index]
-    feed_config = AA_FEEDS[feed_name]
+    feed_config = all_feeds[feed_name]
 
     saved = fetch_and_process_feed(feed_name, feed_config, feed_index)
 
@@ -1336,10 +1419,11 @@ def get_status():
 @app.route('/api/feeds', methods=['GET'])
 def get_feeds():
     """Get list of configured feeds"""
+    all_feeds = get_all_feeds()
     return jsonify({
         "feeds": [
-            {"name": name, "state": config["state"]}
-            for name, config in AA_FEEDS.items()
+            {"name": name, "state": config["state"], "type": config.get("type", "tsml")}
+            for name, config in all_feeds.items()
         ]
     })
 
@@ -1425,7 +1509,7 @@ def check_unfinished_scrape():
                         "total_found": unfinished.get("total_found", 0),
                         "total_saved": unfinished.get("total_saved", 0),
                         "feeds_processed": unfinished.get("feeds_processed", 0),
-                        "total_feeds": len(AA_FEEDS),
+                        "total_feeds": len(get_all_feeds()),
                         "meetings_by_state": unfinished.get("meetings_by_state", {}),
                     }
                 })
@@ -1498,7 +1582,7 @@ def get_coverage():
                 "population": population * 1000,  # Convert to actual population
                 "meetings": meetings,
                 "coveragePer100k": round(coverage_per_100k, 2),
-                "hasFeed": any(feed["state"] == state_code for feed in AA_FEEDS.values()),
+                "hasFeed": any(feed["state"] == state_code for feed in get_all_feeds().values()),
             })
 
         # Sort by coverage (lowest first to show gaps)
