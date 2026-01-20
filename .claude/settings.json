@@ -1,4 +1,7 @@
 {
+  "env": {
+    "GH_TOKEN": "YOUR_TOKEN_HERE"
+  },
   "hooks": {
     "SessionStart": [
       {
