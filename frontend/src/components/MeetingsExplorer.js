@@ -558,6 +558,29 @@ function MeetingsExplorer({ onAdminClick }) {
                     onMouseLeave={() => handleMeetingHover(null)}
                   >
                     <div className="meeting-card-image">
+                      {meeting.thumbnailUrl ? (
+                        <img
+                          src={meeting.thumbnailUrl}
+                          alt={meeting.name || 'Meeting thumbnail'}
+                          className="meeting-card-thumbnail"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="meeting-card-icon">
+                          {meeting.isOnline ? (
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="2" y="3" width="20" height="14" rx="2"/>
+                              <path d="M8 21h8"/>
+                              <path d="M12 17v4"/>
+                            </svg>
+                          ) : (
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                              <circle cx="12" cy="10" r="3"/>
+                            </svg>
+                          )}
+                        </div>
+                      )}
                       <div className="meeting-card-type-badge">
                         {meeting.meetingType}
                       </div>
@@ -566,20 +589,6 @@ function MeetingsExplorer({ onAdminClick }) {
                           {meeting.isHybrid ? 'Hybrid' : 'Online'}
                         </div>
                       )}
-                      <div className="meeting-card-icon">
-                        {meeting.isOnline ? (
-                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <rect x="2" y="3" width="20" height="14" rx="2"/>
-                            <path d="M8 21h8"/>
-                            <path d="M12 17v4"/>
-                          </svg>
-                        ) : (
-                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                            <circle cx="12" cy="10" r="3"/>
-                          </svg>
-                        )}
-                      </div>
                     </div>
                     <div className="meeting-card-content">
                       <div className="meeting-card-location">
