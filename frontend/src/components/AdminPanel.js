@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Dashboard from './Dashboard';
-import ConfigModal from './ConfigModal';
+import SettingsModal from './SettingsModal';
 import Stats from './Stats';
 import MeetingsList from './MeetingsList';
 import ActivityLog from './ActivityLog';
@@ -869,11 +869,17 @@ function AdminPanel({ onBackToPublic }) {
 
       {/* Modals */}
       {showConfig && (
-        <ConfigModal
+        <SettingsModal
           config={config}
           onSave={saveConfig}
           onClose={() => setShowConfig(false)}
           isSaving={isSavingConfig}
+          currentUser={{
+            email: user?.email,
+            name: user?.name,
+            role: 'admin',
+            isOwner: user?.email === 'chris.thompson@sobersidekick.com'
+          }}
         />
       )}
 
