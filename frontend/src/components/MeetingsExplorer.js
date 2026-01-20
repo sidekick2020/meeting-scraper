@@ -24,47 +24,99 @@ function MeetingsExplorer({ onAdminClick }) {
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Map bounds for dynamic loading
+  const [mapBounds, setMapBounds] = useState(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   // Get unique values from meetings
   const [availableStates, setAvailableStates] = useState([]);
   const [availableCities, setAvailableCities] = useState([]);
   const [availableTypes, setAvailableTypes] = useState([]);
 
   const listRef = useRef(null);
+  const boundsTimeoutRef = useRef(null);
 
-  const fetchMeetings = useCallback(async () => {
-    setIsLoading(true);
+  const fetchMeetings = useCallback(async (bounds = null) => {
+    if (bounds) {
+      setIsLoadingMore(true);
+    } else {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/meetings?limit=1000`);
+      let url = `${BACKEND_URL}/api/meetings?limit=1000`;
+
+      // Add bounds parameters if provided
+      if (bounds) {
+        url += `&north=${bounds.north}&south=${bounds.south}&east=${bounds.east}&west=${bounds.west}`;
+      }
+
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
-        setMeetings(data.meetings || []);
+        const newMeetings = data.meetings || [];
 
-        // Extract unique states
-        const states = [...new Set(data.meetings.map(m => m.state).filter(Boolean))].sort();
-        setAvailableStates(states);
+        if (bounds) {
+          // Merge new meetings with existing ones, avoiding duplicates
+          setMeetings(prev => {
+            const existingIds = new Set(prev.map(m => m.objectId));
+            const uniqueNew = newMeetings.filter(m => !existingIds.has(m.objectId));
+            return [...prev, ...uniqueNew];
+          });
+        } else {
+          setMeetings(newMeetings);
+        }
 
-        // Extract unique cities
-        const cities = [...new Set(data.meetings.map(m => m.city).filter(Boolean))].sort();
-        setAvailableCities(cities);
+        // Extract unique values (only on initial load)
+        if (!bounds) {
+          const states = [...new Set(newMeetings.map(m => m.state).filter(Boolean))].sort();
+          setAvailableStates(states);
 
-        // Extract unique types
-        const types = [...new Set(data.meetings.map(m => m.meetingType).filter(Boolean))].sort();
-        setAvailableTypes(types);
+          const cities = [...new Set(newMeetings.map(m => m.city).filter(Boolean))].sort();
+          setAvailableCities(cities);
+
+          const types = [...new Set(newMeetings.map(m => m.meetingType).filter(Boolean))].sort();
+          setAvailableTypes(types);
+        }
       } else {
-        setError('Failed to load meetings');
+        if (!bounds) setError('Failed to load meetings');
       }
     } catch (err) {
-      setError('Unable to connect to server');
+      if (!bounds) setError('Unable to connect to server');
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
     fetchMeetings();
   }, [fetchMeetings]);
+
+  // Handle map bounds change with debouncing
+  const handleBoundsChange = useCallback((bounds) => {
+    // Clear any pending timeout
+    if (boundsTimeoutRef.current) {
+      clearTimeout(boundsTimeoutRef.current);
+    }
+
+    // Debounce the fetch to avoid too many requests
+    boundsTimeoutRef.current = setTimeout(() => {
+      setMapBounds(bounds);
+      // Fetch meetings for the new bounds
+      fetchMeetings(bounds);
+    }, 500);
+  }, [fetchMeetings]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (boundsTimeoutRef.current) {
+        clearTimeout(boundsTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Apply filters
   useEffect(() => {
@@ -313,12 +365,21 @@ function MeetingsExplorer({ onAdminClick }) {
                 <p>Loading map...</p>
               </div>
             ) : (
-              <MeetingMap
-                meetings={filteredMeetings}
-                onSelectMeeting={handleMapMarkerClick}
-                hoveredMeeting={hoveredMeeting}
-                showHeatmap={filteredMeetings.length > 50}
-              />
+              <>
+                <MeetingMap
+                  meetings={filteredMeetings}
+                  onSelectMeeting={handleMapMarkerClick}
+                  hoveredMeeting={hoveredMeeting}
+                  showHeatmap={filteredMeetings.length > 50}
+                  onBoundsChange={handleBoundsChange}
+                />
+                {isLoadingMore && (
+                  <div className="map-loading-overlay">
+                    <div className="loading-spinner small"></div>
+                    <span>Loading meetings in this area...</span>
+                  </div>
+                )}
+              </>
             )
           )}
         </div>

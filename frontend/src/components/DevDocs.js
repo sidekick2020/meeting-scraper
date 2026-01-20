@@ -5,84 +5,87 @@ function DevDocs({ onClose }) {
   const [activeTab, setActiveTab] = useState('overview');
 
   return (
-    <div className="dev-docs-overlay">
-      <div className="dev-docs-container">
-        <header className="dev-docs-header">
-          <div className="dev-docs-title">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14,2 14,8 20,8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
-              <polyline points="10,9 9,9 8,9"/>
-            </svg>
-            <h1>Developer Documentation</h1>
-          </div>
-          <button onClick={onClose} className="dev-docs-close">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </header>
-
-        <div className="dev-docs-layout">
-          <nav className="dev-docs-sidebar">
-            <div className="sidebar-section">
-              <h3>Documentation</h3>
-              <button
-                className={`sidebar-item ${activeTab === 'overview' ? 'active' : ''}`}
-                onClick={() => setActiveTab('overview')}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                  <polyline points="9,22 9,12 15,12 15,22"/>
-                </svg>
-                Overview
-              </button>
-              <button
-                className={`sidebar-item ${activeTab === 'schema' ? 'active' : ''}`}
-                onClick={() => setActiveTab('schema')}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <ellipse cx="12" cy="5" rx="9" ry="3"/>
-                  <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-                  <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-                </svg>
-                Meeting Schema
-              </button>
-              <button
-                className={`sidebar-item ${activeTab === 'api' ? 'active' : ''}`}
-                onClick={() => setActiveTab('api')}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 20V10"/>
-                  <path d="M12 20V4"/>
-                  <path d="M6 20v-6"/>
-                </svg>
-                API Reference
-              </button>
-              <button
-                className={`sidebar-item ${activeTab === 'deployment' ? 'active' : ''}`}
-                onClick={() => setActiveTab('deployment')}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                </svg>
-                Deployment
-              </button>
+    <>
+      <div className="dev-docs-backdrop" onClick={onClose} />
+      <div className="dev-docs-overlay">
+        <div className="dev-docs-container">
+          <header className="dev-docs-header">
+            <div className="dev-docs-title">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14,2 14,8 20,8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10,9 9,9 8,9"/>
+              </svg>
+              <h1>Documentation</h1>
             </div>
-          </nav>
+            <button onClick={onClose} className="dev-docs-close">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </header>
 
-          <main className="dev-docs-content">
-            {activeTab === 'overview' && <OverviewTab />}
-            {activeTab === 'schema' && <MeetingSchema />}
-            {activeTab === 'api' && <ApiReferenceTab />}
-            {activeTab === 'deployment' && <DeploymentTab />}
-          </main>
+          <div className="dev-docs-layout">
+            <nav className="dev-docs-sidebar">
+              <div className="sidebar-section">
+                <h3>Documentation</h3>
+                <button
+                  className={`sidebar-item ${activeTab === 'overview' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('overview')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9,22 9,12 15,12 15,22"/>
+                  </svg>
+                  Overview
+                </button>
+                <button
+                  className={`sidebar-item ${activeTab === 'schema' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('schema')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                  </svg>
+                  Meeting Schema
+                </button>
+                <button
+                  className={`sidebar-item ${activeTab === 'api' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('api')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 20V10"/>
+                    <path d="M12 20V4"/>
+                    <path d="M6 20v-6"/>
+                  </svg>
+                  API Reference
+                </button>
+                <button
+                  className={`sidebar-item ${activeTab === 'deployment' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('deployment')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                  </svg>
+                  Deployment
+                </button>
+              </div>
+            </nav>
+
+            <main className="dev-docs-content">
+              {activeTab === 'overview' && <OverviewTab />}
+              {activeTab === 'schema' && <MeetingSchema />}
+              {activeTab === 'api' && <ApiReferenceTab />}
+              {activeTab === 'deployment' && <DeploymentTab />}
+            </main>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

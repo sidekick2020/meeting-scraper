@@ -1102,9 +1102,23 @@ def save_scrape_history(status="completed", feeds_processed=0):
 
     return history_entry
 
-def run_scraper_in_background(start_from_feed=0):
-    """Background thread function to process all feeds"""
-    feed_names = list(AA_FEEDS.keys())
+def run_scraper_in_background(start_from_feed=0, selected_feeds=None):
+    """Background thread function to process all feeds
+
+    Args:
+        start_from_feed: Index to start from (for resuming)
+        selected_feeds: Optional list of feed names to process. If None, process all.
+    """
+    # Get list of feeds to process
+    if selected_feeds:
+        # Filter to only selected feeds that exist
+        feed_names = [name for name in selected_feeds if name in AA_FEEDS]
+    else:
+        feed_names = list(AA_FEEDS.keys())
+
+    # Update total feeds count
+    scraping_state["total_feeds"] = len(feed_names)
+
     feeds_completed = start_from_feed  # Start from resume point if resuming
 
     for idx, feed_name in enumerate(feed_names):
@@ -1194,18 +1208,32 @@ def start_scraping():
     scraping_state["started_at"] = data.get('resume_started_at') or datetime.now().isoformat()
     scraping_state["scrape_id"] = resume_scrape_id or generate_object_id()  # Use existing or new ID
 
+    # Get selected feeds (optional - if not provided, all feeds are used)
+    selected_feeds = data.get('selected_feeds', None)
+    if selected_feeds:
+        feeds_to_process = [name for name in selected_feeds if name in AA_FEEDS]
+        scraping_state["total_feeds"] = len(feeds_to_process)
+    else:
+        feeds_to_process = list(AA_FEEDS.keys())
+        scraping_state["total_feeds"] = len(AA_FEEDS)
+
     if resume_scrape_id:
         current_scrape_object_id = data.get('resume_object_id')
-        add_log(f"Resuming scrape - starting from feed {resume_feeds_processed + 1} of {len(AA_FEEDS)}", "info")
+        add_log(f"Resuming scrape - starting from feed {resume_feeds_processed + 1} of {scraping_state['total_feeds']}", "info")
     else:
         current_scrape_object_id = None  # Reset for new scrape
-        add_log(f"Scraping started - {len(AA_FEEDS)} feeds to process", "info")
+        feed_names = ', '.join(feeds_to_process) if len(feeds_to_process) <= 3 else f"{len(feeds_to_process)} feeds"
+        add_log(f"Scraping started - {feed_names}", "info")
 
         # Create initial scrape history record in Back4app immediately
         save_scrape_history(status="in_progress", feeds_processed=0)
 
-    # Start background thread with resume offset
-    thread = threading.Thread(target=run_scraper_in_background, args=(resume_feeds_processed,), daemon=True)
+    # Start background thread with resume offset and selected feeds
+    thread = threading.Thread(
+        target=run_scraper_in_background,
+        args=(resume_feeds_processed, selected_feeds),
+        daemon=True
+    )
     thread.start()
 
     return jsonify({"success": True, "message": "Scraper started", "scrape_id": scraping_state["scrape_id"]})
@@ -1522,6 +1550,12 @@ def get_meetings():
         search = request.args.get('search', '')
         meeting_type = request.args.get('type', '')
 
+        # Geographic bounding box parameters
+        north = request.args.get('north', type=float)
+        south = request.args.get('south', type=float)
+        east = request.args.get('east', type=float)
+        west = request.args.get('west', type=float)
+
         # Build where clause
         where = {}
         if state:
@@ -1533,6 +1567,11 @@ def get_meetings():
         if search:
             # Search in name field (case-insensitive regex)
             where['name'] = {"$regex": search, "$options": "i"}
+
+        # Add geographic bounds filtering
+        if all(v is not None for v in [north, south, east, west]):
+            where['latitude'] = {"$gte": south, "$lte": north}
+            where['longitude'] = {"$gte": west, "$lte": east}
 
         import urllib.parse
         params = {

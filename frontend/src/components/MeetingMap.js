@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -70,18 +70,55 @@ function HeatmapLayer({ meetings }) {
 }
 
 // Component to fit map bounds to markers
-function FitBounds({ meetings }) {
+function FitBounds({ meetings, initialFitDone, onInitialFit }) {
   const map = useMap();
 
   useEffect(() => {
+    // Only auto-fit on initial load, not on subsequent meeting updates
+    if (initialFitDone) return;
+
     const validMeetings = meetings.filter(m => m.latitude && m.longitude);
     if (validMeetings.length > 0) {
       const bounds = L.latLngBounds(
         validMeetings.map(m => [m.latitude, m.longitude])
       );
       map.fitBounds(bounds, { padding: [20, 20], maxZoom: 10 });
+      if (onInitialFit) onInitialFit();
     }
-  }, [map, meetings]);
+  }, [map, meetings, initialFitDone, onInitialFit]);
+
+  return null;
+}
+
+// Component to handle map movement events
+function MapEventHandler({ onBoundsChange }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!onBoundsChange) return;
+
+    const handleMoveEnd = () => {
+      const bounds = map.getBounds();
+      onBoundsChange({
+        north: bounds.getNorth(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        west: bounds.getWest(),
+        zoom: map.getZoom()
+      });
+    };
+
+    map.on('moveend', handleMoveEnd);
+    map.on('zoomend', handleMoveEnd);
+
+    // Emit initial bounds
+    handleMoveEnd();
+
+    return () => {
+      map.off('moveend', handleMoveEnd);
+      map.off('zoomend', handleMoveEnd);
+    };
+  }, [map, onBoundsChange]);
 
   return null;
 }
@@ -89,7 +126,13 @@ function FitBounds({ meetings }) {
 // Format day number to day name
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function MeetingMap({ meetings, onSelectMeeting, showHeatmap = true }) {
+function MeetingMap({ meetings, onSelectMeeting, showHeatmap = true, onBoundsChange }) {
+  const [initialFitDone, setInitialFitDone] = useState(false);
+
+  const handleInitialFit = useCallback(() => {
+    setInitialFitDone(true);
+  }, []);
+
   // Filter meetings with valid coordinates
   const validMeetings = useMemo(() =>
     meetings.filter(m => m.latitude && m.longitude &&
@@ -145,7 +188,12 @@ function MeetingMap({ meetings, onSelectMeeting, showHeatmap = true }) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <FitBounds meetings={validMeetings} />
+        <FitBounds
+          meetings={validMeetings}
+          initialFitDone={initialFitDone}
+          onInitialFit={handleInitialFit}
+        />
+        {onBoundsChange && <MapEventHandler onBoundsChange={onBoundsChange} />}
 
         {showHeatmap && validMeetings.length > 10 && (
           <HeatmapLayer meetings={validMeetings} />

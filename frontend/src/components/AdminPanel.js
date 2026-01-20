@@ -52,6 +52,17 @@ function AdminPanel({ onBackToPublic }) {
   const [checkedUnfinished, setCheckedUnfinished] = useState(false);
   const [showScrapeChoiceModal, setShowScrapeChoiceModal] = useState(false);
   const [feeds, setFeeds] = useState([]);
+  const [selectedFeeds, setSelectedFeeds] = useState([]);
+  const [showFeedSelector, setShowFeedSelector] = useState(false);
+
+  // Directory state
+  const [directoryMeetings, setDirectoryMeetings] = useState([]);
+  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [directorySearch, setDirectorySearch] = useState('');
+  const [directoryState, setDirectoryState] = useState('');
+  const [directoryPage, setDirectoryPage] = useState(0);
+  const [directoryTotal, setDirectoryTotal] = useState(0);
+  const DIRECTORY_PAGE_SIZE = 50;
 
   const isRunningRef = useRef(false);
   const pollIntervalRef = useRef(null);
@@ -93,12 +104,36 @@ function AdminPanel({ onBackToPublic }) {
       const response = await fetch(`${BACKEND_URL}/api/feeds`);
       if (response.ok) {
         const data = await response.json();
-        setFeeds(data.feeds || []);
+        const feedList = data.feeds || [];
+        setFeeds(feedList);
+        // Initialize all feeds as selected
+        setSelectedFeeds(feedList.map(f => f.name));
       }
     } catch (error) {
       console.error('Error fetching feeds:', error);
     }
   }, []);
+
+  // Fetch directory meetings
+  const fetchDirectoryMeetings = useCallback(async (page = 0, search = '', state = '') => {
+    setDirectoryLoading(true);
+    try {
+      let url = `${BACKEND_URL}/api/meetings?limit=${DIRECTORY_PAGE_SIZE}&skip=${page * DIRECTORY_PAGE_SIZE}`;
+      if (search) url += `&search=${encodeURIComponent(search)}`;
+      if (state) url += `&state=${encodeURIComponent(state)}`;
+
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setDirectoryMeetings(data.meetings || []);
+        setDirectoryTotal(data.total || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching directory meetings:', error);
+    } finally {
+      setDirectoryLoading(false);
+    }
+  }, [DIRECTORY_PAGE_SIZE]);
 
   const checkConnection = useCallback(async () => {
     try {
@@ -166,20 +201,44 @@ function AdminPanel({ onBackToPublic }) {
     };
   }, [scrapingState.is_running, checkConnection]);
 
+  // Fetch directory meetings when section is active or filters change
+  useEffect(() => {
+    if (activeSection === 'directory') {
+      fetchDirectoryMeetings(directoryPage, directorySearch, directoryState);
+    }
+  }, [activeSection, directoryPage, directorySearch, directoryState, fetchDirectoryMeetings]);
+
   const handleStartClick = () => {
     // If scraper is currently running OR there's an unfinished scrape, show choice modal
     if (scrapingState.is_running || unfinishedScrape) {
       setShowScrapeChoiceModal(true);
     } else {
-      startScraping();
+      // Show feed selector for new scrape
+      setShowFeedSelector(true);
     }
+  };
+
+  const toggleFeedSelection = (feedName) => {
+    setSelectedFeeds(prev =>
+      prev.includes(feedName)
+        ? prev.filter(f => f !== feedName)
+        : [...prev, feedName]
+    );
+  };
+
+  const selectAllFeeds = () => {
+    setSelectedFeeds(feeds.map(f => f.name));
+  };
+
+  const selectNoFeeds = () => {
+    setSelectedFeeds([]);
   };
 
   const startScraping = async (abandonOld = false) => {
     try {
       const body = abandonOld && unfinishedScrape
-        ? { abandon_scrape_id: unfinishedScrape.objectId, force: true }
-        : { force: true };  // Always force to handle stuck state
+        ? { abandon_scrape_id: unfinishedScrape.objectId, force: true, selected_feeds: selectedFeeds }
+        : { force: true, selected_feeds: selectedFeeds };  // Always force to handle stuck state
 
       const response = await fetch(`${BACKEND_URL}/api/start`, {
         method: 'POST',
@@ -207,6 +266,7 @@ function AdminPanel({ onBackToPublic }) {
         setRecentMeetings([]);
         setUnfinishedScrape(null); // Clear any unfinished scrape notice
         setShowScrapeChoiceModal(false);
+        setShowFeedSelector(false);
         isRunningRef.current = true;
       } else {
         alert(data.message);
@@ -543,17 +603,129 @@ function AdminPanel({ onBackToPublic }) {
         );
 
       case 'directory':
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const formatTime = (time) => {
+          if (!time) return '';
+          const [hours, minutes] = time.split(':');
+          const hour = parseInt(hours, 10);
+          const ampm = hour >= 12 ? 'PM' : 'AM';
+          const hour12 = hour % 12 || 12;
+          return `${hour12}:${minutes} ${ampm}`;
+        };
+
         return (
-          <div className="directory-placeholder">
-            <div className="placeholder-icon">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-                <polyline points="9,22 9,12 15,12 15,22"/>
-              </svg>
+          <div className="directory-section">
+            <div className="directory-toolbar">
+              <div className="directory-search">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search meetings..."
+                  value={directorySearch}
+                  onChange={(e) => {
+                    setDirectorySearch(e.target.value);
+                    setDirectoryPage(0);
+                  }}
+                />
+              </div>
+              <select
+                className="directory-filter"
+                value={directoryState}
+                onChange={(e) => {
+                  setDirectoryState(e.target.value);
+                  setDirectoryPage(0);
+                }}
+              >
+                <option value="">All States</option>
+                <option value="AZ">Arizona</option>
+                <option value="CA">California</option>
+              </select>
+              <div className="directory-count">
+                {directoryTotal} meeting{directoryTotal !== 1 ? 's' : ''}
+              </div>
             </div>
-            <h2>Meeting Directory</h2>
-            <p>Browse and search all meetings in the database.</p>
-            <p className="coming-soon">Coming Soon</p>
+
+            {directoryLoading ? (
+              <div className="directory-loading">
+                <div className="loading-spinner"></div>
+                <p>Loading meetings...</p>
+              </div>
+            ) : directoryMeetings.length === 0 ? (
+              <div className="directory-empty">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <p>No meetings found</p>
+              </div>
+            ) : (
+              <>
+                <div className="directory-table-wrapper">
+                  <table className="directory-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Location</th>
+                        <th>Day</th>
+                        <th>Time</th>
+                        <th>Type</th>
+                        <th>State</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {directoryMeetings.map((meeting, index) => (
+                        <tr
+                          key={meeting.objectId || index}
+                          onClick={() => setSelectedMeeting(meeting)}
+                          className="directory-row"
+                        >
+                          <td className="meeting-name-cell">
+                            <span className="meeting-name">{meeting.name || 'Unnamed'}</span>
+                            {meeting.isOnline && (
+                              <span className="online-badge">
+                                {meeting.isHybrid ? 'Hybrid' : 'Online'}
+                              </span>
+                            )}
+                          </td>
+                          <td className="location-cell">
+                            {meeting.locationName || meeting.address || '—'}
+                          </td>
+                          <td>{meeting.day !== undefined ? dayNames[meeting.day] : '—'}</td>
+                          <td>{formatTime(meeting.time) || '—'}</td>
+                          <td>
+                            <span className="type-badge">{meeting.meetingType || '—'}</span>
+                          </td>
+                          <td>{meeting.state || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="directory-pagination">
+                  <button
+                    className="btn btn-ghost"
+                    disabled={directoryPage === 0}
+                    onClick={() => setDirectoryPage(p => Math.max(0, p - 1))}
+                  >
+                    Previous
+                  </button>
+                  <span className="pagination-info">
+                    Page {directoryPage + 1} of {Math.ceil(directoryTotal / DIRECTORY_PAGE_SIZE) || 1}
+                  </span>
+                  <button
+                    className="btn btn-ghost"
+                    disabled={(directoryPage + 1) * DIRECTORY_PAGE_SIZE >= directoryTotal}
+                    onClick={() => setDirectoryPage(p => p + 1)}
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         );
 
@@ -779,6 +951,64 @@ function AdminPanel({ onBackToPublic }) {
                 </div>
               </>
             ) : null}
+          </div>
+        </div>
+      )}
+
+      {showFeedSelector && (
+        <div className="modal-overlay">
+          <div className="modal feed-selector-modal">
+            <h2>Select Sources to Scrape</h2>
+            <p className="feed-selector-info">
+              Choose which data sources to include in this scrape.
+            </p>
+
+            <div className="feed-selector-actions">
+              <button onClick={selectAllFeeds} className="btn btn-ghost btn-sm">
+                Select All
+              </button>
+              <button onClick={selectNoFeeds} className="btn btn-ghost btn-sm">
+                Select None
+              </button>
+            </div>
+
+            <div className="feed-selector-list">
+              {feeds.map((feed) => (
+                <label key={feed.name} className="feed-selector-item">
+                  <input
+                    type="checkbox"
+                    checked={selectedFeeds.includes(feed.name)}
+                    onChange={() => toggleFeedSelection(feed.name)}
+                  />
+                  <span className="feed-checkbox"></span>
+                  <div className="feed-item-info">
+                    <span className="feed-item-name">{feed.name}</span>
+                    <span className="feed-item-state">{feed.state}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            <div className="feed-selector-footer">
+              <span className="selected-count">
+                {selectedFeeds.length} of {feeds.length} selected
+              </span>
+              <div className="feed-selector-buttons">
+                <button
+                  onClick={() => setShowFeedSelector(false)}
+                  className="btn btn-ghost"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => startScraping(false)}
+                  className="btn btn-primary"
+                  disabled={selectedFeeds.length === 0}
+                >
+                  Start Scraping
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
