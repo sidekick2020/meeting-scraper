@@ -62,6 +62,25 @@ AA_FEEDS = {
         "url": "https://indyaa.org/wp-admin/admin-ajax.php?action=meetings",
         "state": "IN"
     },
+    # Texas feeds (verified January 2026)
+    "Houston AA": {
+        "url": "https://aahouston.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "TX"
+    },
+    "Austin AA": {
+        "url": "https://www.austinaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "TX"
+    },
+    # Georgia feeds (verified January 2026)
+    "Atlanta AA": {
+        "url": "https://atlantaaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "GA"
+    },
+    # Colorado feeds (verified January 2026)
+    "Boulder AA": {
+        "url": "https://www.bouldercountyaa.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CO"
+    },
 }
 
 # BMLT (Basic Meeting List Toolkit) feeds for NA meetings

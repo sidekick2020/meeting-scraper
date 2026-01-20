@@ -32,15 +32,18 @@ cd frontend && npm install && npm start
 
 ## Current Coverage
 
-### Active Feeds (7 States)
+### Active Feeds (10 States)
 
 | State | Feeds | Types | Est. Meetings |
 |-------|-------|-------|---------------|
 | **Alabama** | Birmingham AA, West Alabama AA, Alabama NA | AA, NA | ~500 |
 | **Arizona** | Phoenix AA | AA | ~400 |
 | **California** | Bay Area AA, San Diego AA | AA | ~600 |
+| **Colorado** | Boulder AA | AA | ~200 |
+| **Georgia** | Atlanta AA | AA | ~800 |
 | **Indiana** | Indianapolis AA | AA | ~470 |
 | **Missouri** | Missouri NA | NA | ~624 |
+| **Texas** | Houston AA, Austin AA | AA | ~1,500 |
 | **Virginia** | Richmond AA, Blue Ridge AA | AA | ~742 |
 | **Washington** | Eastside AA (Seattle) | AA | ~439 |
 
@@ -51,13 +54,11 @@ The following high-population states currently have **no active feeds**:
 
 | State | Population | Priority |
 |-------|------------|----------|
-| Texas | 30.5M | Critical |
 | Florida | 22.6M | Critical |
 | New York | 19.6M | Critical |
 | Pennsylvania | 13.0M | High |
 | Illinois | 12.6M | High |
 | Ohio | 11.8M | High |
-| Georgia | 11.0M | High |
 | North Carolina | 10.8M | High |
 | Michigan | 10.0M | High |
 | New Jersey | 9.3M | High |
@@ -324,10 +325,9 @@ meeting-scraper/
 
 </details>
 
-<details>
-<summary><h2>Data Schema</h2></summary>
+## Data Schema
 
-Each meeting record includes:
+Each meeting record in the `Meetings` class includes:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -345,7 +345,7 @@ Each meeting record includes:
 | `onlineUrl` | String | Zoom/video link |
 | `types` | Array | Meeting type codes |
 
-</details>
+📋 **[Full Schema Documentation →](docs/SCHEMA.md)** - Complete field reference, type codes, and query examples
 
 <details>
 <summary><h2>Deployment</h2></summary>
@@ -390,19 +390,43 @@ npm run build
 
 </details>
 
-<details>
-<summary><h2>Mobile Integration</h2></summary>
+## Mobile Integration
 
-The documentation includes comprehensive guides for integrating meeting data into mobile apps:
+Integrate meeting data directly into your iOS and Android apps using Back4app's Parse SDK.
 
-- **iOS**: ParseSwift SDK with SwiftUI examples
-- **Android**: Parse-SDK-Android with Jetpack Compose examples
+| Platform | SDK | Guide |
+|----------|-----|-------|
+| **iOS** | [ParseSwift](https://github.com/parse-community/Parse-Swift) | SwiftUI + async/await examples |
+| **Android** | [Parse-SDK-Android](https://github.com/parse-community/Parse-SDK-Android) | Jetpack Compose + Coroutines |
 
-See [Mobile Quick Start Guide](docs/MOBILE_QUICKSTART.md) for detailed instructions.
+### Quick Example (iOS)
 
-Access interactive guides from the Docs section in the admin dashboard.
+```swift
+// Query meetings by state
+let meetings = try await ParseQuery<Meeting>()
+    .where("state" == "CA")
+    .order([.ascending("day"), .ascending("time")])
+    .find()
+```
 
-</details>
+### Quick Example (Android)
+
+```kotlin
+// Query meetings by state
+val query = ParseQuery.getQuery(Meeting::class.java)
+query.whereEqualTo("state", "CA")
+query.orderByAscending("day")
+val meetings = query.find()
+```
+
+📱 **[Full Mobile Quick Start Guide →](docs/MOBILE_QUICKSTART.md)**
+
+The guide includes:
+- Complete model definitions for both platforms
+- Query examples (by state, day, type, location)
+- Nearby meeting search with geolocation
+- Offline caching setup
+- Error handling patterns
 
 <details>
 <summary><h2>Troubleshooting</h2></summary>
