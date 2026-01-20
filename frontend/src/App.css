@@ -3733,8 +3733,8 @@ a.sidebar-nav-item {
 
 .logo-tagline {
   font-size: 0.65rem;
-  font-weight: 400;
-  color: var(--text-muted);
+  font-weight: 500;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
