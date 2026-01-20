@@ -294,12 +294,7 @@ function MeetingsExplorer({ onAdminClick }) {
       {/* Top Navigation Bar */}
       <header className="airbnb-header">
         <div className="airbnb-logo" onClick={() => window.location.reload()}>
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-            <circle cx="9" cy="7" r="4"/>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-          </svg>
+          <img src="/favicon.svg" alt="Sober Sidekick" className="logo-icon" />
           <div className="logo-text">
             <span className="logo-brand">Sober Sidekick</span>
             <span className="logo-tagline">You're Never Alone</span>
@@ -611,6 +606,140 @@ function MeetingsExplorer({ onAdminClick }) {
         onClose={() => setSelectedMeeting(null)}
         isSidebar={true}
       />
+
+      {/* Filter Modal */}
+      {showFilters && (
+        <>
+          <div className="filter-modal-backdrop" onClick={() => setShowFilters(false)} />
+          <div className="filter-modal">
+            <div className="filter-modal-header">
+              <h2>Filters</h2>
+              <button className="filter-modal-close" onClick={() => setShowFilters(false)}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+
+            <div className="filter-modal-content">
+              {/* Quick Filters */}
+              <div className="filter-section">
+                <h3>Quick filters</h3>
+                <div className="filter-quick-options">
+                  <button
+                    className={`filter-quick-btn ${showOnlineOnly ? 'active' : ''}`}
+                    onClick={() => setShowOnlineOnly(!showOnlineOnly)}
+                  >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="2" y="3" width="20" height="14" rx="2"/>
+                      <path d="M8 21h8"/>
+                      <path d="M12 17v4"/>
+                    </svg>
+                    <span>Online</span>
+                  </button>
+                  {availableTypes.slice(0, 4).map(type => (
+                    <button
+                      key={type}
+                      className={`filter-quick-btn ${selectedType === type ? 'active' : ''}`}
+                      onClick={() => setSelectedType(selectedType === type ? '' : type)}
+                    >
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 8v8"/>
+                        <path d="M8 12h8"/>
+                      </svg>
+                      <span>{type}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Meeting Type */}
+              <div className="filter-section">
+                <h3>Meeting type</h3>
+                <div className="filter-segment-control">
+                  <button
+                    className={`filter-segment-btn ${selectedType === '' ? 'active' : ''}`}
+                    onClick={() => setSelectedType('')}
+                  >
+                    Any type
+                  </button>
+                  {availableTypes.map(type => (
+                    <button
+                      key={type}
+                      className={`filter-segment-btn ${selectedType === type ? 'active' : ''}`}
+                      onClick={() => setSelectedType(type)}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Day of Week */}
+              <div className="filter-section">
+                <h3>Day of week</h3>
+                <div className="filter-day-grid">
+                  <button
+                    className={`filter-day-btn ${selectedDay === '' ? 'active' : ''}`}
+                    onClick={() => setSelectedDay('')}
+                  >
+                    Any
+                  </button>
+                  {dayNames.map((day, index) => (
+                    <button
+                      key={day}
+                      className={`filter-day-btn ${selectedDay === String(index) ? 'active' : ''}`}
+                      onClick={() => setSelectedDay(selectedDay === String(index) ? '' : String(index))}
+                    >
+                      {day.slice(0, 3)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Location */}
+              <div className="filter-section">
+                <h3>Location</h3>
+                <div className="filter-location-selects">
+                  <select
+                    value={selectedState}
+                    onChange={(e) => setSelectedState(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="">All States</option>
+                    {availableStates.map(state => (
+                      <option key={state} value={state}>{state}</option>
+                    ))}
+                  </select>
+                  {selectedState && (
+                    <select
+                      value={selectedCity}
+                      onChange={(e) => setSelectedCity(e.target.value)}
+                      className="filter-select"
+                    >
+                      <option value="">All Cities</option>
+                      {availableCities.map(city => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="filter-modal-footer">
+              <button className="filter-clear-btn" onClick={clearFilters}>
+                Clear all
+              </button>
+              <button className="filter-apply-btn" onClick={() => setShowFilters(false)}>
+                Show {filteredMeetings.length} meeting{filteredMeetings.length !== 1 ? 's' : ''}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

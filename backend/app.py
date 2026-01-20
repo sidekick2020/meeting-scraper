@@ -1600,6 +1600,141 @@ def get_meetings():
         print(f"Error fetching meetings: {e}")
         return jsonify({"meetings": [], "total": 0, "error": str(e)}), 500
 
+# ==================== Thumbnail Generation ====================
+from thumbnail_service import (
+    request_thumbnail,
+    get_placeholder_thumbnail,
+    get_thumbnail_status,
+    get_queue_stats,
+    start_thumbnail_worker
+)
+
+# Start thumbnail workers if API keys are configured
+if BACK4APP_APP_ID and BACK4APP_REST_KEY:
+    start_thumbnail_worker(BACK4APP_APP_ID, BACK4APP_REST_KEY, num_workers=2)
+
+
+@app.route('/api/thumbnail/<meeting_id>', methods=['GET'])
+def get_thumbnail(meeting_id):
+    """Get or generate thumbnail for a meeting."""
+    try:
+        # Fetch meeting from Back4app
+        response = requests.get(
+            f'{BACK4APP_URL}/{meeting_id}',
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+            },
+            timeout=10
+        )
+
+        if response.status_code != 200:
+            return jsonify({'error': 'Meeting not found'}), 404
+
+        meeting = response.json()
+
+        # If already has thumbnail, return it
+        if meeting.get('thumbnailUrl'):
+            return jsonify({
+                'thumbnailUrl': meeting['thumbnailUrl'],
+                'status': 'complete',
+                'cached': True
+            })
+
+        # Request generation (non-blocking) and return placeholder
+        placeholder_url = request_thumbnail(meeting)
+
+        return jsonify({
+            'thumbnailUrl': placeholder_url,
+            'status': get_thumbnail_status(meeting_id),
+            'cached': False
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/thumbnail/<meeting_id>/placeholder', methods=['GET'])
+def get_placeholder(meeting_id):
+    """Get instant SVG placeholder thumbnail (no queue, no API)."""
+    try:
+        # Fetch meeting from Back4app
+        response = requests.get(
+            f'{BACK4APP_URL}/{meeting_id}',
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+            },
+            timeout=10
+        )
+
+        if response.status_code != 200:
+            return jsonify({'error': 'Meeting not found'}), 404
+
+        meeting = response.json()
+        placeholder_url = get_placeholder_thumbnail(meeting)
+
+        return jsonify({
+            'thumbnailUrl': placeholder_url,
+            'status': 'placeholder'
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/thumbnails/status', methods=['GET'])
+def thumbnails_status():
+    """Get thumbnail generation queue status."""
+    return jsonify(get_queue_stats())
+
+
+@app.route('/api/thumbnails/batch', methods=['POST'])
+def request_thumbnails_batch():
+    """Request thumbnails for multiple meetings at once."""
+    try:
+        data = request.get_json() or {}
+        meeting_ids = data.get('meetingIds', [])
+
+        if not meeting_ids:
+            return jsonify({'error': 'No meeting IDs provided'}), 400
+
+        results = {}
+
+        # Fetch meetings from Back4app (batch query)
+        where_clause = json.dumps({'objectId': {'$in': meeting_ids}})
+        response = requests.get(
+            BACK4APP_URL,
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+            },
+            params={'where': where_clause, 'limit': 100},
+            timeout=15
+        )
+
+        if response.status_code == 200:
+            meetings = response.json().get('results', [])
+            for meeting in meetings:
+                meeting_id = meeting.get('objectId')
+                if meeting.get('thumbnailUrl'):
+                    results[meeting_id] = {
+                        'thumbnailUrl': meeting['thumbnailUrl'],
+                        'status': 'complete'
+                    }
+                else:
+                    placeholder = request_thumbnail(meeting)
+                    results[meeting_id] = {
+                        'thumbnailUrl': placeholder,
+                        'status': get_thumbnail_status(meeting_id)
+                    }
+
+        return jsonify({'thumbnails': results})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') != 'production'
