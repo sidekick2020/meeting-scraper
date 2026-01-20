@@ -56,6 +56,7 @@ function AdminPanel({ onBackToPublic }) {
   const [showFeedSelector, setShowFeedSelector] = useState(false);
   const [isStartingScrape, setIsStartingScrape] = useState(false);
   const [scrapeError, setScrapeError] = useState(null);
+  const [shouldAbandonOld, setShouldAbandonOld] = useState(false);
 
   // Directory state
   const [directoryMeetings, setDirectoryMeetings] = useState([]);
@@ -263,12 +264,12 @@ function AdminPanel({ onBackToPublic }) {
     setSelectedFeeds([]);
   };
 
-  const startScraping = async (abandonOld = false) => {
+  const startScraping = async () => {
     setIsStartingScrape(true);
     setScrapeError(null);
 
     try {
-      const body = abandonOld && unfinishedScrape
+      const body = shouldAbandonOld && unfinishedScrape
         ? { abandon_scrape_id: unfinishedScrape.objectId, force: true, selected_feeds: selectedFeeds }
         : { force: true, selected_feeds: selectedFeeds };  // Always force to handle stuck state
 
@@ -303,6 +304,7 @@ function AdminPanel({ onBackToPublic }) {
         setUnfinishedScrape(null); // Clear any unfinished scrape notice
         setShowScrapeChoiceModal(false);
         setShowFeedSelector(false);
+        setShouldAbandonOld(false); // Reset abandon flag
         isRunningRef.current = true;
       } else {
         setScrapeError(data.message || 'Failed to start scraping');
@@ -971,7 +973,7 @@ function AdminPanel({ onBackToPublic }) {
                   <button onClick={() => { stopScraping(); setShowScrapeChoiceModal(false); }} className="btn btn-danger">
                     Stop Current Scrape
                   </button>
-                  <button onClick={() => { stopScraping(); setTimeout(() => startScraping(true), 500); }} className="btn btn-secondary">
+                  <button onClick={() => { stopScraping(); setShouldAbandonOld(true); setShowScrapeChoiceModal(false); setShowFeedSelector(true); }} className="btn btn-secondary">
                     Cancel &amp; Start New
                   </button>
                   <button onClick={() => setShowScrapeChoiceModal(false)} className="btn btn-ghost">
@@ -1001,7 +1003,7 @@ function AdminPanel({ onBackToPublic }) {
                   <button onClick={resumeScraping} className="btn btn-primary">
                     Resume Previous Scrape
                   </button>
-                  <button onClick={() => startScraping(true)} className="btn btn-secondary">
+                  <button onClick={() => { setShouldAbandonOld(true); setShowScrapeChoiceModal(false); setShowFeedSelector(true); }} className="btn btn-secondary">
                     Start New Scrape
                   </button>
                   <button onClick={() => setShowScrapeChoiceModal(false)} className="btn btn-ghost">
@@ -1068,14 +1070,14 @@ function AdminPanel({ onBackToPublic }) {
               </span>
               <div className="feed-selector-buttons">
                 <button
-                  onClick={() => { setShowFeedSelector(false); setScrapeError(null); }}
+                  onClick={() => { setShowFeedSelector(false); setScrapeError(null); setShouldAbandonOld(false); }}
                   className="btn btn-ghost"
                   disabled={isStartingScrape}
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => startScraping(false)}
+                  onClick={() => startScraping()}
                   className="btn btn-primary"
                   disabled={selectedFeeds.length === 0 || isStartingScrape}
                 >
