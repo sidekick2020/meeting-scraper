@@ -1625,9 +1625,9 @@
   margin-top: 0.5rem;
 }
 
-/* Leaflet overrides for dark theme */
+/* Leaflet overrides - use light background for map tiles */
 .leaflet-container {
-  background: var(--bg-secondary);
+  background: #e8e4db;
 }
 
 /* Ensure map tiles are fully visible */
