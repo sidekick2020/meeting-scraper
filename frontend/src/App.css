@@ -632,12 +632,12 @@
 
 .meeting-details {
   font-size: 0.875rem;
-  color: #9ca3af;
+  color: var(--text-muted);
 }
 
 .meeting-location {
   font-weight: 500;
-  color: #4b5563;
+  color: var(--text-secondary);
 }
 
 .meeting-address {
@@ -1204,7 +1204,7 @@
 .detail-section {
   margin-bottom: 1.5rem;
   padding-bottom: 1.5rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid var(--border-light);
 }
 
 .detail-section:last-of-type {
@@ -1213,7 +1213,7 @@
 
 .detail-section h4 {
   font-size: 0.9rem;
-  color: #9ca3af;
+  color: var(--text-muted);
   margin-bottom: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1225,6 +1225,7 @@
   gap: 0.75rem;
   margin-bottom: 0.5rem;
   font-size: 0.95rem;
+  color: var(--text-primary);
 }
 
 .detail-icon {
@@ -1234,7 +1235,7 @@
 }
 
 .detail-row a {
-  color: #93c5fd;
+  color: #3b82f6;
   text-decoration: none;
 }
 
@@ -1243,23 +1244,24 @@
 }
 
 .detail-notes {
-  color: #9ca3af;
+  color: var(--text-muted);
   font-style: italic;
   font-size: 0.875rem;
 }
 
 .detail-notes-block {
-  background: rgba(0, 0, 0, 0.03);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
   padding: 1rem;
   border-radius: 0.5rem;
   font-size: 0.9rem;
   line-height: 1.5;
-  color: #4b5563;
+  color: var(--text-secondary);
 }
 
 .detail-metadata {
   font-size: 0.8rem;
-  color: #9ca3af;
+  color: var(--text-muted);
 }
 
 .metadata-row {
@@ -2494,7 +2496,7 @@ a.sidebar-nav-item {
 }
 
 .detail-label {
-  color: #9ca3af;
+  color: var(--text-muted);
   min-width: 80px;
 }
 
