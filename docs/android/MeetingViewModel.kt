@@ -14,7 +14,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 // MARK: - Meeting Model
-@ParseClassName("Meeting")
+@ParseClassName("Meetings")
 class Meeting : ParseObject() {
     // Core fields
     var name: String?

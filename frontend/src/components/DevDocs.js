@@ -49,7 +49,7 @@ const kotlinModelContent = `package com.yourapp.models
 import com.parse.ParseClassName
 import com.parse.ParseObject
 
-@ParseClassName("Meeting")
+@ParseClassName("Meetings")
 class Meeting : ParseObject() {
     var name: String?
         get() = getString("name")
@@ -1081,7 +1081,7 @@ class App : Application() {
 import com.parse.ParseClassName
 import com.parse.ParseObject
 
-@ParseClassName("Meeting")
+@ParseClassName("Meetings")
 class Meeting : ParseObject() {
     var name: String?
         get() = getString("name")

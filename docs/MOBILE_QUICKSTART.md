@@ -206,7 +206,7 @@ Register in `AndroidManifest.xml`:
 import com.parse.ParseClassName
 import com.parse.ParseObject
 
-@ParseClassName("Meeting")
+@ParseClassName("Meetings")
 class Meeting : ParseObject() {
     var name: String?
         get() = getString("name")
