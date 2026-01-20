@@ -1522,6 +1522,12 @@ def get_meetings():
         search = request.args.get('search', '')
         meeting_type = request.args.get('type', '')
 
+        # Geographic bounding box parameters
+        north = request.args.get('north', type=float)
+        south = request.args.get('south', type=float)
+        east = request.args.get('east', type=float)
+        west = request.args.get('west', type=float)
+
         # Build where clause
         where = {}
         if state:
@@ -1533,6 +1539,11 @@ def get_meetings():
         if search:
             # Search in name field (case-insensitive regex)
             where['name'] = {"$regex": search, "$options": "i"}
+
+        # Add geographic bounds filtering
+        if all(v is not None for v in [north, south, east, west]):
+            where['latitude'] = {"$gte": south, "$lte": north}
+            where['longitude'] = {"$gte": west, "$lte": east}
 
         import urllib.parse
         params = {
