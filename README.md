@@ -70,7 +70,19 @@ This system provides:
 - Back4app account ([Create free](https://www.back4app.com/))
 - Google Cloud Console project (for authentication)
 
-## Quick Start
+## Try It Now
+
+**Production Version**: Visit the live app hosted on Render:
+- **Frontend**: [https://meeting-scraper-frontend.onrender.com](https://meeting-scraper-frontend.onrender.com)
+- **Admin Dashboard**: Click "Admin" in the top right to access the dashboard
+
+No setup required - just browse meetings or sign in with Google to access admin features.
+
+---
+
+## Local Development
+
+If you prefer to run the app locally:
 
 ### 1. Clone the Repository
 
