@@ -41,6 +41,51 @@ function MeetingsExplorer({ onAdminClick }) {
 
   const listRef = useRef(null);
   const boundsTimeoutRef = useRef(null);
+  const thumbnailRequestsRef = useRef(new Set());
+
+  // Fetch thumbnail for a single meeting
+  const fetchThumbnail = useCallback(async (meetingId) => {
+    if (thumbnailRequestsRef.current.has(meetingId)) return null;
+    thumbnailRequestsRef.current.add(meetingId);
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/thumbnail/${meetingId}`);
+      if (response.ok) {
+        const data = await response.json();
+        return { meetingId, thumbnailUrl: data.thumbnailUrl };
+      }
+    } catch (error) {
+      console.error(`Error fetching thumbnail for ${meetingId}:`, error);
+    }
+    return null;
+  }, []);
+
+  // Request thumbnails for meetings without them (batched)
+  const requestMissingThumbnails = useCallback(async (meetingsList) => {
+    const meetingsWithoutThumbnails = meetingsList
+      .filter(m => !m.thumbnailUrl && m.objectId && !thumbnailRequestsRef.current.has(m.objectId))
+      .slice(0, 20); // Limit batch size
+
+    if (meetingsWithoutThumbnails.length === 0) return;
+
+    // Fetch thumbnails in parallel (with limit)
+    const thumbnailPromises = meetingsWithoutThumbnails.map(m => fetchThumbnail(m.objectId));
+    const results = await Promise.all(thumbnailPromises);
+
+    // Update meetings with new thumbnails
+    const thumbnailMap = {};
+    results.forEach(result => {
+      if (result?.thumbnailUrl) {
+        thumbnailMap[result.meetingId] = result.thumbnailUrl;
+      }
+    });
+
+    if (Object.keys(thumbnailMap).length > 0) {
+      setMeetings(prev => prev.map(m =>
+        thumbnailMap[m.objectId] ? { ...m, thumbnailUrl: thumbnailMap[m.objectId] } : m
+      ));
+    }
+  }, [fetchThumbnail]);
 
   const fetchMeetings = useCallback(async (bounds = null) => {
     if (bounds) {
@@ -99,6 +144,17 @@ function MeetingsExplorer({ onAdminClick }) {
   useEffect(() => {
     fetchMeetings();
   }, [fetchMeetings]);
+
+  // Request thumbnails for visible meetings that don't have them
+  useEffect(() => {
+    if (filteredMeetings.length > 0) {
+      // Small delay to avoid blocking initial render
+      const timer = setTimeout(() => {
+        requestMissingThumbnails(filteredMeetings);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [filteredMeetings, requestMissingThumbnails]);
 
   // Handle map bounds change with debouncing
   const handleBoundsChange = useCallback((bounds) => {
