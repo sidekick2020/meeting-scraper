@@ -338,7 +338,12 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
                       Cancel
                     </button>
                     <button type="submit" className="btn btn-primary btn-sm" disabled={inviting}>
-                      {inviting ? 'Sending...' : 'Send Invite'}
+                      {inviting ? (
+                        <>
+                          <span className="btn-spinner"></span>
+                          Sending...
+                        </>
+                      ) : 'Send Invite'}
                     </button>
                   </div>
                   <p className="invite-help">
