@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import SourceDetailPanel from './SourceDetailPanel';
 
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -28,7 +29,28 @@ const typeDescriptions = {
   'HY': 'Hybrid',
 };
 
+// Source feed metadata for preview
+const feedMetadata = {
+  "Palo Alto (Bay Area)": { type: "AA", format: "TSML", state: "CA" },
+  "San Diego": { type: "AA", format: "TSML", state: "CA" },
+  "Phoenix": { type: "AA", format: "TSML", state: "AZ" },
+  "Birmingham AA": { type: "AA", format: "TSML", state: "AL" },
+  "West Alabama AA": { type: "AA", format: "TSML", state: "AL" },
+  "Richmond AA": { type: "AA", format: "TSML", state: "VA" },
+  "Blue Ridge AA": { type: "AA", format: "TSML", state: "VA" },
+  "Eastside AA (Seattle)": { type: "AA", format: "TSML", state: "WA" },
+  "Indianapolis AA": { type: "AA", format: "TSML", state: "IN" },
+  "Houston AA": { type: "AA", format: "TSML", state: "TX" },
+  "Austin AA": { type: "AA", format: "TSML", state: "TX" },
+  "Atlanta AA": { type: "AA", format: "TSML", state: "GA" },
+  "Boulder AA": { type: "AA", format: "TSML", state: "CO" },
+  "Alabama NA": { type: "NA", format: "BMLT", state: "AL" },
+  "Missouri NA": { type: "NA", format: "BMLT", state: "MO" },
+};
+
 function MeetingDetail({ meeting, onClose, isSidebar = false }) {
+  const [sourceDetailOpen, setSourceDetailOpen] = useState(false);
+
   // Check if meeting has a full street address (contains numbers indicating street number)
   const hasFullStreetAddress = (meeting) => {
     const address = meeting?.address;
@@ -342,20 +364,65 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                   </div>
                 )}
 
-                {/* Metadata */}
-                <div className="detail-section detail-metadata">
-                  <div className="metadata-row">
-                    <span>Source:</span>
-                    <span>{meeting.sourceFeed}</span>
-                  </div>
-                  {meeting.updatedAt && (
-                    <div className="metadata-row">
-                      <span>Last Updated:</span>
-                      <span>{new Date(meeting.updatedAt).toLocaleDateString()}</span>
+                {/* Source Preview Card */}
+                <div className="detail-section">
+                  <h4>Data Source</h4>
+                  <div
+                    className="source-preview-card"
+                    onClick={() => setSourceDetailOpen(true)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && setSourceDetailOpen(true)}
+                  >
+                    <div className="source-preview-main">
+                      <div className="source-preview-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                          <polyline points="7 10 12 15 17 10"/>
+                          <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                      </div>
+                      <div className="source-preview-info">
+                        <span className="source-preview-name">{meeting.sourceFeed || 'Unknown Source'}</span>
+                        <div className="source-preview-badges">
+                          {(() => {
+                            const sourceInfo = feedMetadata[meeting.sourceFeed] || { type: meeting.meetingType, format: 'TSML' };
+                            return (
+                              <>
+                                <span className={`source-mini-badge ${(sourceInfo.type || 'aa').toLowerCase()}`}>
+                                  {sourceInfo.type || meeting.meetingType || 'AA'}
+                                </span>
+                                <span className="source-mini-badge format">
+                                  {sourceInfo.format || 'TSML'}
+                                </span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
                     </div>
-                  )}
+                    <div className="source-preview-meta">
+                      {meeting.updatedAt && (
+                        <span className="source-preview-date">
+                          Updated {new Date(meeting.updatedAt).toLocaleDateString()}
+                        </span>
+                      )}
+                      <span className="source-preview-expand">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
+
+              {/* Source Detail Panel */}
+              <SourceDetailPanel
+                meeting={meeting}
+                isOpen={sourceDetailOpen}
+                onClose={() => setSourceDetailOpen(false)}
+              />
             </>
           )}
         </div>
@@ -543,18 +610,56 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
             </div>
           )}
 
-          {/* Metadata */}
-          <div className="detail-section detail-metadata">
-            <div className="metadata-row">
-              <span>Source:</span>
-              <span>{meeting.sourceFeed}</span>
-            </div>
-            {meeting.updatedAt && (
-              <div className="metadata-row">
-                <span>Last Updated:</span>
-                <span>{new Date(meeting.updatedAt).toLocaleDateString()}</span>
+          {/* Source Preview Card */}
+          <div className="detail-section">
+            <h4>Data Source</h4>
+            <div
+              className="source-preview-card"
+              onClick={() => setSourceDetailOpen(true)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && setSourceDetailOpen(true)}
+            >
+              <div className="source-preview-main">
+                <div className="source-preview-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </div>
+                <div className="source-preview-info">
+                  <span className="source-preview-name">{meeting.sourceFeed || 'Unknown Source'}</span>
+                  <div className="source-preview-badges">
+                    {(() => {
+                      const sourceInfo = feedMetadata[meeting.sourceFeed] || { type: meeting.meetingType, format: 'TSML' };
+                      return (
+                        <>
+                          <span className={`source-mini-badge ${(sourceInfo.type || 'aa').toLowerCase()}`}>
+                            {sourceInfo.type || meeting.meetingType || 'AA'}
+                          </span>
+                          <span className="source-mini-badge format">
+                            {sourceInfo.format || 'TSML'}
+                          </span>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
               </div>
-            )}
+              <div className="source-preview-meta">
+                {meeting.updatedAt && (
+                  <span className="source-preview-date">
+                    Updated {new Date(meeting.updatedAt).toLocaleDateString()}
+                  </span>
+                )}
+                <span className="source-preview-expand">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -563,6 +668,13 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
             Close
           </button>
         </div>
+
+        {/* Source Detail Panel */}
+        <SourceDetailPanel
+          meeting={meeting}
+          isOpen={sourceDetailOpen}
+          onClose={() => setSourceDetailOpen(false)}
+        />
       </div>
     </div>
   );
