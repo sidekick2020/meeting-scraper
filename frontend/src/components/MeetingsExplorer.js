@@ -139,7 +139,7 @@ function MeetingsExplorer({ onAdminClick }) {
 
     try {
       const skip = loadMore ? meetings.length : 0;
-      const limit = bounds ? 1000 : PAGE_SIZE;
+      const limit = bounds ? 100 : PAGE_SIZE;  // Reduced from 1000 for faster map loading
       let url = `${BACKEND_URL}/api/meetings?limit=${limit}&skip=${skip}`;
 
       // Add bounds parameters if provided
