@@ -2,6 +2,16 @@
   "env": {
     "GH_TOKEN": "YOUR_TOKEN_HERE"
   },
+  "permissions": {
+    "allow": [
+      "Bash(gh pr create*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh pr comment*)",
+      "Bash(gh issue comment*)",
+      "Bash(git tag*)",
+      "Bash(git push*--tags*)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
