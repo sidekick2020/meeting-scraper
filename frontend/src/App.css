@@ -3593,6 +3593,7 @@ a.sidebar-nav-item {
   height: 40px;
   object-fit: contain;
   display: block;
+  overflow: visible;
   /* Ensure logo renders exactly as-is without any filters or modifications */
   image-rendering: auto;
 }
