@@ -18,6 +18,8 @@ A comprehensive meeting management system by [Sober Sidekick](https://sobersidek
 
 **Try it now**: [https://meeting-scraper-frontend.onrender.com](https://meeting-scraper-frontend.onrender.com)
 
+**Documentation**: [https://meeting-scraper-frontend.onrender.com/docs](https://meeting-scraper-frontend.onrender.com/docs)
+
 Or run locally:
 
 ```bash
@@ -473,6 +475,7 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 - **Issues**: [GitHub Issues](https://github.com/sidekick2020/meeting-scraper/issues)
 - **Documentation**: Access from the Docs section in the dashboard
+- **Render Dashboard**: [https://dashboard.render.com](https://dashboard.render.com)
 - **Back4app**: [Back4app Documentation](https://www.back4app.com/docs)
 
 ---
