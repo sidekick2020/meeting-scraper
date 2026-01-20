@@ -10,7 +10,8 @@ function Dashboard({ scrapingState }) {
     current_feed_index,
     total_feeds,
     current_feed_progress,
-    current_feed_total
+    current_feed_total,
+    meetings_by_type
   } = scrapingState;
 
   // Calculate progress percentage for current feed
@@ -60,6 +61,33 @@ function Dashboard({ scrapingState }) {
           </div>
         )}
       </div>
+
+      {/* Meeting Type Breakdown */}
+      {total_saved > 0 && meetings_by_type && (
+        <div className="type-breakdown">
+          <div className="type-breakdown-header">
+            <span className="type-breakdown-title">Meeting Types</span>
+          </div>
+          <div className="type-breakdown-items">
+            <div className="type-item">
+              <span className="type-badge type-aa">AA</span>
+              <span className="type-count">{(meetings_by_type.AA || 0).toLocaleString()}</span>
+            </div>
+            <div className="type-item">
+              <span className="type-badge type-na">NA</span>
+              <span className="type-count">{(meetings_by_type.NA || 0).toLocaleString()}</span>
+            </div>
+            <div className="type-item">
+              <span className="type-badge type-alanon">Al-Anon</span>
+              <span className="type-count">{(meetings_by_type['Al-Anon'] || 0).toLocaleString()}</span>
+            </div>
+            <div className="type-item">
+              <span className="type-badge type-other">Other</span>
+              <span className="type-count">{(meetings_by_type.Other || 0).toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {is_running && (
         <div className="progress-section">

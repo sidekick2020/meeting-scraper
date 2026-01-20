@@ -851,7 +851,17 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
                 for meeting in meetings_to_save[:result["saved"]]:
                     state = meeting.get("state", "Unknown")
                     scraping_state["meetings_by_state"][state] = scraping_state["meetings_by_state"].get(state, 0) + 1
-                    scraping_state["meetings_by_type"]["AA"] = scraping_state["meetings_by_type"].get("AA", 0) + 1
+
+                    # Track by meeting type (AA, NA, Al-Anon, or Other)
+                    meeting_type = meeting.get("meetingType", "").upper()
+                    if meeting_type == "AA":
+                        scraping_state["meetings_by_type"]["AA"] = scraping_state["meetings_by_type"].get("AA", 0) + 1
+                    elif meeting_type == "NA":
+                        scraping_state["meetings_by_type"]["NA"] = scraping_state["meetings_by_type"].get("NA", 0) + 1
+                    elif meeting_type in ["AL-ANON", "ALANON"]:
+                        scraping_state["meetings_by_type"]["Al-Anon"] = scraping_state["meetings_by_type"].get("Al-Anon", 0) + 1
+                    else:
+                        scraping_state["meetings_by_type"]["Other"] = scraping_state["meetings_by_type"].get("Other", 0) + 1
 
                     # Keep recent meetings (last 20)
                     scraping_state["recent_meetings"].insert(0, meeting)
