@@ -1600,6 +1600,656 @@ def get_meetings():
         print(f"Error fetching meetings: {e}")
         return jsonify({"meetings": [], "total": 0, "error": str(e)}), 500
 
+# ==================== Thumbnail Generation ====================
+from thumbnail_service import (
+    request_thumbnail,
+    get_placeholder_thumbnail,
+    get_thumbnail_status,
+    get_queue_stats,
+    start_thumbnail_worker
+)
+
+# Start thumbnail workers if API keys are configured
+if BACK4APP_APP_ID and BACK4APP_REST_KEY:
+    start_thumbnail_worker(BACK4APP_APP_ID, BACK4APP_REST_KEY, num_workers=2)
+
+
+@app.route('/api/thumbnail/<meeting_id>', methods=['GET'])
+def get_thumbnail(meeting_id):
+    """Get or generate thumbnail for a meeting."""
+    try:
+        # Fetch meeting from Back4app
+        response = requests.get(
+            f'{BACK4APP_URL}/{meeting_id}',
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+            },
+            timeout=10
+        )
+
+        if response.status_code != 200:
+            return jsonify({'error': 'Meeting not found'}), 404
+
+        meeting = response.json()
+
+        # If already has thumbnail, return it
+        if meeting.get('thumbnailUrl'):
+            return jsonify({
+                'thumbnailUrl': meeting['thumbnailUrl'],
+                'status': 'complete',
+                'cached': True
+            })
+
+        # Request generation (non-blocking) and return placeholder
+        placeholder_url = request_thumbnail(meeting)
+
+        return jsonify({
+            'thumbnailUrl': placeholder_url,
+            'status': get_thumbnail_status(meeting_id),
+            'cached': False
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/thumbnail/<meeting_id>/placeholder', methods=['GET'])
+def get_placeholder(meeting_id):
+    """Get instant SVG placeholder thumbnail (no queue, no API)."""
+    try:
+        # Fetch meeting from Back4app
+        response = requests.get(
+            f'{BACK4APP_URL}/{meeting_id}',
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+            },
+            timeout=10
+        )
+
+        if response.status_code != 200:
+            return jsonify({'error': 'Meeting not found'}), 404
+
+        meeting = response.json()
+        placeholder_url = get_placeholder_thumbnail(meeting)
+
+        return jsonify({
+            'thumbnailUrl': placeholder_url,
+            'status': 'placeholder'
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/thumbnails/status', methods=['GET'])
+def thumbnails_status():
+    """Get thumbnail generation queue status."""
+    return jsonify(get_queue_stats())
+
+
+@app.route('/api/thumbnails/batch', methods=['POST'])
+def request_thumbnails_batch():
+    """Request thumbnails for multiple meetings at once."""
+    try:
+        data = request.get_json() or {}
+        meeting_ids = data.get('meetingIds', [])
+
+        if not meeting_ids:
+            return jsonify({'error': 'No meeting IDs provided'}), 400
+
+        results = {}
+
+        # Fetch meetings from Back4app (batch query)
+        where_clause = json.dumps({'objectId': {'$in': meeting_ids}})
+        response = requests.get(
+            BACK4APP_URL,
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+            },
+            params={'where': where_clause, 'limit': 100},
+            timeout=15
+        )
+
+        if response.status_code == 200:
+            meetings = response.json().get('results', [])
+            for meeting in meetings:
+                meeting_id = meeting.get('objectId')
+                if meeting.get('thumbnailUrl'):
+                    results[meeting_id] = {
+                        'thumbnailUrl': meeting['thumbnailUrl'],
+                        'status': 'complete'
+                    }
+                else:
+                    placeholder = request_thumbnail(meeting)
+                    results[meeting_id] = {
+                        'thumbnailUrl': placeholder,
+                        'status': get_thumbnail_status(meeting_id)
+                    }
+
+        return jsonify({'thumbnails': results})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# =====================================================
+# USER MANAGEMENT ENDPOINTS
+# =====================================================
+
+BACK4APP_USER_URL = "https://parseapi.back4app.com/classes/DashboardUser"
+OWNER_EMAIL = "chris.thompson@sobersidekick.com"
+
+# Email configuration (using environment variables)
+SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', 587))
+SMTP_USER = os.environ.get('SMTP_USER', '')
+SMTP_PASS = os.environ.get('SMTP_PASS', '')
+APP_URL = os.environ.get('APP_URL', 'http://localhost:3000')
+
+
+def send_invite_email(to_email, invite_token, inviter_name):
+    """Send invitation email to new user."""
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    if not SMTP_USER or not SMTP_PASS:
+        print(f"SMTP not configured - would send invite to {to_email}")
+        return False
+
+    try:
+        invite_url = f"{APP_URL}?invite={invite_token}"
+
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = 'You\'ve been invited to Sober Sidekick Admin Dashboard'
+        msg['From'] = SMTP_USER
+        msg['To'] = to_email
+
+        text = f"""
+Hi there!
+
+{inviter_name} has invited you to join the Sober Sidekick Admin Dashboard.
+
+Click the link below to accept your invitation:
+{invite_url}
+
+This invitation will expire in 7 days.
+
+Best regards,
+Sober Sidekick Team
+"""
+
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 40px 20px; }}
+        .header {{ text-align: center; margin-bottom: 30px; }}
+        .logo {{ font-size: 24px; font-weight: bold; color: #2f5dff; }}
+        .content {{ background: #f9fafb; border-radius: 12px; padding: 30px; margin: 20px 0; }}
+        .button {{ display: inline-block; background: #2f5dff; color: white !important; padding: 14px 28px;
+                   text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }}
+        .footer {{ text-align: center; color: #666; font-size: 14px; margin-top: 30px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">Sober Sidekick</div>
+        </div>
+        <div class="content">
+            <p>Hi there!</p>
+            <p><strong>{inviter_name}</strong> has invited you to join the Sober Sidekick Admin Dashboard.</p>
+            <p style="text-align: center;">
+                <a href="{invite_url}" class="button">Accept Invitation</a>
+            </p>
+            <p style="font-size: 13px; color: #666;">
+                Or copy and paste this link: {invite_url}
+            </p>
+        </div>
+        <div class="footer">
+            <p>This invitation will expire in 7 days.</p>
+            <p>Sober Sidekick - You're Never Alone</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+        msg.attach(MIMEText(text, 'plain'))
+        msg.attach(MIMEText(html, 'html'))
+
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASS)
+        server.sendmail(SMTP_USER, to_email, msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Failed to send invite email: {e}")
+        return False
+
+
+@app.route('/api/users', methods=['GET'])
+def get_users():
+    """Get all dashboard users."""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({'error': 'Back4app not configured'}), 400
+
+    try:
+        response = requests.get(
+            BACK4APP_USER_URL,
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+            },
+            params={'order': '-createdAt', 'limit': 100},
+            timeout=15
+        )
+
+        if response.status_code == 200:
+            users = response.json().get('results', [])
+            return jsonify({'users': users})
+        else:
+            return jsonify({'error': 'Failed to fetch users'}), response.status_code
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/users', methods=['POST'])
+def invite_user():
+    """Invite a new user to the dashboard."""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({'error': 'Back4app not configured'}), 400
+
+    data = request.json
+    email = data.get('email', '').lower().strip()
+    role = data.get('role', 'standard')
+    inviter_email = data.get('inviterEmail', '')
+    inviter_name = data.get('inviterName', 'Admin')
+
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+
+    # Validate email format
+    if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        return jsonify({'error': 'Invalid email format'}), 400
+
+    # Validate role
+    if role not in ['standard', 'admin']:
+        return jsonify({'error': 'Invalid role'}), 400
+
+    # Check if user already exists
+    try:
+        check_response = requests.get(
+            BACK4APP_USER_URL,
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+            },
+            params={'where': json.dumps({'email': email})},
+            timeout=15
+        )
+
+        if check_response.status_code == 200:
+            existing = check_response.json().get('results', [])
+            if existing:
+                return jsonify({'error': 'User already exists'}), 409
+
+        # Generate invite token
+        invite_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+
+        # Create user record
+        user_data = {
+            'email': email,
+            'role': role,
+            'status': 'pending',
+            'inviteToken': invite_token,
+            'invitedBy': inviter_email,
+            'invitedAt': {'__type': 'Date', 'iso': datetime.utcnow().isoformat() + 'Z'},
+            'isOwner': email == OWNER_EMAIL
+        }
+
+        create_response = requests.post(
+            BACK4APP_USER_URL,
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+                'Content-Type': 'application/json',
+            },
+            json=user_data,
+            timeout=15
+        )
+
+        if create_response.status_code == 201:
+            new_user = create_response.json()
+            new_user.update(user_data)
+
+            # Send invite email
+            email_sent = send_invite_email(email, invite_token, inviter_name)
+
+            return jsonify({
+                'success': True,
+                'user': new_user,
+                'emailSent': email_sent
+            }), 201
+        else:
+            return jsonify({'error': 'Failed to create user'}), create_response.status_code
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/users/<user_id>', methods=['PUT'])
+def update_user(user_id):
+    """Update user role or status."""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({'error': 'Back4app not configured'}), 400
+
+    data = request.json
+    requester_email = data.get('requesterEmail', '').lower()
+
+    # First, fetch the user to check if they're the owner
+    try:
+        fetch_response = requests.get(
+            f"{BACK4APP_USER_URL}/{user_id}",
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+            },
+            timeout=15
+        )
+
+        if fetch_response.status_code != 200:
+            return jsonify({'error': 'User not found'}), 404
+
+        user = fetch_response.json()
+
+        # Protect owner account
+        if user.get('email') == OWNER_EMAIL or user.get('isOwner'):
+            return jsonify({'error': 'Cannot modify owner account'}), 403
+
+        # Build update data
+        update_data = {}
+        if 'role' in data:
+            if data['role'] not in ['standard', 'admin']:
+                return jsonify({'error': 'Invalid role'}), 400
+            update_data['role'] = data['role']
+
+        if 'status' in data:
+            if data['status'] not in ['pending', 'active', 'suspended']:
+                return jsonify({'error': 'Invalid status'}), 400
+            update_data['status'] = data['status']
+
+        if not update_data:
+            return jsonify({'error': 'No valid fields to update'}), 400
+
+        # Perform update
+        update_response = requests.put(
+            f"{BACK4APP_USER_URL}/{user_id}",
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+                'Content-Type': 'application/json',
+            },
+            json=update_data,
+            timeout=15
+        )
+
+        if update_response.status_code == 200:
+            return jsonify({'success': True, 'user': {**user, **update_data}})
+        else:
+            return jsonify({'error': 'Failed to update user'}), update_response.status_code
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/users/<user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    """Delete a user (cannot delete owner)."""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({'error': 'Back4app not configured'}), 400
+
+    requester_email = request.args.get('requesterEmail', '').lower()
+
+    # First, fetch the user to check if they're the owner
+    try:
+        fetch_response = requests.get(
+            f"{BACK4APP_USER_URL}/{user_id}",
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+            },
+            timeout=15
+        )
+
+        if fetch_response.status_code != 200:
+            return jsonify({'error': 'User not found'}), 404
+
+        user = fetch_response.json()
+
+        # Protect owner account
+        if user.get('email') == OWNER_EMAIL or user.get('isOwner'):
+            return jsonify({'error': 'Cannot delete owner account'}), 403
+
+        # Delete user
+        delete_response = requests.delete(
+            f"{BACK4APP_USER_URL}/{user_id}",
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+            },
+            timeout=15
+        )
+
+        if delete_response.status_code == 200:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'error': 'Failed to delete user'}), delete_response.status_code
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/users/<user_id>/resend', methods=['POST'])
+def resend_invite(user_id):
+    """Resend invitation email to a pending user."""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({'error': 'Back4app not configured'}), 400
+
+    data = request.json
+    inviter_name = data.get('inviterName', 'Admin')
+
+    try:
+        # Fetch the user
+        fetch_response = requests.get(
+            f"{BACK4APP_USER_URL}/{user_id}",
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+            },
+            timeout=15
+        )
+
+        if fetch_response.status_code != 200:
+            return jsonify({'error': 'User not found'}), 404
+
+        user = fetch_response.json()
+
+        if user.get('status') != 'pending':
+            return jsonify({'error': 'Can only resend invites to pending users'}), 400
+
+        # Generate new invite token
+        new_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+
+        # Update user with new token
+        update_response = requests.put(
+            f"{BACK4APP_USER_URL}/{user_id}",
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+                'Content-Type': 'application/json',
+            },
+            json={
+                'inviteToken': new_token,
+                'invitedAt': {'__type': 'Date', 'iso': datetime.utcnow().isoformat() + 'Z'}
+            },
+            timeout=15
+        )
+
+        if update_response.status_code == 200:
+            # Send new invite email
+            email_sent = send_invite_email(user.get('email'), new_token, inviter_name)
+            return jsonify({'success': True, 'emailSent': email_sent})
+        else:
+            return jsonify({'error': 'Failed to update invite token'}), update_response.status_code
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/users/accept-invite', methods=['POST'])
+def accept_invite():
+    """Accept an invitation and activate user account."""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({'error': 'Back4app not configured'}), 400
+
+    data = request.json
+    invite_token = data.get('inviteToken')
+    google_email = data.get('email', '').lower()
+
+    if not invite_token:
+        return jsonify({'error': 'Invite token is required'}), 400
+
+    try:
+        # Find user by invite token
+        fetch_response = requests.get(
+            BACK4APP_USER_URL,
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+            },
+            params={'where': json.dumps({'inviteToken': invite_token})},
+            timeout=15
+        )
+
+        if fetch_response.status_code != 200:
+            return jsonify({'error': 'Failed to verify invite'}), 500
+
+        users = fetch_response.json().get('results', [])
+        if not users:
+            return jsonify({'error': 'Invalid or expired invite token'}), 404
+
+        user = users[0]
+
+        # Verify email matches (case insensitive)
+        if user.get('email', '').lower() != google_email:
+            return jsonify({'error': 'Email does not match invitation'}), 403
+
+        # Activate user
+        update_response = requests.put(
+            f"{BACK4APP_USER_URL}/{user.get('objectId')}",
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+                'Content-Type': 'application/json',
+            },
+            json={
+                'status': 'active',
+                'inviteToken': None,  # Clear token after use
+                'acceptedAt': {'__type': 'Date', 'iso': datetime.utcnow().isoformat() + 'Z'}
+            },
+            timeout=15
+        )
+
+        if update_response.status_code == 200:
+            return jsonify({
+                'success': True,
+                'user': {
+                    'email': user.get('email'),
+                    'role': user.get('role'),
+                    'status': 'active'
+                }
+            })
+        else:
+            return jsonify({'error': 'Failed to activate user'}), update_response.status_code
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/users/check-access', methods=['POST'])
+def check_user_access():
+    """Check if a Google user has access to the dashboard."""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({'error': 'Back4app not configured'}), 400
+
+    data = request.json
+    email = data.get('email', '').lower()
+
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+
+    # Owner always has access
+    if email == OWNER_EMAIL:
+        return jsonify({
+            'hasAccess': True,
+            'role': 'admin',
+            'isOwner': True
+        })
+
+    try:
+        # Check if user exists and is active
+        fetch_response = requests.get(
+            BACK4APP_USER_URL,
+            headers={
+                'X-Parse-Application-Id': BACK4APP_APP_ID,
+                'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+            },
+            params={'where': json.dumps({'email': email})},
+            timeout=15
+        )
+
+        if fetch_response.status_code == 200:
+            users = fetch_response.json().get('results', [])
+            if users:
+                user = users[0]
+                if user.get('status') == 'active':
+                    return jsonify({
+                        'hasAccess': True,
+                        'role': user.get('role', 'standard'),
+                        'isOwner': False
+                    })
+                elif user.get('status') == 'pending':
+                    return jsonify({
+                        'hasAccess': False,
+                        'reason': 'pending',
+                        'message': 'Your invitation is pending. Please check your email.'
+                    })
+                else:
+                    return jsonify({
+                        'hasAccess': False,
+                        'reason': 'suspended',
+                        'message': 'Your account has been suspended.'
+                    })
+
+        return jsonify({
+            'hasAccess': False,
+            'reason': 'not_invited',
+            'message': 'You do not have access to this dashboard.'
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') != 'production'

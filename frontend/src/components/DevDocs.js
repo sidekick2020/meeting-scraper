@@ -74,6 +74,29 @@ function DevDocs({ onClose }) {
                   Deployment
                 </button>
               </div>
+              <div className="sidebar-section">
+                <h3>Mobile SDKs</h3>
+                <button
+                  className={`sidebar-item ${activeTab === 'ios' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('ios')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="5" y="2" width="14" height="20" rx="2"/>
+                    <line x1="12" y1="18" x2="12.01" y2="18"/>
+                  </svg>
+                  iOS Guide
+                </button>
+                <button
+                  className={`sidebar-item ${activeTab === 'android' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('android')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="5" y="2" width="14" height="20" rx="2"/>
+                    <line x1="12" y1="18" x2="12.01" y2="18"/>
+                  </svg>
+                  Android Guide
+                </button>
+              </div>
             </nav>
 
             <main className="dev-docs-content">
@@ -81,6 +104,8 @@ function DevDocs({ onClose }) {
               {activeTab === 'schema' && <MeetingSchema />}
               {activeTab === 'api' && <ApiReferenceTab />}
               {activeTab === 'deployment' && <DeploymentTab />}
+              {activeTab === 'ios' && <IOSGuideTab />}
+              {activeTab === 'android' && <AndroidGuideTab />}
             </main>
           </div>
         </div>
@@ -445,6 +470,586 @@ function DeploymentTab() {
         <li>Look at Render logs for API errors</li>
         <li>Verify the Meeting class exists in Back4app</li>
       </ul>
+    </div>
+  );
+}
+
+function IOSGuideTab() {
+  return (
+    <div className="docs-page">
+      <h1>iOS Integration Guide</h1>
+      <p className="lead">
+        Integrate the meeting data into your iOS app using the Parse Swift SDK to fetch
+        meetings directly from Back4app.
+      </p>
+
+      <div className="prereq-box">
+        <h3>Prerequisites</h3>
+        <p>
+          Before proceeding, complete the Parse iOS SDK setup from the official documentation:
+        </p>
+        <a
+          href="https://docs.parseplatform.org/ios/guide/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="prereq-link"
+        >
+          Parse iOS SDK Setup Guide
+        </a>
+      </div>
+
+      <h2>Installation</h2>
+      <p>For new projects, we recommend using <strong>ParseSwift</strong> with Swift Package Manager.</p>
+
+      <h3>Swift Package Manager (Recommended)</h3>
+      <ol>
+        <li>In Xcode, go to <strong>File → Add Package Dependencies</strong></li>
+        <li>Enter the repository URL:
+          <pre><code>https://github.com/parse-community/Parse-Swift.git</code></pre>
+        </li>
+        <li>Select the version and click <strong>Add Package</strong></li>
+      </ol>
+
+      <h3>CocoaPods (Alternative)</h3>
+      <p>Add to your Podfile:</p>
+      <pre><code>{`pod 'ParseSwift'`}</code></pre>
+      <p>Then run:</p>
+      <pre><code>pod install</code></pre>
+
+      <h2>Initialize Parse</h2>
+      <p>In your <code>AppDelegate.swift</code> or app entry point:</p>
+      <pre><code>{`import ParseSwift
+
+@main
+struct MeetingFinderApp: App {
+    init() {
+        ParseSwift.initialize(
+            applicationId: "YOUR_BACK4APP_APP_ID",
+            clientKey: "YOUR_BACK4APP_CLIENT_KEY",
+            serverURL: URL(string: "https://parseapi.back4app.com")!
+        )
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}`}</code></pre>
+
+      <h2>Define the Meeting Model</h2>
+      <p>Create a Swift struct that conforms to <code>ParseObject</code>:</p>
+      <pre><code>{`import ParseSwift
+
+struct Meeting: ParseObject {
+    // Required by ParseObject
+    var objectId: String?
+    var createdAt: Date?
+    var updatedAt: Date?
+    var ACL: ParseACL?
+    var originalData: Data?
+
+    // Meeting fields
+    var name: String?
+    var meetingType: String?
+    var day: Int?
+    var time: String?
+    var endTime: String?
+    var timezone: String?
+    var address: String?
+    var city: String?
+    var state: String?
+    var postalCode: String?
+    var latitude: Double?
+    var longitude: Double?
+    var isOnline: Bool?
+    var isHybrid: Bool?
+    var onlineUrl: String?
+    var locationName: String?
+    var types: [String]?
+    var notes: String?
+}`}</code></pre>
+
+      <h2>Query Meetings</h2>
+      <h3>Fetch All Meetings</h3>
+      <pre><code>{`func fetchMeetings() async throws -> [Meeting] {
+    let query = Meeting.query()
+        .limit(100)
+        .order([.ascending("day"), .ascending("time")])
+
+    return try await query.find()
+}`}</code></pre>
+
+      <h3>Filter by State</h3>
+      <pre><code>{`func fetchMeetingsByState(_ state: String) async throws -> [Meeting] {
+    let query = Meeting.query("state" == state)
+        .limit(100)
+
+    return try await query.find()
+}`}</code></pre>
+
+      <h3>Filter by Day of Week</h3>
+      <pre><code>{`func fetchMeetingsByDay(_ day: Int) async throws -> [Meeting] {
+    // day: 0 = Sunday, 1 = Monday, etc.
+    let query = Meeting.query("day" == day)
+        .order([.ascending("time")])
+
+    return try await query.find()
+}`}</code></pre>
+
+      <h3>Find Nearby Meetings</h3>
+      <pre><code>{`import CoreLocation
+
+func fetchNearbyMeetings(
+    location: CLLocationCoordinate2D,
+    radiusMiles: Double = 25
+) async throws -> [Meeting] {
+    let geoPoint = try ParseGeoPoint(
+        latitude: location.latitude,
+        longitude: location.longitude
+    )
+
+    let query = Meeting.query("location" <= geoPoint.within(miles: radiusMiles))
+        .limit(50)
+
+    return try await query.find()
+}`}</code></pre>
+
+      <h2>SwiftUI Example</h2>
+      <pre><code>{`import SwiftUI
+import ParseSwift
+
+struct MeetingsListView: View {
+    @State private var meetings: [Meeting] = []
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationView {
+            Group {
+                if isLoading {
+                    ProgressView("Loading meetings...")
+                } else if let error = errorMessage {
+                    Text(error)
+                        .foregroundColor(.red)
+                } else {
+                    List(meetings, id: \\.objectId) { meeting in
+                        MeetingRow(meeting: meeting)
+                    }
+                }
+            }
+            .navigationTitle("Meetings")
+        }
+        .task {
+            await loadMeetings()
+        }
+    }
+
+    func loadMeetings() async {
+        do {
+            meetings = try await Meeting.query()
+                .limit(100)
+                .find()
+            isLoading = false
+        } catch {
+            errorMessage = error.localizedDescription
+            isLoading = false
+        }
+    }
+}
+
+struct MeetingRow: View {
+    let meeting: Meeting
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(meeting.name ?? "Unknown Meeting")
+                .font(.headline)
+            HStack {
+                Text(meeting.meetingType ?? "")
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.blue.opacity(0.2))
+                    .cornerRadius(4)
+                Text(meeting.city ?? "")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}`}</code></pre>
+
+      <h2>Error Handling</h2>
+      <pre><code>{`func fetchMeetingsWithErrorHandling() async {
+    do {
+        let meetings = try await Meeting.query().find()
+        // Handle success
+    } catch let error as ParseError {
+        switch error.code {
+        case .connectionFailed:
+            print("No internet connection")
+        case .invalidSessionToken:
+            print("Session expired")
+        default:
+            print("Parse error: \\(error.message)")
+        }
+    } catch {
+        print("Unexpected error: \\(error)")
+    }
+}`}</code></pre>
+
+      <h2>Offline Caching</h2>
+      <p>Enable local datastore for offline access:</p>
+      <pre><code>{`ParseSwift.initialize(
+    applicationId: "YOUR_APP_ID",
+    clientKey: "YOUR_CLIENT_KEY",
+    serverURL: URL(string: "https://parseapi.back4app.com")!,
+    cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
+    requestCachePolicy: .useProtocolCachePolicy
+)`}</code></pre>
+    </div>
+  );
+}
+
+function AndroidGuideTab() {
+  return (
+    <div className="docs-page">
+      <h1>Android Integration Guide</h1>
+      <p className="lead">
+        Integrate the meeting data into your Android app using the Parse Android SDK
+        to fetch meetings directly from Back4app.
+      </p>
+
+      <div className="prereq-box">
+        <h3>Prerequisites</h3>
+        <p>
+          Before proceeding, complete the Parse Android SDK setup from the official documentation:
+        </p>
+        <a
+          href="https://docs.parseplatform.org/android/guide/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="prereq-link"
+        >
+          Parse Android SDK Setup Guide
+        </a>
+      </div>
+
+      <h2>Installation</h2>
+
+      <h3>Step 1: Add JitPack Repository</h3>
+      <p>In your <code>settings.gradle</code> (or root <code>build.gradle</code> for older projects):</p>
+      <pre><code>{`dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
+}`}</code></pre>
+
+      <h3>Step 2: Add Dependencies</h3>
+      <p>In your app-level <code>build.gradle</code>:</p>
+      <pre><code>{`dependencies {
+    implementation 'com.github.parse-community.Parse-SDK-Android:parse:1.26.0'
+
+    // For logging API calls (optional, useful for debugging)
+    implementation 'com.squareup.okhttp3:logging-interceptor:4.9.3'
+}`}</code></pre>
+
+      <h3>Step 3: Sync Project</h3>
+      <p>Click <strong>Sync Now</strong> or go to <strong>File → Sync Project with Gradle Files</strong></p>
+
+      <h2>Initialize Parse</h2>
+      <p>Create an Application class:</p>
+      <pre><code>{`// App.kt
+import android.app.Application
+import com.parse.Parse
+
+class App : Application() {
+    override fun onCreate() {
+        super.onCreate()
+
+        Parse.initialize(
+            Parse.Configuration.Builder(this)
+                .applicationId("YOUR_BACK4APP_APP_ID")
+                .clientKey("YOUR_BACK4APP_CLIENT_KEY")
+                .server("https://parseapi.back4app.com/")
+                .build()
+        )
+    }
+}`}</code></pre>
+      <p>Register it in <code>AndroidManifest.xml</code>:</p>
+      <pre><code>{`<application
+    android:name=".App"
+    ...>`}</code></pre>
+
+      <h2>Define the Meeting Model</h2>
+      <p>Create a data class for meetings:</p>
+      <pre><code>{`// Meeting.kt
+import com.parse.ParseClassName
+import com.parse.ParseObject
+
+@ParseClassName("Meeting")
+class Meeting : ParseObject() {
+    var name: String?
+        get() = getString("name")
+        set(value) = put("name", value ?: "")
+
+    var meetingType: String?
+        get() = getString("meetingType")
+        set(value) = put("meetingType", value ?: "")
+
+    var day: Int
+        get() = getInt("day")
+        set(value) = put("day", value)
+
+    var time: String?
+        get() = getString("time")
+        set(value) = put("time", value ?: "")
+
+    var city: String?
+        get() = getString("city")
+        set(value) = put("city", value ?: "")
+
+    var state: String?
+        get() = getString("state")
+        set(value) = put("state", value ?: "")
+
+    var address: String?
+        get() = getString("address")
+        set(value) = put("address", value ?: "")
+
+    var latitude: Double
+        get() = getDouble("latitude")
+        set(value) = put("latitude", value)
+
+    var longitude: Double
+        get() = getDouble("longitude")
+        set(value) = put("longitude", value)
+
+    var isOnline: Boolean
+        get() = getBoolean("isOnline")
+        set(value) = put("isOnline", value)
+
+    var onlineUrl: String?
+        get() = getString("onlineUrl")
+        set(value) = put("onlineUrl", value ?: "")
+
+    var locationName: String?
+        get() = getString("locationName")
+        set(value) = put("locationName", value ?: "")
+}`}</code></pre>
+      <p>Register the subclass before initializing Parse:</p>
+      <pre><code>{`// In App.kt onCreate(), before Parse.initialize()
+ParseObject.registerSubclass(Meeting::class.java)`}</code></pre>
+
+      <h2>Query Meetings</h2>
+
+      <h3>Fetch All Meetings (Kotlin Coroutines)</h3>
+      <pre><code>{`import com.parse.ParseQuery
+import com.parse.coroutines.suspendFind
+
+suspend fun fetchMeetings(): List<Meeting> {
+    val query = ParseQuery.getQuery(Meeting::class.java)
+        .setLimit(100)
+        .orderByAscending("day")
+        .addAscendingOrder("time")
+
+    return query.suspendFind()
+}`}</code></pre>
+
+      <h3>Filter by State</h3>
+      <pre><code>{`suspend fun fetchMeetingsByState(state: String): List<Meeting> {
+    val query = ParseQuery.getQuery(Meeting::class.java)
+        .whereEqualTo("state", state)
+        .setLimit(100)
+
+    return query.suspendFind()
+}`}</code></pre>
+
+      <h3>Filter by Day of Week</h3>
+      <pre><code>{`suspend fun fetchMeetingsByDay(day: Int): List<Meeting> {
+    // day: 0 = Sunday, 1 = Monday, etc.
+    val query = ParseQuery.getQuery(Meeting::class.java)
+        .whereEqualTo("day", day)
+        .orderByAscending("time")
+
+    return query.suspendFind()
+}`}</code></pre>
+
+      <h3>Find Nearby Meetings</h3>
+      <pre><code>{`import com.parse.ParseGeoPoint
+
+suspend fun fetchNearbyMeetings(
+    latitude: Double,
+    longitude: Double,
+    radiusMiles: Double = 25.0
+): List<Meeting> {
+    val userLocation = ParseGeoPoint(latitude, longitude)
+
+    val query = ParseQuery.getQuery(Meeting::class.java)
+        .whereWithinMiles("location", userLocation, radiusMiles)
+        .setLimit(50)
+
+    return query.suspendFind()
+}`}</code></pre>
+
+      <h2>Jetpack Compose Example</h2>
+      <pre><code>{`import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+
+class MeetingsViewModel : ViewModel() {
+    var meetings by mutableStateOf<List<Meeting>>(emptyList())
+        private set
+    var isLoading by mutableStateOf(true)
+        private set
+    var error by mutableStateOf<String?>(null)
+        private set
+
+    init {
+        loadMeetings()
+    }
+
+    fun loadMeetings() {
+        viewModelScope.launch {
+            isLoading = true
+            try {
+                val query = ParseQuery.getQuery(Meeting::class.java)
+                    .setLimit(100)
+                    .orderByAscending("day")
+                meetings = query.suspendFind()
+                error = null
+            } catch (e: Exception) {
+                error = e.message
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+}
+
+@Composable
+fun MeetingsScreen(viewModel: MeetingsViewModel = viewModel()) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        TopAppBar(title = { Text("Meetings") })
+
+        when {
+            viewModel.isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+            viewModel.error != null -> {
+                Text(
+                    text = viewModel.error ?: "Unknown error",
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+            else -> {
+                LazyColumn {
+                    items(viewModel.meetings) { meeting ->
+                        MeetingItem(meeting)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MeetingItem(meeting: Meeting) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = meeting.name ?: "Unknown Meeting",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                meeting.meetingType?.let {
+                    AssistChip(
+                        onClick = { },
+                        label = { Text(it) }
+                    )
+                }
+                Text(
+                    text = meeting.city ?: "",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
+}`}</code></pre>
+
+      <h2>Callback-based Alternative</h2>
+      <p>If not using coroutines:</p>
+      <pre><code>{`fun fetchMeetingsWithCallback() {
+    val query = ParseQuery.getQuery(Meeting::class.java)
+        .setLimit(100)
+
+    query.findInBackground { meetings, e ->
+        if (e == null) {
+            // Success - update UI with meetings
+            updateMeetingsList(meetings)
+        } else {
+            // Error handling
+            Log.e("Meetings", "Error: " + e.message)
+        }
+    }
+}`}</code></pre>
+
+      <h2>Offline Caching</h2>
+      <p>Enable local datastore for offline access:</p>
+      <pre><code>{`// In App.kt
+Parse.initialize(
+    Parse.Configuration.Builder(this)
+        .applicationId("YOUR_APP_ID")
+        .clientKey("YOUR_CLIENT_KEY")
+        .server("https://parseapi.back4app.com/")
+        .enableLocalDataStore() // Enable offline caching
+        .build()
+)
+
+// Pin results locally
+suspend fun fetchAndCacheMeetings() {
+    val query = ParseQuery.getQuery(Meeting::class.java)
+    val meetings = query.suspendFind()
+    Meeting.pinAllInBackground("allMeetings", meetings)
+}
+
+// Query from local cache first
+fun fetchFromCache(): ParseQuery<Meeting> {
+    return ParseQuery.getQuery(Meeting::class.java)
+        .fromLocalDatastore()
+}`}</code></pre>
+
+      <h2>ProGuard Rules</h2>
+      <p>If using ProGuard/R8, add these rules:</p>
+      <pre><code>{`# Parse SDK
+-keep class com.parse.** { *; }
+-dontwarn com.parse.**
+
+# Your Meeting model
+-keep class com.yourpackage.Meeting { *; }`}</code></pre>
     </div>
   );
 }

@@ -29,6 +29,14 @@ const typeDescriptions = {
 };
 
 function MeetingDetail({ meeting, onClose, isSidebar = false }) {
+  // Check if meeting has a full street address (contains numbers indicating street number)
+  const hasFullStreetAddress = (meeting) => {
+    const address = meeting?.address;
+    if (!address) return false;
+    // Full street address typically has a street number (digit)
+    return /\d/.test(address);
+  };
+
   const formatTime = (time) => {
     if (!time) return 'Time not specified';
     // Convert 24h to 12h format
@@ -184,7 +192,7 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                       <span>{meeting.locationNotes}</span>
                     </div>
                   )}
-                  {meeting.latitude && meeting.longitude && (
+                  {meeting.latitude && meeting.longitude && !hasFullStreetAddress(meeting) && (
                     <button className="btn btn-secondary btn-small" onClick={openInMaps}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
@@ -441,7 +449,7 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                 <span>{meeting.locationNotes}</span>
               </div>
             )}
-            {meeting.latitude && meeting.longitude && (
+            {meeting.latitude && meeting.longitude && !hasFullStreetAddress(meeting) && (
               <button className="btn btn-secondary btn-small" onClick={openInMaps}>
                 Open in Google Maps
               </button>
