@@ -33,6 +33,11 @@ function MeetingsExplorer({ onAdminClick }) {
   const [availableCities, setAvailableCities] = useState([]);
   const [availableTypes, setAvailableTypes] = useState([]);
 
+  // Search autocomplete
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const searchInputRef = useRef(null);
+
   const listRef = useRef(null);
   const boundsTimeoutRef = useRef(null);
 
@@ -183,6 +188,83 @@ function MeetingsExplorer({ onAdminClick }) {
 
   const hasActiveFilters = searchQuery || selectedState || selectedCity || selectedDay || selectedType || showOnlineOnly;
 
+  // Compute autocomplete suggestions
+  const computeSuggestions = useCallback((query) => {
+    if (!query || query.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    const lowerQuery = query.toLowerCase();
+    const results = [];
+    const seen = new Set();
+
+    // Add matching cities
+    availableCities.forEach(city => {
+      if (city && city.toLowerCase().includes(lowerQuery) && !seen.has(city.toLowerCase())) {
+        seen.add(city.toLowerCase());
+        results.push({ type: 'city', value: city, label: city });
+      }
+    });
+
+    // Add matching states
+    availableStates.forEach(state => {
+      if (state && state.toLowerCase().includes(lowerQuery) && !seen.has(state.toLowerCase())) {
+        seen.add(state.toLowerCase());
+        results.push({ type: 'state', value: state, label: state });
+      }
+    });
+
+    // Add matching location names from meetings
+    meetings.forEach(m => {
+      if (m.locationName && m.locationName.toLowerCase().includes(lowerQuery)) {
+        const key = m.locationName.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          results.push({
+            type: 'location',
+            value: m.locationName,
+            label: m.locationName,
+            subLabel: m.city ? `${m.city}, ${m.state}` : m.state
+          });
+        }
+      }
+    });
+
+    // Limit to top 8 suggestions
+    setSuggestions(results.slice(0, 8));
+  }, [availableCities, availableStates, meetings]);
+
+  // Handle search input change
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    computeSuggestions(value);
+    setShowSuggestions(value.length >= 2);
+  };
+
+  // Handle suggestion click
+  const handleSuggestionClick = (suggestion) => {
+    setSearchQuery(suggestion.value);
+    setShowSuggestions(false);
+
+    // If it's a state, also set the state filter
+    if (suggestion.type === 'state') {
+      setSelectedState(suggestion.value);
+    }
+  };
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchInputRef.current && !searchInputRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const formatTime = (time) => {
     if (!time) return '';
     const [hours, minutes] = time.split(':');
@@ -222,14 +304,55 @@ function MeetingsExplorer({ onAdminClick }) {
 
         {/* Search Bar */}
         <div className="airbnb-search-bar">
-          <div className="search-section search-location">
+          <div className="search-section search-location" ref={searchInputRef}>
             <label>Where</label>
             <input
               type="text"
               placeholder="Search locations..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchChange}
+              onFocus={() => searchQuery.length >= 2 && setShowSuggestions(true)}
             />
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="search-suggestions">
+                {suggestions.map((suggestion, index) => (
+                  <button
+                    key={`${suggestion.type}-${suggestion.value}-${index}`}
+                    className="suggestion-item"
+                    onClick={() => handleSuggestionClick(suggestion)}
+                  >
+                    <span className={`suggestion-icon suggestion-${suggestion.type}`}>
+                      {suggestion.type === 'city' && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                          <circle cx="12" cy="10" r="3"/>
+                        </svg>
+                      )}
+                      {suggestion.type === 'state' && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="3" y="3" width="18" height="18" rx="2"/>
+                          <path d="M3 9h18"/>
+                          <path d="M9 21V9"/>
+                        </svg>
+                      )}
+                      {suggestion.type === 'location' && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                          <polyline points="9,22 9,12 15,12 15,22"/>
+                        </svg>
+                      )}
+                    </span>
+                    <span className="suggestion-text">
+                      <span className="suggestion-label">{suggestion.label}</span>
+                      {suggestion.subLabel && (
+                        <span className="suggestion-sublabel">{suggestion.subLabel}</span>
+                      )}
+                    </span>
+                    <span className="suggestion-type-badge">{suggestion.type}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="search-divider" />
           <div className="search-section search-when">
