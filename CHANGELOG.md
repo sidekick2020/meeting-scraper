@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.1] - 2026-01-20
+
+### Documentation
+- **Mobile Quick Start Guide**: Added step-by-step guide for showing meetings in iOS and Android apps
+  - iOS integration with Swift/SwiftUI using ParseSwift SDK
+  - Android integration with Kotlin/Jetpack Compose using Parse Android SDK
+  - Complete Meeting model definitions for both platforms
+  - Common query examples (filter by state, day, type, search, etc.)
+  - Reference tables for day values, meeting types, and type codes
+
 ## [1.3.0] - 2026-01-20
 
 ### New Features
