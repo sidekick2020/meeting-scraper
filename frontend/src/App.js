@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import MeetingsExplorer from './components/MeetingsExplorer';
 import AdminPanel from './components/AdminPanel';
-import DeploymentBanner from './components/DeploymentBanner';
+import DeploymentIndicator from './components/DeploymentIndicator';
 
 function SignInModal({ onClose }) {
   const { signIn, authError, clearError, allowedDomains } = useAuth();
@@ -88,7 +88,7 @@ function AppContent() {
 
   return (
     <div className="App">
-      <DeploymentBanner />
+      <DeploymentIndicator />
 
       {currentView === 'public' ? (
         <MeetingsExplorer onAdminClick={handleAdminClick} />
