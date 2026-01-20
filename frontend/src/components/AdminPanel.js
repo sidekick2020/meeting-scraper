@@ -338,6 +338,13 @@ function AdminPanel({ onBackToPublic }) {
         <polyline points="9,22 9,12 15,12 15,22"/>
       </svg>
     )},
+    { id: 'public', label: 'Public', external: true, icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="2" y1="12" x2="22" y2="12"/>
+        <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+      </svg>
+    )},
   ];
 
   const renderContent = () => {
@@ -498,14 +505,32 @@ function AdminPanel({ onBackToPublic }) {
 
         <nav className="sidebar-nav">
           {menuItems.map(item => (
-            <button
-              key={item.id}
-              className={`sidebar-nav-item ${activeSection === item.id ? 'active' : ''}`}
-              onClick={() => setActiveSection(item.id)}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </button>
+            item.external ? (
+              <a
+                key={item.id}
+                href="/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="sidebar-nav-item"
+              >
+                {item.icon}
+                <span>{item.label}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="external-icon">
+                  <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+                  <polyline points="15,3 21,3 21,9"/>
+                  <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+              </a>
+            ) : (
+              <button
+                key={item.id}
+                className={`sidebar-nav-item ${activeSection === item.id ? 'active' : ''}`}
+                onClick={() => setActiveSection(item.id)}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            )
           ))}
         </nav>
 

@@ -1463,6 +1463,19 @@
   opacity: 0.8;
 }
 
+.sidebar-nav-item .external-icon {
+  margin-left: auto;
+  opacity: 0.5;
+}
+
+.sidebar-nav-item:hover .external-icon {
+  opacity: 0.8;
+}
+
+a.sidebar-nav-item {
+  text-decoration: none;
+}
+
 .sidebar-footer {
   padding: 0.75rem;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
