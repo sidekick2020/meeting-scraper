@@ -488,7 +488,7 @@ def normalize_meeting(raw_meeting, source_name, default_state, skip_geocoding=Fa
         "editUrl": raw_meeting.get('edit_url', ''),
 
         # Additional flags
-        "approximate": raw_meeting.get('approximate', False),
+        "approximate": str(raw_meeting.get('approximate', False)).lower() in ('true', '1', 'yes'),
         "feedbackEmails": raw_meeting.get('feedback_emails', []),
 
         # Verification & Quality
