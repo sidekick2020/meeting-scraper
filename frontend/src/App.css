@@ -2204,7 +2204,8 @@ a.sidebar-nav-item {
 }
 
 .directory-row:hover {
-  background: rgba(47, 93, 255, 0.1);
+  background: rgba(47, 93, 255, 0.15);
+  box-shadow: inset 3px 0 0 var(--accent-primary);
 }
 
 .meeting-name-cell {
@@ -5800,7 +5801,8 @@ a.sidebar-nav-item {
 }
 
 [data-theme="light"] .directory-row:hover {
-  background: #f8f9fa;
+  background: rgba(47, 93, 255, 0.08);
+  box-shadow: inset 3px 0 0 #2f5dff;
 }
 
 /* Theme Toggle Button */
