@@ -115,7 +115,9 @@ function MeetingsExplorer({ onAdminClick }) {
     setError(null);
 
     try {
-      let url = `${BACKEND_URL}/api/meetings?limit=1000`;
+      // Use smaller limit for initial load to improve first-load performance
+    const requestLimit = bounds ? 1000 : 100;
+    let url = `${BACKEND_URL}/api/meetings?limit=${requestLimit}`;
 
       // Add bounds parameters if provided
       if (bounds) {

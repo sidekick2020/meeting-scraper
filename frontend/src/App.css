@@ -1380,6 +1380,18 @@
   background: var(--bg-secondary);
 }
 
+/* Ensure map tiles are fully visible */
+.leaflet-tile-pane,
+.leaflet-tile,
+.map-tiles {
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+.leaflet-tile-container {
+  opacity: 1 !important;
+}
+
 .leaflet-popup-content-wrapper {
   border-radius: 0.5rem;
 }
