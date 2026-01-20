@@ -834,6 +834,77 @@ func fetchNearbyMeetings(
     return try await query.find()
 }`}</code></pre>
 
+      <h3>Filter by Meeting Type (AA, NA, etc.)</h3>
+      <pre><code>{`func fetchAAMeetings() async throws -> [Meeting] {
+    let query = Meeting.query("meetingType" == "AA")
+        .order([.ascending("day"), .ascending("time")])
+        .limit(100)
+    return try await query.find()
+}`}</code></pre>
+
+      <h3>Filter Online or Hybrid Meetings</h3>
+      <pre><code>{`func fetchOnlineMeetings() async throws -> [Meeting] {
+    let query = Meeting.query("isOnline" == true)
+        .limit(100)
+    return try await query.find()
+}
+
+func fetchHybridMeetings() async throws -> [Meeting] {
+    let query = Meeting.query("isHybrid" == true)
+        .limit(100)
+    return try await query.find()
+}`}</code></pre>
+
+      <h3>Filter by City and State</h3>
+      <pre><code>{`func fetchMeetingsInCity(_ city: String, state: String) async throws -> [Meeting] {
+    let query = Meeting.query("city" == city, "state" == state)
+        .order([.ascending("day"), .ascending("time")])
+        .limit(100)
+    return try await query.find()
+}`}</code></pre>
+
+      <h3>Filter by Type Codes (Women, Beginners, etc.)</h3>
+      <pre><code>{`func fetchWomensMeetings() async throws -> [Meeting] {
+    // Types is an array field containing codes like "W", "B", "D"
+    let query = Meeting.query("types" == "W")
+        .limit(100)
+    return try await query.find()
+}
+
+func fetchBeginnerMeetings() async throws -> [Meeting] {
+    let query = Meeting.query("types" == "B")
+        .limit(100)
+    return try await query.find()
+}`}</code></pre>
+
+      <h3>Search by Name</h3>
+      <pre><code>{`func searchMeetings(term: String) async throws -> [Meeting] {
+    let query = Meeting.query("name" =~ term)  // regex match
+        .limit(50)
+    return try await query.find()
+}`}</code></pre>
+
+      <h3>Pagination</h3>
+      <pre><code>{`func fetchMeetingsPage(page: Int, pageSize: Int = 20) async throws -> [Meeting] {
+    let skip = page * pageSize
+    let query = Meeting.query()
+        .order([.ascending("name")])
+        .skip(skip)
+        .limit(pageSize)
+    return try await query.find()
+}`}</code></pre>
+
+      <h3>Compound Queries (OR conditions)</h3>
+      <pre><code>{`func fetchAAorNAMeetings() async throws -> [Meeting] {
+    let aaQuery = Meeting.query("meetingType" == "AA")
+    let naQuery = Meeting.query("meetingType" == "NA")
+
+    let compoundQuery = try aaQuery.or(naQuery)
+        .limit(100)
+
+    return try await compoundQuery.find()
+}`}</code></pre>
+
       <h2>SwiftUI Example</h2>
       <pre><code>{`import SwiftUI
 import ParseSwift
@@ -1122,6 +1193,90 @@ suspend fun fetchNearbyMeetings(
         .setLimit(50)
 
     return query.suspendFind()
+}`}</code></pre>
+
+      <h3>Filter by Meeting Type (AA, NA, etc.)</h3>
+      <pre><code>{`suspend fun fetchAAMeetings(): List<Meeting> {
+    val query = ParseQuery.getQuery(Meeting::class.java)
+        .whereEqualTo("meetingType", "AA")
+        .orderByAscending("day")
+        .addAscendingOrder("time")
+        .setLimit(100)
+    return query.suspendFind()
+}`}</code></pre>
+
+      <h3>Filter Online or Hybrid Meetings</h3>
+      <pre><code>{`suspend fun fetchOnlineMeetings(): List<Meeting> {
+    val query = ParseQuery.getQuery(Meeting::class.java)
+        .whereEqualTo("isOnline", true)
+        .setLimit(100)
+    return query.suspendFind()
+}
+
+suspend fun fetchHybridMeetings(): List<Meeting> {
+    val query = ParseQuery.getQuery(Meeting::class.java)
+        .whereEqualTo("isHybrid", true)
+        .setLimit(100)
+    return query.suspendFind()
+}`}</code></pre>
+
+      <h3>Filter by City and State</h3>
+      <pre><code>{`suspend fun fetchMeetingsInCity(city: String, state: String): List<Meeting> {
+    val query = ParseQuery.getQuery(Meeting::class.java)
+        .whereEqualTo("city", city)
+        .whereEqualTo("state", state)
+        .orderByAscending("day")
+        .addAscendingOrder("time")
+        .setLimit(100)
+    return query.suspendFind()
+}`}</code></pre>
+
+      <h3>Filter by Type Codes (Women, Beginners, etc.)</h3>
+      <pre><code>{`suspend fun fetchWomensMeetings(): List<Meeting> {
+    // Types is an array field containing codes like "W", "B", "D"
+    val query = ParseQuery.getQuery(Meeting::class.java)
+        .whereEqualTo("types", "W")
+        .setLimit(100)
+    return query.suspendFind()
+}
+
+suspend fun fetchBeginnerMeetings(): List<Meeting> {
+    val query = ParseQuery.getQuery(Meeting::class.java)
+        .whereEqualTo("types", "B")
+        .setLimit(100)
+    return query.suspendFind()
+}`}</code></pre>
+
+      <h3>Search by Name</h3>
+      <pre><code>{`suspend fun searchMeetings(term: String): List<Meeting> {
+    val query = ParseQuery.getQuery(Meeting::class.java)
+        .whereMatches("name", term, "i")  // case-insensitive regex
+        .setLimit(50)
+    return query.suspendFind()
+}`}</code></pre>
+
+      <h3>Pagination</h3>
+      <pre><code>{`suspend fun fetchMeetingsPage(page: Int, pageSize: Int = 20): List<Meeting> {
+    val skip = page * pageSize
+    val query = ParseQuery.getQuery(Meeting::class.java)
+        .orderByAscending("name")
+        .setSkip(skip)
+        .setLimit(pageSize)
+    return query.suspendFind()
+}`}</code></pre>
+
+      <h3>Compound Queries (OR conditions)</h3>
+      <pre><code>{`suspend fun fetchAAorNAMeetings(): List<Meeting> {
+    val aaQuery = ParseQuery.getQuery(Meeting::class.java)
+        .whereEqualTo("meetingType", "AA")
+
+    val naQuery = ParseQuery.getQuery(Meeting::class.java)
+        .whereEqualTo("meetingType", "NA")
+
+    val compoundQuery = ParseQuery.or(listOf(aaQuery, naQuery))
+        .setLimit(100)
+
+    return compoundQuery.suspendFind()
 }`}</code></pre>
 
       <h2>Jetpack Compose Example</h2>
