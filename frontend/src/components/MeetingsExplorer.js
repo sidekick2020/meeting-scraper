@@ -23,6 +23,7 @@ function MeetingsExplorer({ onAdminClick }) {
   const [selectedDay, setSelectedDay] = useState('');
   const [selectedType, setSelectedType] = useState('');
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+  const [showTodayOnly, setShowTodayOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
   // Map bounds for dynamic loading
@@ -233,8 +234,13 @@ function MeetingsExplorer({ onAdminClick }) {
       filtered = filtered.filter(m => m.isOnline);
     }
 
+    if (showTodayOnly) {
+      const today = new Date().getDay();
+      filtered = filtered.filter(m => m.day === today);
+    }
+
     setFilteredMeetings(filtered);
-  }, [meetings, searchQuery, selectedState, selectedCity, selectedDay, selectedType, showOnlineOnly]);
+  }, [meetings, searchQuery, selectedState, selectedCity, selectedDay, selectedType, showOnlineOnly, showTodayOnly]);
 
   // Update available cities when state changes
   useEffect(() => {
@@ -260,9 +266,10 @@ function MeetingsExplorer({ onAdminClick }) {
     setSelectedDay('');
     setSelectedType('');
     setShowOnlineOnly(false);
+    setShowTodayOnly(false);
   };
 
-  const hasActiveFilters = searchQuery || selectedState || selectedCity || selectedDay || selectedType || showOnlineOnly;
+  const hasActiveFilters = searchQuery || selectedState || selectedCity || selectedDay || selectedType || showOnlineOnly || showTodayOnly;
 
   // Compute autocomplete suggestions
   const computeSuggestions = useCallback((query) => {
@@ -503,6 +510,18 @@ function MeetingsExplorer({ onAdminClick }) {
           )}
 
           <button
+            className={`filter-chip ${showTodayOnly ? 'active' : ''}`}
+            onClick={() => setShowTodayOnly(!showTodayOnly)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2"/>
+              <path d="M16 2v4M8 2v4M3 10h18"/>
+              <circle cx="12" cy="15" r="2" fill="currentColor"/>
+            </svg>
+            Today
+          </button>
+
+          <button
             className={`filter-chip ${showOnlineOnly ? 'active' : ''}`}
             onClick={() => setShowOnlineOnly(!showOnlineOnly)}
           >
@@ -717,6 +736,17 @@ function MeetingsExplorer({ onAdminClick }) {
               <div className="filter-section">
                 <h3>Quick filters</h3>
                 <div className="filter-quick-options">
+                  <button
+                    className={`filter-quick-btn ${showTodayOnly ? 'active' : ''}`}
+                    onClick={() => setShowTodayOnly(!showTodayOnly)}
+                  >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="4" width="18" height="18" rx="2"/>
+                      <path d="M16 2v4M8 2v4M3 10h18"/>
+                      <circle cx="12" cy="15" r="2" fill="currentColor"/>
+                    </svg>
+                    <span>Today</span>
+                  </button>
                   <button
                     className={`filter-quick-btn ${showOnlineOnly ? 'active' : ''}`}
                     onClick={() => setShowOnlineOnly(!showOnlineOnly)}
