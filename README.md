@@ -100,17 +100,14 @@ To contribute:
 
 ## Screenshots
 
-| Public Directory | Admin Dashboard |
-|------------------|-----------------|
-| ![Directory](docs/screenshots/directory.png) | ![Admin](docs/screenshots/admin-dashboard.png) |
-| *Browse meetings with map and filters* | *Real-time scraping progress* |
+> Screenshots coming soon. To add screenshots, place images in `docs/screenshots/` and update references below.
 
-| Coverage Analysis | Developer Docs |
-|-------------------|----------------|
-| ![Coverage](docs/screenshots/coverage.png) | ![Docs](docs/screenshots/dev-docs.png) |
-| *State-by-state coverage metrics* | *iOS & Android SDK guides* |
-
-> Screenshots can be added by placing images in `docs/screenshots/`
+| View | Description |
+|------|-------------|
+| **Public Directory** | Browse meetings with map and filters |
+| **Admin Dashboard** | Real-time scraping progress |
+| **Coverage Analysis** | State-by-state coverage metrics |
+| **Developer Docs** | iOS & Android SDK guides |
 
 ---
 
