@@ -13,6 +13,7 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('standard');
+  const [ccEmail, setCcEmail] = useState('');
   const [inviting, setInviting] = useState(false);
   const [userError, setUserError] = useState('');
   const [userSuccess, setUserSuccess] = useState('');
@@ -78,7 +79,8 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
           email: inviteEmail,
           role: inviteRole,
           inviterEmail: currentUser?.email,
-          inviterName: currentUser?.name || 'Admin'
+          inviterName: currentUser?.name || 'Admin',
+          ccEmail: ccEmail.trim() || null
         })
       });
 
@@ -86,10 +88,11 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
 
       if (response.ok) {
         setUserSuccess(data.emailSent
-          ? `Invitation sent to ${inviteEmail}`
+          ? `Invitation sent to ${inviteEmail}${ccEmail ? ` (CC: ${ccEmail})` : ''}`
           : `User created (email not sent - SMTP not configured)`);
         setInviteEmail('');
         setInviteRole('standard');
+        setCcEmail('');
         setShowInviteForm(false);
         fetchUsers();
       } else {
@@ -328,6 +331,17 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
                       </select>
                     </div>
                   </div>
+                  <div className="form-group">
+                    <label htmlFor="ccEmail">CC Email (optional)</label>
+                    <input
+                      type="email"
+                      id="ccEmail"
+                      value={ccEmail}
+                      onChange={(e) => setCcEmail(e.target.value)}
+                      placeholder="manager@example.com"
+                      disabled={inviting}
+                    />
+                  </div>
                   <div className="invite-form-actions">
                     <button
                       type="button"
@@ -353,12 +367,21 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
                 </form>
               )}
 
-              {loadingUsers ? (
-                <div className="users-loading">
-                  <div className="loading-spinner"></div>
-                  <p>Loading users...</p>
-                </div>
-              ) : users.length === 0 ? (
+              <div className="users-list-container">
+                {loadingUsers ? (
+                  <div className="users-list">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="skeleton-row">
+                        <div className="skeleton-avatar"></div>
+                        <div className="skeleton-content">
+                          <div className="skeleton-line medium"></div>
+                          <div className="skeleton-line short"></div>
+                        </div>
+                        <div className="skeleton-actions"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : users.length === 0 ? (
                 <div className="users-empty">
                   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
@@ -431,6 +454,7 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
                   ))}
                 </div>
               )}
+              </div>
             </div>
           )}
         </div>

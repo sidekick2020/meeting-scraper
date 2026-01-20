@@ -1759,7 +1759,7 @@ SMTP_PASS = os.environ.get('SMTP_PASS', '')
 APP_URL = os.environ.get('APP_URL', 'http://localhost:3000')
 
 
-def send_invite_email(to_email, invite_token, inviter_name):
+def send_invite_email(to_email, invite_token, inviter_name, cc_email=None):
     """Send invitation email to new user."""
     import smtplib
     from email.mime.text import MIMEText
@@ -1776,6 +1776,8 @@ def send_invite_email(to_email, invite_token, inviter_name):
         msg['Subject'] = 'You\'ve been invited to Sober Sidekick Admin Dashboard'
         msg['From'] = SMTP_USER
         msg['To'] = to_email
+        if cc_email:
+            msg['Cc'] = cc_email
 
         text = f"""
 Hi there!
@@ -1836,7 +1838,10 @@ Sober Sidekick Team
         server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15)
         server.starttls()
         server.login(SMTP_USER, SMTP_PASS)
-        server.sendmail(SMTP_USER, to_email, msg.as_string())
+        recipients = [to_email]
+        if cc_email:
+            recipients.append(cc_email)
+        server.sendmail(SMTP_USER, recipients, msg.as_string())
         server.quit()
         return True
     except Exception as e:
@@ -1882,6 +1887,7 @@ def invite_user():
     role = data.get('role', 'standard')
     inviter_email = data.get('inviterEmail', '')
     inviter_name = data.get('inviterName', 'Admin')
+    cc_email = data.get('ccEmail', '').strip() if data.get('ccEmail') else None
 
     if not email:
         return jsonify({'error': 'Email is required'}), 400
@@ -1941,7 +1947,7 @@ def invite_user():
             new_user.update(user_data)
 
             # Send invite email
-            email_sent = send_invite_email(email, invite_token, inviter_name)
+            email_sent = send_invite_email(email, invite_token, inviter_name, cc_email)
 
             return jsonify({
                 'success': True,

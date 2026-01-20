@@ -1,6 +1,179 @@
 import React, { useState } from 'react';
 import MeetingSchema from './MeetingSchema';
 
+// Swift Meeting model file content
+const swiftModelContent = `import ParseSwift
+
+struct Meeting: ParseObject {
+    // Required by ParseObject
+    var objectId: String?
+    var createdAt: Date?
+    var updatedAt: Date?
+    var ACL: ParseACL?
+    var originalData: Data?
+
+    // Meeting fields
+    var name: String?
+    var meetingType: String?
+    var day: Int?
+    var time: String?
+    var endTime: String?
+    var timezone: String?
+    var address: String?
+    var city: String?
+    var state: String?
+    var postalCode: String?
+    var latitude: Double?
+    var longitude: Double?
+    var isOnline: Bool?
+    var isHybrid: Bool?
+    var onlineUrl: String?
+    var locationName: String?
+    var types: [String]?
+    var notes: String?
+    var region: String?
+    var subRegion: String?
+    var locationNotes: String?
+    var group: String?
+    var groupNotes: String?
+    var contactName: String?
+    var contactEmail: String?
+    var contactPhone: String?
+    var sourceFeed: String?
+}
+`;
+
+// Kotlin Meeting model file content
+const kotlinModelContent = `package com.yourapp.models
+
+import com.parse.ParseClassName
+import com.parse.ParseObject
+
+@ParseClassName("Meeting")
+class Meeting : ParseObject() {
+    var name: String?
+        get() = getString("name")
+        set(value) = put("name", value ?: "")
+
+    var meetingType: String?
+        get() = getString("meetingType")
+        set(value) = put("meetingType", value ?: "")
+
+    var day: Int
+        get() = getInt("day")
+        set(value) = put("day", value)
+
+    var time: String?
+        get() = getString("time")
+        set(value) = put("time", value ?: "")
+
+    var endTime: String?
+        get() = getString("endTime")
+        set(value) = put("endTime", value ?: "")
+
+    var timezone: String?
+        get() = getString("timezone")
+        set(value) = put("timezone", value ?: "")
+
+    var city: String?
+        get() = getString("city")
+        set(value) = put("city", value ?: "")
+
+    var state: String?
+        get() = getString("state")
+        set(value) = put("state", value ?: "")
+
+    var address: String?
+        get() = getString("address")
+        set(value) = put("address", value ?: "")
+
+    var postalCode: String?
+        get() = getString("postalCode")
+        set(value) = put("postalCode", value ?: "")
+
+    var latitude: Double
+        get() = getDouble("latitude")
+        set(value) = put("latitude", value)
+
+    var longitude: Double
+        get() = getDouble("longitude")
+        set(value) = put("longitude", value)
+
+    var isOnline: Boolean
+        get() = getBoolean("isOnline")
+        set(value) = put("isOnline", value)
+
+    var isHybrid: Boolean
+        get() = getBoolean("isHybrid")
+        set(value) = put("isHybrid", value)
+
+    var onlineUrl: String?
+        get() = getString("onlineUrl")
+        set(value) = put("onlineUrl", value ?: "")
+
+    var locationName: String?
+        get() = getString("locationName")
+        set(value) = put("locationName", value ?: "")
+
+    var region: String?
+        get() = getString("region")
+        set(value) = put("region", value ?: "")
+
+    var subRegion: String?
+        get() = getString("subRegion")
+        set(value) = put("subRegion", value ?: "")
+
+    var locationNotes: String?
+        get() = getString("locationNotes")
+        set(value) = put("locationNotes", value ?: "")
+
+    var notes: String?
+        get() = getString("notes")
+        set(value) = put("notes", value ?: "")
+
+    var group: String?
+        get() = getString("group")
+        set(value) = put("group", value ?: "")
+
+    var groupNotes: String?
+        get() = getString("groupNotes")
+        set(value) = put("groupNotes", value ?: "")
+
+    var contactName: String?
+        get() = getString("contactName")
+        set(value) = put("contactName", value ?: "")
+
+    var contactEmail: String?
+        get() = getString("contactEmail")
+        set(value) = put("contactEmail", value ?: "")
+
+    var contactPhone: String?
+        get() = getString("contactPhone")
+        set(value) = put("contactPhone", value ?: "")
+
+    var sourceFeed: String?
+        get() = getString("sourceFeed")
+        set(value) = put("sourceFeed", value ?: "")
+
+    var types: List<String>?
+        get() = getList("types")
+        set(value) = put("types", value ?: emptyList<String>())
+}
+`;
+
+// Helper function to download file
+const downloadFile = (content, filename) => {
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
 function DevDocs({ onClose }) {
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -606,6 +779,15 @@ struct Meeting: ParseObject {
     var types: [String]?
     var notes: String?
 }`}</code></pre>
+      <button
+        className="btn btn-secondary btn-sm download-model-btn"
+        onClick={() => downloadFile(swiftModelContent, 'Meeting.swift')}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+        </svg>
+        Download Meeting.swift
+      </button>
 
       <h2>Query Meetings</h2>
       <h3>Fetch All Meetings</h3>
@@ -878,6 +1060,15 @@ class Meeting : ParseObject() {
         get() = getString("locationName")
         set(value) = put("locationName", value ?: "")
 }`}</code></pre>
+      <button
+        className="btn btn-secondary btn-sm download-model-btn"
+        onClick={() => downloadFile(kotlinModelContent, 'Meeting.kt')}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+        </svg>
+        Download Meeting.kt
+      </button>
       <p>Register the subclass before initializing Parse:</p>
       <pre><code>{`// In App.kt onCreate(), before Parse.initialize()
 ParseObject.registerSubclass(Meeting::class.java)`}</code></pre>
