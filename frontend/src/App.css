@@ -4775,7 +4775,7 @@ a.sidebar-nav-item {
 /* Airbnb-style Meeting Card */
 .airbnb-list-panel .meeting-card {
   background: var(--card-bg);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border-medium);
   border-radius: 1rem;
   overflow: hidden;
   cursor: pointer;
@@ -4798,7 +4798,8 @@ a.sidebar-nav-item {
 .meeting-card-image {
   position: relative;
   height: 140px;
-  background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+  background: var(--card-bg);
+  border-bottom: 2px solid var(--accent-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4812,8 +4813,8 @@ a.sidebar-nav-item {
 }
 
 .meeting-card-icon {
-  color: var(--text-muted);
-  opacity: 0.5;
+  color: var(--accent-primary);
+  opacity: 0.6;
 }
 
 .meeting-card-type-badge {
