@@ -32,13 +32,17 @@ cd frontend && npm install && npm start
 
 ## Current Coverage
 
-### Active Feeds
+### Active Feeds (7 States)
 
-| State | Feeds | Types |
-|-------|-------|-------|
-| **Alabama** | Birmingham AA, West Alabama AA, Alabama NA (BMLT) | AA, NA |
-| **Arizona** | Phoenix AA | AA |
-| **California** | Bay Area AA, San Diego AA | AA |
+| State | Feeds | Types | Est. Meetings |
+|-------|-------|-------|---------------|
+| **Alabama** | Birmingham AA, West Alabama AA, Alabama NA | AA, NA | ~500 |
+| **Arizona** | Phoenix AA | AA | ~400 |
+| **California** | Bay Area AA, San Diego AA | AA | ~600 |
+| **Indiana** | Indianapolis AA | AA | ~470 |
+| **Missouri** | Missouri NA | NA | ~624 |
+| **Virginia** | Richmond AA, Blue Ridge AA | AA | ~742 |
+| **Washington** | Eastside AA (Seattle) | AA | ~439 |
 
 <details>
 <summary><strong>Priority States Needing Coverage</strong></summary>
