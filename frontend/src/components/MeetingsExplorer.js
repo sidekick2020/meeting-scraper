@@ -80,6 +80,8 @@ function MeetingsExplorer({ onAdminClick }) {
   const listRef = useRef(null);
   const boundsTimeoutRef = useRef(null);
   const thumbnailRequestsRef = useRef(new Set());
+  const initialFetchDoneRef = useRef(false);
+  const meetingsRef = useRef([]);
 
   // Fetch thumbnail for a single meeting
   const fetchThumbnail = useCallback(async (meetingId) => {
@@ -126,7 +128,7 @@ function MeetingsExplorer({ onAdminClick }) {
   }, [fetchThumbnail]);
 
   const fetchMeetings = useCallback(async (options = {}) => {
-    const { bounds = null, loadMore = false, resetPagination = false } = options;
+    const { bounds = null, loadMore = false } = options;
 
     if (loadMore) {
       setIsLoadingMore(true);
@@ -138,8 +140,9 @@ function MeetingsExplorer({ onAdminClick }) {
     setError(null);
 
     try {
-      const skip = loadMore ? meetings.length : 0;
-      const limit = bounds ? 100 : PAGE_SIZE;  // Reduced from 1000 for faster map loading
+      // Use ref for skip to avoid dependency on meetings.length
+      const skip = loadMore ? meetingsRef.current.length : 0;
+      const limit = bounds ? 100 : PAGE_SIZE;
       let url = `${BACKEND_URL}/api/meetings?limit=${limit}&skip=${skip}`;
 
       // Add bounds parameters if provided
@@ -161,7 +164,9 @@ function MeetingsExplorer({ onAdminClick }) {
           setMeetings(prev => {
             const existingIds = new Set(prev.map(m => m.objectId));
             const uniqueNew = newMeetings.filter(m => !existingIds.has(m.objectId));
-            return [...prev, ...uniqueNew];
+            const updated = [...prev, ...uniqueNew];
+            meetingsRef.current = updated;
+            return updated;
           });
           setCurrentPage(prev => prev + 1);
         } else if (bounds) {
@@ -169,9 +174,12 @@ function MeetingsExplorer({ onAdminClick }) {
           setMeetings(prev => {
             const existingIds = new Set(prev.map(m => m.objectId));
             const uniqueNew = newMeetings.filter(m => !existingIds.has(m.objectId));
-            return [...prev, ...uniqueNew];
+            const updated = [...prev, ...uniqueNew];
+            meetingsRef.current = updated;
+            return updated;
           });
         } else {
+          meetingsRef.current = newMeetings;
           setMeetings(newMeetings);
           setCurrentPage(0);
         }
@@ -199,7 +207,7 @@ function MeetingsExplorer({ onAdminClick }) {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [meetings.length, PAGE_SIZE]);
+  }, [PAGE_SIZE]);
 
   const loadMoreMeetings = useCallback(() => {
     if (!isLoadingMore && hasMore) {
@@ -227,7 +235,10 @@ function MeetingsExplorer({ onAdminClick }) {
     }
   }, []);
 
+  // Initial data fetch - run only once on mount
   useEffect(() => {
+    if (initialFetchDoneRef.current) return;
+    initialFetchDoneRef.current = true;
     checkBackendConfig();
     fetchMeetings();
   }, [fetchMeetings, checkBackendConfig]);
@@ -243,8 +254,18 @@ function MeetingsExplorer({ onAdminClick }) {
     }
   }, [filteredMeetings, requestMissingThumbnails]);
 
+  // Track if first bounds change (skip fetching on initial map load)
+  const firstBoundsChangeRef = useRef(true);
+
   // Handle map bounds change with debouncing
   const handleBoundsChange = useCallback((bounds) => {
+    // Skip the first bounds change (initial map load) to avoid duplicate fetch
+    if (firstBoundsChangeRef.current) {
+      firstBoundsChangeRef.current = false;
+      setMapBounds(bounds);
+      return;
+    }
+
     // Clear any pending timeout
     if (boundsTimeoutRef.current) {
       clearTimeout(boundsTimeoutRef.current);
