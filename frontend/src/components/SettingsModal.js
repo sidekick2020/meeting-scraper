@@ -4,35 +4,49 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'
 
 // Release notes content
 const RELEASE_NOTES = `
-## Latest Updates
-
-### Performance Improvements
-- **Faster Initial Load**: Reduced initial meeting request from 1000 to 100 for quicker first-load performance
-- **Coverage Analysis Optimization**: Fixed timeout by replacing 52 sequential API calls with single batched fetch
-- **Map Bounds Loading**: Fixed JSON encoding for bounds queries to properly load meetings when panning map
-
-### UI/UX Improvements
-- **Dark/Light Mode Toggle**: Added theme toggle in profile dropdown to switch between modes
-- **Light Mode Improvements**: Comprehensive styling overhaul with darker blue accent, better sidebar contrast, and visible search inputs
-- **Map Visibility**: Added explicit opacity settings to ensure map tiles are fully visible
-- **Card Visibility**: Improved meeting card visibility in light mode with stronger borders
-- **Side Panel**: Fixed legibility issues in light mode with proper theme variable usage
-- **Logo Display**: Fixed SVG logo cutoff by expanding viewBox with padding
-- **Skeleton Loading**: Added shimmer animation for users table loading state
+## Version 1.3.2
 
 ### New Features
-- **Downloadable Model Files**: Added Meeting.swift and Meeting.kt files for iOS/Android integration
-- **CC Email for Invites**: Added ability to CC someone when sending user invitations
-- **Comprehensive Query Docs**: Added extensive query examples for iOS (Swift) and Android (Kotlin)
-  - Filter by meeting type, online/hybrid meetings, city and state
-  - Filter by type codes (Women, Beginners, etc.)
-  - Search by name, pagination, compound queries
+- **Alabama Meeting Feeds**: Added meeting data sources for Alabama
+  - Birmingham AA feed (TSML format)
+  - West Alabama AA feed covering Tuscaloosa, Jasper, Fayette areas
+  - Alabama NA feed with BMLT support covering all 11 NA service areas
+- **BMLT Feed Support**: Added support for BMLT (Basic Meeting List Toolkit) API format
+  - Automatic transformation from BMLT to standard format
+  - Enables scraping NA meetings from BMLT-powered sites
+
+## Version 1.3.1
+
+### Documentation
+- **Mobile Quick Start Guide**: Step-by-step guide for showing meetings in iOS and Android apps
+  - iOS integration with Swift/SwiftUI using ParseSwift SDK
+  - Android integration with Kotlin/Jetpack Compose using Parse Android SDK
+  - Complete Meeting model definitions for both platforms
+
+## Version 1.3.0
+
+### New Features
+- **Admin Directory Load More**: Replaced Previous/Next pagination with "Load More" button
+- **Search Highlighting**: Added search term highlighting in admin directory
 
 ### Bug Fixes
-- **Start New Scrape**: Fixed app hang when clicking "Start New Scrape" by showing feed selector first
-- **Team Members Timeout**: Increased API timeout from 8s to 30s for loading team members
-- **Invite Email Timeout**: Added 15s timeout to SMTP connection to prevent indefinite hang
-- **Loading Indicators**: Added spinner to invite button for better feedback during submission
+- **Deployment Indicator**: Fixed indicator not disappearing when deployment finishes
+
+## Earlier Updates
+
+### Performance Improvements
+- **Faster Initial Load**: Reduced initial meeting request from 1000 to 100
+- **Coverage Analysis Optimization**: Fixed timeout with single batched fetch
+
+### UI/UX Improvements
+- **Dark/Light Mode Toggle**: Added theme toggle in profile dropdown
+- **Light Mode Improvements**: Comprehensive styling overhaul
+- **Skeleton Loading**: Added shimmer animation for users table
+
+### New Features
+- **Downloadable Model Files**: Added Meeting.swift and Meeting.kt files
+- **CC Email for Invites**: Added ability to CC someone when sending invitations
+- **Comprehensive Query Docs**: Added extensive query examples for iOS and Android
 `;
 
 const API_VERSIONS = [

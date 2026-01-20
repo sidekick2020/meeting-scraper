@@ -42,7 +42,8 @@ function DeploymentIndicator() {
             setTimeout(() => {
               window.location.reload();
             }, 3000);
-          } else if (backendStatus !== 'stable') {
+          } else {
+            // Backend is responding and version matches - always reset to stable
             setBackendStatus('stable');
           }
         } else {
@@ -63,7 +64,7 @@ function DeploymentIndicator() {
     checkBackend();
     const interval = setInterval(checkBackend, CHECK_INTERVAL);
     return () => clearInterval(interval);
-  }, [backendStatus]);
+  }, []); // Remove backendStatus from deps to avoid stale closures
 
   // Check frontend status
   useEffect(() => {
@@ -95,8 +96,8 @@ function DeploymentIndicator() {
             setTimeout(() => {
               window.location.reload();
             }, 3000);
-          } else if (frontendStatus !== 'stable') {
-            // Deployment finished, version matches - reset to stable
+          } else {
+            // Frontend is responding and version matches - always reset to stable
             setFrontendStatus('stable');
           }
         } else {
@@ -117,7 +118,7 @@ function DeploymentIndicator() {
     checkFrontend();
     const interval = setInterval(checkFrontend, CHECK_INTERVAL);
     return () => clearInterval(interval);
-  }, [frontendStatus]);
+  }, []); // Remove frontendStatus from deps to avoid stale closures
 
   const isDeploying = backendStatus !== 'stable' || frontendStatus !== 'stable';
 
