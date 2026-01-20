@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import MeetingMap from './MeetingMap';
 import MeetingDetail from './MeetingDetail';
 
@@ -10,18 +10,26 @@ function MeetingsExplorer({ onAdminClick }) {
   const [meetings, setMeetings] = useState([]);
   const [filteredMeetings, setFilteredMeetings] = useState([]);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
+  const [hoveredMeeting, setHoveredMeeting] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeView, setActiveView] = useState('map');
+  const [isMapCollapsed, setIsMapCollapsed] = useState(false);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedState, setSelectedState] = useState('');
+  const [selectedCity, setSelectedCity] = useState('');
   const [selectedDay, setSelectedDay] = useState('');
+  const [selectedType, setSelectedType] = useState('');
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
-  // Get unique states from meetings
+  // Get unique values from meetings
   const [availableStates, setAvailableStates] = useState([]);
+  const [availableCities, setAvailableCities] = useState([]);
+  const [availableTypes, setAvailableTypes] = useState([]);
+
+  const listRef = useRef(null);
 
   const fetchMeetings = useCallback(async () => {
     setIsLoading(true);
@@ -36,6 +44,14 @@ function MeetingsExplorer({ onAdminClick }) {
         // Extract unique states
         const states = [...new Set(data.meetings.map(m => m.state).filter(Boolean))].sort();
         setAvailableStates(states);
+
+        // Extract unique cities
+        const cities = [...new Set(data.meetings.map(m => m.city).filter(Boolean))].sort();
+        setAvailableCities(cities);
+
+        // Extract unique types
+        const types = [...new Set(data.meetings.map(m => m.meetingType).filter(Boolean))].sort();
+        setAvailableTypes(types);
       } else {
         setError('Failed to load meetings');
       }
@@ -68,8 +84,16 @@ function MeetingsExplorer({ onAdminClick }) {
       filtered = filtered.filter(m => m.state === selectedState);
     }
 
+    if (selectedCity) {
+      filtered = filtered.filter(m => m.city === selectedCity);
+    }
+
     if (selectedDay !== '') {
       filtered = filtered.filter(m => m.day === parseInt(selectedDay));
+    }
+
+    if (selectedType) {
+      filtered = filtered.filter(m => m.meetingType === selectedType);
     }
 
     if (showOnlineOnly) {
@@ -77,14 +101,35 @@ function MeetingsExplorer({ onAdminClick }) {
     }
 
     setFilteredMeetings(filtered);
-  }, [meetings, searchQuery, selectedState, selectedDay, showOnlineOnly]);
+  }, [meetings, searchQuery, selectedState, selectedCity, selectedDay, selectedType, showOnlineOnly]);
+
+  // Update available cities when state changes
+  useEffect(() => {
+    if (selectedState) {
+      const citiesInState = [...new Set(
+        meetings
+          .filter(m => m.state === selectedState)
+          .map(m => m.city)
+          .filter(Boolean)
+      )].sort();
+      setAvailableCities(citiesInState);
+    } else {
+      const allCities = [...new Set(meetings.map(m => m.city).filter(Boolean))].sort();
+      setAvailableCities(allCities);
+    }
+    setSelectedCity('');
+  }, [selectedState, meetings]);
 
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedState('');
+    setSelectedCity('');
     setSelectedDay('');
+    setSelectedType('');
     setShowOnlineOnly(false);
   };
+
+  const hasActiveFilters = searchQuery || selectedState || selectedCity || selectedDay || selectedType || showOnlineOnly;
 
   const formatTime = (time) => {
     if (!time) return '';
@@ -95,173 +140,289 @@ function MeetingsExplorer({ onAdminClick }) {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  return (
-    <div className="meetings-explorer">
-      <header className="explorer-header">
-        <div className="explorer-header-content">
-          <h1>12-Step Meeting Finder</h1>
-          <p className="explorer-subtitle">Find AA meetings near you</p>
-        </div>
-        <button className="btn btn-ghost admin-link" onClick={onAdminClick}>
-          Admin
-        </button>
-      </header>
+  const handleMeetingHover = (meeting) => {
+    setHoveredMeeting(meeting);
+  };
 
-      <div className="explorer-main">
-        {/* Search and Filters */}
-        <div className="explorer-filters">
-          <div className="search-box">
+  const handleMapMarkerClick = (meeting) => {
+    setSelectedMeeting(meeting);
+    // Scroll list to the meeting card
+    if (listRef.current) {
+      const cardElement = listRef.current.querySelector(`[data-meeting-id="${meeting.objectId}"]`);
+      if (cardElement) {
+        cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  };
+
+  return (
+    <div className="airbnb-explorer">
+      {/* Top Navigation Bar */}
+      <header className="airbnb-header">
+        <div className="airbnb-logo" onClick={() => window.location.reload()}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+          <span>Meeting Finder</span>
+        </div>
+
+        {/* Search Bar */}
+        <div className="airbnb-search-bar">
+          <div className="search-section search-location">
+            <label>Where</label>
             <input
               type="text"
-              placeholder="Search meetings by name, location, or city..."
+              placeholder="Search locations..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-input"
             />
           </div>
-
-          <div className="filter-row">
-            <select
-              value={selectedState}
-              onChange={(e) => setSelectedState(e.target.value)}
-              className="filter-select"
-            >
-              <option value="">All States</option>
-              {availableStates.map(state => (
-                <option key={state} value={state}>{state}</option>
-              ))}
-            </select>
-
+          <div className="search-divider" />
+          <div className="search-section search-when">
+            <label>When</label>
             <select
               value={selectedDay}
               onChange={(e) => setSelectedDay(e.target.value)}
-              className="filter-select"
             >
-              <option value="">All Days</option>
+              <option value="">Any day</option>
               {dayNames.map((day, index) => (
                 <option key={day} value={index}>{day}</option>
               ))}
             </select>
-
-            <label className="filter-checkbox">
-              <input
-                type="checkbox"
-                checked={showOnlineOnly}
-                onChange={(e) => setShowOnlineOnly(e.target.checked)}
-              />
-              <span>Online Only</span>
-            </label>
-
-            {(searchQuery || selectedState || selectedDay || showOnlineOnly) && (
-              <button className="btn btn-ghost btn-small" onClick={clearFilters}>
-                Clear Filters
-              </button>
-            )}
           </div>
-
-          <div className="filter-stats">
-            Showing {filteredMeetings.length} of {meetings.length} meetings
+          <div className="search-divider" />
+          <div className="search-section search-type">
+            <label>Type</label>
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+            >
+              <option value="">Any type</option>
+              {availableTypes.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
           </div>
-        </div>
-
-        {/* View Toggle */}
-        <div className="view-toggle">
-          <button
-            className={`toggle-btn ${activeView === 'map' ? 'active' : ''}`}
-            onClick={() => setActiveView('map')}
-          >
-            Map View
-          </button>
-          <button
-            className={`toggle-btn ${activeView === 'list' ? 'active' : ''}`}
-            onClick={() => setActiveView('list')}
-          >
-            List View
+          <button className="search-button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="M21 21l-4.35-4.35"/>
+            </svg>
           </button>
         </div>
 
-        {/* Content */}
-        {isLoading ? (
-          <div className="explorer-loading">
-            <div className="loading-spinner"></div>
-            <p>Loading meetings...</p>
-          </div>
-        ) : error ? (
-          <div className="explorer-error">
-            <p>{error}</p>
-            <button className="btn btn-primary" onClick={fetchMeetings}>
-              Try Again
+        <div className="airbnb-header-right">
+          <button className="btn btn-ghost admin-link" onClick={onAdminClick}>
+            Admin
+          </button>
+        </div>
+      </header>
+
+      {/* Secondary Filter Bar */}
+      <div className="airbnb-filters">
+        <div className="filter-chips">
+          <select
+            value={selectedState}
+            onChange={(e) => setSelectedState(e.target.value)}
+            className="filter-chip-select"
+          >
+            <option value="">All States</option>
+            {availableStates.map(state => (
+              <option key={state} value={state}>{state}</option>
+            ))}
+          </select>
+
+          {selectedState && (
+            <select
+              value={selectedCity}
+              onChange={(e) => setSelectedCity(e.target.value)}
+              className="filter-chip-select"
+            >
+              <option value="">All Cities</option>
+              {availableCities.map(city => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
+          )}
+
+          <button
+            className={`filter-chip ${showOnlineOnly ? 'active' : ''}`}
+            onClick={() => setShowOnlineOnly(!showOnlineOnly)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="2" y="3" width="20" height="14" rx="2"/>
+              <path d="M8 21h8"/>
+              <path d="M12 17v4"/>
+            </svg>
+            Online
+          </button>
+
+          <button
+            className={`filter-chip ${showFilters ? 'active' : ''}`}
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="4" y1="6" x2="20" y2="6"/>
+              <line x1="4" y1="12" x2="20" y2="12"/>
+              <line x1="4" y1="18" x2="20" y2="18"/>
+              <circle cx="8" cy="6" r="2" fill="currentColor"/>
+              <circle cx="16" cy="12" r="2" fill="currentColor"/>
+              <circle cx="10" cy="18" r="2" fill="currentColor"/>
+            </svg>
+            Filters
+          </button>
+
+          {hasActiveFilters && (
+            <button className="filter-chip clear-filters" onClick={clearFilters}>
+              Clear all
             </button>
-          </div>
-        ) : activeView === 'map' ? (
-          <MeetingMap
-            meetings={filteredMeetings}
-            onSelectMeeting={setSelectedMeeting}
-            showHeatmap={filteredMeetings.length > 10}
-          />
-        ) : (
-          <div className="explorer-list">
-            {filteredMeetings.length > 0 ? (
-              filteredMeetings.map((meeting, index) => (
-                <div
-                  key={meeting.objectId || index}
-                  className="explorer-meeting-card"
-                  onClick={() => setSelectedMeeting(meeting)}
-                >
-                  <div className="meeting-card-header">
-                    <h3>{meeting.name || 'Unnamed Meeting'}</h3>
-                    <div className="meeting-card-badges">
-                      <span className="badge badge-primary">{meeting.meetingType}</span>
+          )}
+        </div>
+
+        <div className="filter-stats">
+          {filteredMeetings.length} meeting{filteredMeetings.length !== 1 ? 's' : ''}
+        </div>
+      </div>
+
+      {/* Main Content - Split View */}
+      <div className="airbnb-main">
+        {/* Map Panel (Left) */}
+        <div className={`airbnb-map-panel ${isMapCollapsed ? 'collapsed' : ''}`}>
+          <button
+            className="map-collapse-btn"
+            onClick={() => setIsMapCollapsed(!isMapCollapsed)}
+            title={isMapCollapsed ? 'Show map' : 'Hide map'}
+          >
+            {isMapCollapsed ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            )}
+          </button>
+
+          {!isMapCollapsed && (
+            isLoading ? (
+              <div className="map-loading">
+                <div className="loading-spinner"></div>
+                <p>Loading map...</p>
+              </div>
+            ) : (
+              <MeetingMap
+                meetings={filteredMeetings}
+                onSelectMeeting={handleMapMarkerClick}
+                hoveredMeeting={hoveredMeeting}
+                showHeatmap={filteredMeetings.length > 50}
+              />
+            )
+          )}
+        </div>
+
+        {/* List Panel (Right) */}
+        <div className={`airbnb-list-panel ${isMapCollapsed ? 'expanded' : ''}`} ref={listRef}>
+          {isLoading ? (
+            <div className="list-loading">
+              <div className="loading-spinner"></div>
+              <p>Loading meetings...</p>
+            </div>
+          ) : error ? (
+            <div className="list-error">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 8v4"/>
+                <path d="M12 16h.01"/>
+              </svg>
+              <p>{error}</p>
+              <button className="btn btn-primary" onClick={fetchMeetings}>
+                Try Again
+              </button>
+            </div>
+          ) : filteredMeetings.length === 0 ? (
+            <div className="list-empty">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+              </svg>
+              <h3>No meetings found</h3>
+              <p>Try adjusting your filters or search terms</p>
+              {hasActiveFilters && (
+                <button className="btn btn-secondary" onClick={clearFilters}>
+                  Clear all filters
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="list-header">
+                <h2>Meetings in {selectedState || selectedCity || 'all areas'}</h2>
+                <p>{filteredMeetings.length} meeting{filteredMeetings.length !== 1 ? 's' : ''} available</p>
+              </div>
+              <div className="meeting-cards-grid">
+                {filteredMeetings.map((meeting, index) => (
+                  <div
+                    key={meeting.objectId || index}
+                    data-meeting-id={meeting.objectId}
+                    className={`meeting-card ${hoveredMeeting?.objectId === meeting.objectId ? 'hovered' : ''}`}
+                    onClick={() => setSelectedMeeting(meeting)}
+                    onMouseEnter={() => handleMeetingHover(meeting)}
+                    onMouseLeave={() => handleMeetingHover(null)}
+                  >
+                    <div className="meeting-card-image">
+                      <div className="meeting-card-type-badge">
+                        {meeting.meetingType}
+                      </div>
                       {meeting.isOnline && (
-                        <span className="badge badge-success">
+                        <div className="meeting-card-online-badge">
                           {meeting.isHybrid ? 'Hybrid' : 'Online'}
-                        </span>
+                        </div>
+                      )}
+                      <div className="meeting-card-icon">
+                        {meeting.isOnline ? (
+                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="2" y="3" width="20" height="14" rx="2"/>
+                            <path d="M8 21h8"/>
+                            <path d="M12 17v4"/>
+                          </svg>
+                        ) : (
+                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                    <div className="meeting-card-content">
+                      <div className="meeting-card-location">
+                        {[meeting.city, meeting.state].filter(Boolean).join(', ') || 'Location TBD'}
+                      </div>
+                      <h3 className="meeting-card-title">{meeting.name || 'Unnamed Meeting'}</h3>
+                      <div className="meeting-card-schedule">
+                        <span className="schedule-day">{dayNames[meeting.day]}</span>
+                        <span className="schedule-time">{formatTime(meeting.time)}</span>
+                      </div>
+                      {meeting.locationName && (
+                        <div className="meeting-card-venue">{meeting.locationName}</div>
                       )}
                     </div>
                   </div>
-
-                  <div className="meeting-card-details">
-                    <div className="meeting-card-row">
-                      <span className="meeting-card-icon">📅</span>
-                      <span>{dayNames[meeting.day]} at {formatTime(meeting.time)}</span>
-                    </div>
-
-                    {meeting.locationName && (
-                      <div className="meeting-card-row">
-                        <span className="meeting-card-icon">🏢</span>
-                        <span>{meeting.locationName}</span>
-                      </div>
-                    )}
-
-                    {(meeting.city || meeting.state) && (
-                      <div className="meeting-card-row">
-                        <span className="meeting-card-icon">📍</span>
-                        <span>
-                          {[meeting.city, meeting.state].filter(Boolean).join(', ')}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="explorer-empty">
-                <p>No meetings found matching your filters.</p>
-                <button className="btn btn-secondary" onClick={clearFilters}>
-                  Clear Filters
-                </button>
+                ))}
               </div>
-            )}
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
-      {selectedMeeting && (
-        <MeetingDetail
-          meeting={selectedMeeting}
-          onClose={() => setSelectedMeeting(null)}
-        />
-      )}
+      {/* Meeting Detail Sidebar */}
+      <MeetingDetail
+        meeting={selectedMeeting}
+        onClose={() => setSelectedMeeting(null)}
+        isSidebar={true}
+      />
     </div>
   );
 }
