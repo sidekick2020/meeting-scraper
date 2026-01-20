@@ -3447,6 +3447,30 @@ a.sidebar-nav-item {
   font-weight: 600;
 }
 
+/* User Guide CTA */
+.user-guide-cta {
+  background: linear-gradient(135deg, var(--accent-light) 0%, rgba(99, 102, 241, 0.1) 100%);
+  border: 1px solid var(--accent-primary);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-top: 2rem;
+}
+
+.user-guide-cta h3 {
+  margin-top: 0;
+  color: var(--accent-primary);
+}
+
+.user-guide-cta ul {
+  margin-bottom: 1rem;
+}
+
+.user-guide-cta em {
+  color: var(--accent-primary);
+  font-style: normal;
+  font-weight: 600;
+}
+
 /* Download Model Button */
 .download-model-btn {
   display: inline-flex;
