@@ -1627,15 +1627,15 @@
 
 /* Leaflet overrides - use light background for map tiles */
 .leaflet-container {
-  background: #e8e4db;
+  background: #f2efe9;
 }
 
-/* Ensure map tiles are fully visible */
+/* Enhance map contrast and saturation for better visibility */
 .leaflet-tile-pane,
 .leaflet-tile,
 .map-tiles {
   opacity: 1 !important;
-  filter: none !important;
+  filter: contrast(1.1) saturate(1.2) !important;
 }
 
 .leaflet-tile-container {
