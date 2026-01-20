@@ -2802,6 +2802,22 @@ a.sidebar-nav-item {
   opacity: 1;
 }
 
+.sidebar-item.external-link {
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sidebar-item.external-link .external-icon {
+  margin-left: auto;
+  opacity: 0.5;
+}
+
+.sidebar-item.external-link:hover .external-icon {
+  opacity: 0.8;
+}
+
 .dev-docs-content {
   flex: 1;
   overflow-y: auto;
@@ -2811,7 +2827,7 @@ a.sidebar-nav-item {
 /* Docs Page Styling */
 .docs-page {
   max-width: 800px;
-  color: #e5e7eb;
+  color: #374151;
   line-height: 1.7;
 }
 

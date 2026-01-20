@@ -1,49 +1,85 @@
-# 🔍 12-Step Meeting Scraper
+# Sober Sidekick - 12-Step Meeting Finder
 
-A comprehensive web scraping system that automatically collects AA, NA, Al-Anon, and other 12-step support group meetings from across the United States and stores them directly in Back4app.
+A comprehensive meeting management system by [Sober Sidekick](https://sobersidekick.com) that aggregates AA, NA, Al-Anon, and other 12-step support group meetings from across the United States. Built with React and Python/Flask, powered by Back4app.
+
+**You're Never Alone.**
+
+## Overview
+
+This system provides:
+
+- **Admin Dashboard** - Manage and monitor meeting data with a modern, responsive interface
+- **Public Meeting Directory** - Airbnb-style browsable interface for finding meetings
+- **Data Scraper** - Automated collection from official 12-step organization feeds
+- **Mobile SDK Support** - iOS and Android integration guides included
+- **Real-time Analytics** - Coverage analysis and statistics by state/region
 
 ## Features
 
-- **Automated Web Scraping**: Collects thousands of meetings from official AA, NA, and Al-Anon websites
-- **Real-time Dashboard**: Beautiful React frontend with live progress updates
-- **Direct Back4app Integration**: Automatically stores meetings in your Back4app database
-- **Multi-source Support**: Scrapes from regional AA/NA websites across all 50 states
-- **WebSocket Updates**: Real-time progress visualization as meetings are discovered and saved
-- **Statistics & Analytics**: Visual breakdown by state and meeting type
+### Data Management
+- Automated web scraping from 50+ regional AA/NA/Al-Anon feeds
+- Intelligent deduplication using unique key matching
+- Automatic geocoding for addresses without coordinates
+- Bulk import/export capabilities
 
-## Architecture
+### Admin Dashboard
+- Google Sign-In authentication
+- Real-time scraping progress with activity logs
+- Coverage analysis with population-weighted metrics
+- Meeting editor with map visualization
+- User management with role-based access (Standard/Admin)
+- Scrape history and audit trail
 
-### Backend (Python/Flask)
-- **Flask API** with WebSocket support (Flask-SocketIO)
-- **BeautifulSoup4** for HTML parsing
-- **Requests** for HTTP requests
-- **Back4app REST API** integration
-- Multi-threaded scraping for performance
+### Public Directory
+- Interactive map with clustered markers
+- Advanced filtering (day, time, type, location)
+- Search with autocomplete suggestions
+- Mobile-responsive Airbnb-style card layout
+- Meeting detail views with directions
 
-### Frontend (React)
-- **React 18** with functional components and hooks
-- **Socket.IO Client** for real-time updates
-- **Responsive Design** with modern CSS
-- **Dashboard** with live statistics and progress bars
+### Developer Features
+- RESTful API for all operations
+- iOS SDK integration guide (ParseSwift)
+- Android SDK integration guide (Parse-SDK-Android)
+- Comprehensive API documentation
+- Back4app Parse integration
+
+## Tech Stack
+
+### Backend
+| Technology | Purpose |
+|------------|---------|
+| Python 3.8+ | Runtime |
+| Flask | Web framework |
+| Requests | HTTP client |
+| Nominatim | Geocoding |
+| Back4app | Database (Parse) |
+
+### Frontend
+| Technology | Purpose |
+|------------|---------|
+| React 18 | UI framework |
+| Google Identity | Authentication |
+| Leaflet | Maps |
+| CSS3 | Styling (no frameworks) |
 
 ## Prerequisites
 
 - Python 3.8+
 - Node.js 16+
-- Back4app account ([Create one free](https://www.back4app.com/))
+- Back4app account ([Create free](https://www.back4app.com/))
+- Google Cloud Console project (for authentication)
 
-## Back4app Setup
+## Quick Start
 
-1. Go to [Back4app](https://www.back4app.com/) and create a new app
-2. Navigate to **App Settings → Security & Keys**
-3. Copy your:
-   - **Application ID**
-   - **REST API Key**
-4. Make sure your Meeting schema matches the structure in the uploaded `Meeting.json`
+### 1. Clone the Repository
 
-## Installation
+```bash
+git clone https://github.com/sidekick2020/meeting-scraper.git
+cd meeting-scraper
+```
 
-### Backend Setup
+### 2. Backend Setup
 
 ```bash
 cd backend
@@ -51,9 +87,9 @@ pip install -r requirements.txt
 python app.py
 ```
 
-The backend will start on `http://localhost:5000`
+The backend starts on `http://localhost:5000`
 
-### Frontend Setup
+### 3. Frontend Setup
 
 ```bash
 cd frontend
@@ -61,71 +97,88 @@ npm install
 npm start
 ```
 
-The frontend will start on `http://localhost:3000`
+The frontend starts on `http://localhost:3000`
 
-## Configuration
+### 4. Configure Back4app
 
-When you first open the app:
+1. Create a new app at [Back4app](https://www.back4app.com/)
+2. Navigate to **App Settings > Security & Keys**
+3. Copy your **Application ID** and **REST API Key**
+4. In the dashboard, click Settings and enter your credentials
 
-1. Click the **"⚙️ Configure"** button
-2. Enter your Back4app credentials:
-   - Application ID
-   - REST API Key
-3. Click **"Save Configuration"**
+## Project Structure
 
-Your credentials are saved in browser localStorage and sent to the backend.
+```
+meeting-scraper/
+├── backend/
+│   ├── app.py              # Flask API server
+│   ├── scraper.py          # Meeting feed scraper
+│   ├── requirements.txt    # Python dependencies
+│   └── feeds/              # Feed configuration
+├── frontend/
+│   ├── public/
+│   │   ├── favicon.svg     # App icon
+│   │   └── index.html      # HTML template
+│   └── src/
+│       ├── components/     # React components
+│       │   ├── AdminPanel.js
+│       │   ├── MeetingsExplorer.js
+│       │   ├── MeetingDetail.js
+│       │   ├── DevDocs.js
+│       │   └── ...
+│       ├── contexts/       # React contexts
+│       ├── App.js          # Main app component
+│       └── App.css         # Styles
+└── README.md
+```
 
-## Usage
+## API Reference
 
-1. **Configure** your Back4app credentials
-2. Click **"▶️ Start Scraping"**
-3. Watch the real-time progress as meetings are discovered and saved
-4. View statistics by state and meeting type
-5. See recently added meetings in the live feed
+### Status & Control
 
-The scraper will:
-- Systematically visit regional AA and NA websites
-- Extract meeting details (name, address, time, day, type, etc.)
-- Save each meeting to your Back4app database
-- Update the dashboard in real-time
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/status` | GET | Get scraper status and statistics |
+| `/api/start` | POST | Start scraping process |
+| `/api/stop` | POST | Stop scraping process |
+| `/api/feeds` | GET | List available data feeds |
 
-## Data Structure
+### Meetings
 
-Each meeting includes:
-- `objectId`: Unique identifier
-- `name`: Meeting name
-- `locationName`: Venue name
-- `address`: Street address
-- `city`: City
-- `state`: State abbreviation
-- `postalCode`: ZIP code
-- `day`: Day of week (0=Sunday, 6=Saturday)
-- `time`: Meeting time (HH:MM format)
-- `meetingType`: AA, NA, Al-Anon, or Other
-- `isOnline`: Boolean for virtual meetings
-- `onlineUrl`: Zoom/video link if online
-- `notes`: Additional information
-- `sourceType`: "web_scraper"
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/meetings` | GET | List meetings with pagination |
+| `/api/meetings/<id>` | GET | Get single meeting |
+| `/api/meetings/<id>` | PUT | Update meeting |
+| `/api/meetings/<id>` | DELETE | Delete meeting |
+
+### Users (Admin)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/users` | GET | List all dashboard users |
+| `/api/users` | POST | Invite new user |
+| `/api/users/<id>` | PUT | Update user role |
+| `/api/users/<id>` | DELETE | Remove user |
 
 ## Deployment
 
-### Option 1: Docker (Recommended)
+### Docker (Recommended)
 
 ```bash
-# From project root
 docker-compose up --build
 ```
 
-### Option 2: Manual Deployment
+### Manual Deployment
 
-**Backend** (e.g., Heroku, Railway, Render):
+**Backend** (Render, Railway, Heroku):
 ```bash
 cd backend
 pip install -r requirements.txt
 gunicorn -k eventlet -w 1 app:app
 ```
 
-**Frontend** (e.g., Vercel, Netlify):
+**Frontend** (Vercel, Netlify):
 ```bash
 cd frontend
 npm run build
@@ -135,96 +188,93 @@ npm run build
 Set environment variable:
 - `REACT_APP_BACKEND_URL` = Your backend URL
 
-### Option 3: Cloud Platforms
+## Mobile Integration
 
-**Backend**: Deploy to Railway, Render, or Heroku
-**Frontend**: Deploy to Vercel or Netlify
+The documentation includes comprehensive guides for integrating meeting data into mobile apps:
 
-## Customization
+- **iOS**: ParseSwift SDK with SwiftUI examples
+- **Android**: Parse-SDK-Android with Jetpack Compose examples
 
-### Adding New Sources
+Access these guides from the Docs section in the admin dashboard.
 
-Edit `backend/scraper.py` to add new regional websites:
+## Data Schema
 
-```python
-def scrape_new_region(self):
-    url = "https://new-region-aa.org/meetings"
-    response = self.session.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-    # Parse meetings based on site structure
-    return meetings
-```
+Each meeting record includes:
 
-### Modifying Data Fields
+| Field | Type | Description |
+|-------|------|-------------|
+| `objectId` | String | Unique identifier |
+| `name` | String | Meeting name |
+| `meetingType` | String | AA, NA, Al-Anon, etc. |
+| `day` | Number | Day of week (0=Sun, 6=Sat) |
+| `time` | String | Start time (HH:MM) |
+| `address` | String | Street address |
+| `city` | String | City |
+| `state` | String | State abbreviation |
+| `latitude` | Number | GPS latitude |
+| `longitude` | Number | GPS longitude |
+| `isOnline` | Boolean | Virtual meeting flag |
+| `onlineUrl` | String | Zoom/video link |
+| `types` | Array | Meeting type codes |
 
-1. Update your Back4app Meeting schema
-2. Modify `save_to_back4app()` in `backend/app.py`
-3. Update the frontend components to display new fields
+## Environment Variables
+
+### Backend
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Server port | 5000 |
+| `SMTP_HOST` | Email server (for invites) | - |
+| `SMTP_USER` | Email username | - |
+| `SMTP_PASS` | Email password | - |
+
+### Frontend
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REACT_APP_BACKEND_URL` | Backend API URL | http://localhost:5000 |
+| `REACT_APP_GOOGLE_CLIENT_ID` | Google OAuth client ID | - |
 
 ## Troubleshooting
 
-**Backend won't start:**
-- Ensure all dependencies are installed: `pip install -r requirements.txt`
-- Check Python version: `python --version` (needs 3.8+)
+### Backend Issues
+- Ensure Python 3.8+ is installed
+- Install all dependencies: `pip install -r requirements.txt`
+- Check Back4app credentials are correct
 
-**Frontend can't connect:**
-- Verify backend is running on port 5000
-- Check CORS configuration in `backend/app.py`
-- Ensure WebSocket connection isn't blocked by firewall
+### Frontend Issues
+- Clear browser cache and localStorage
+- Verify backend is running and accessible
+- Check console for CORS errors
 
-**Meetings not saving to Back4app:**
-- Verify your Application ID and REST API Key
-- Check Back4app dashboard for error logs
-- Ensure Meeting schema exists in Back4app
-
-**Scraping errors:**
-- Some websites may have changed their HTML structure
-- Check the errors section in the dashboard
-- Update scraping logic in `backend/scraper.py`
-
-## Performance
-
-- **Speed**: Can collect 100-200 meetings per minute
-- **Coverage**: Targets 50+ US states and major metropolitan areas
-- **Reliability**: Auto-retries failed requests
-- **Rate Limiting**: Built-in delays to respect server limits
-
-## Legal & Ethical Considerations
-
-- This scraper respects robots.txt
-- Implements rate limiting to avoid overloading servers
-- Only collects publicly available meeting information
-- Intended for legitimate recovery support purposes
-
-## Future Enhancements
-
-- [ ] Add more regional sources
-- [ ] Implement duplicate detection
-- [ ] Add meeting data validation
-- [ ] Export to CSV functionality
-- [ ] Schedule automated scraping
-- [ ] Add filtering and search in dashboard
-- [ ] Meeting verification system
-- [ ] Mobile app integration
+### Scraping Issues
+- Some feeds may be temporarily unavailable
+- Check the activity log for specific errors
+- Review rate limiting on external sites
 
 ## Contributing
 
-Contributions welcome! Please:
 1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Commit changes: `git commit -m "Add my feature"`
+4. Push to branch: `git push origin feature/my-feature`
+5. Open a Pull Request
+
+## Legal & Ethical Considerations
+
+- Respects robots.txt on all scraped sites
+- Implements rate limiting to avoid server overload
+- Only collects publicly available meeting information
+- Intended for legitimate recovery support purposes
 
 ## License
 
-MIT License - feel free to use this for your recovery support projects
+MIT License - See [LICENSE](LICENSE) for details.
 
 ## Support
 
-For issues or questions:
-- Check the Troubleshooting section
-- Review Back4app documentation
-- Open an issue on GitHub
+- **Issues**: [GitHub Issues](https://github.com/sidekick2020/meeting-scraper/issues)
+- **Documentation**: Access from the Docs section in the dashboard
+- **Back4app**: [Back4app Documentation](https://www.back4app.com/docs)
 
 ---
 
-**Made with ❤️ to support recovery communities**
+**Built with care by [Sober Sidekick](https://sobersidekick.com) - You're Never Alone.**
