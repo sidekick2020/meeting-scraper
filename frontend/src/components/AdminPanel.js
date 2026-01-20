@@ -52,6 +52,8 @@ function AdminPanel({ onBackToPublic }) {
   const [checkedUnfinished, setCheckedUnfinished] = useState(false);
   const [showScrapeChoiceModal, setShowScrapeChoiceModal] = useState(false);
   const [feeds, setFeeds] = useState([]);
+  const [selectedFeeds, setSelectedFeeds] = useState([]);
+  const [showFeedSelector, setShowFeedSelector] = useState(false);
 
   // Directory state
   const [directoryMeetings, setDirectoryMeetings] = useState([]);
@@ -102,7 +104,10 @@ function AdminPanel({ onBackToPublic }) {
       const response = await fetch(`${BACKEND_URL}/api/feeds`);
       if (response.ok) {
         const data = await response.json();
-        setFeeds(data.feeds || []);
+        const feedList = data.feeds || [];
+        setFeeds(feedList);
+        // Initialize all feeds as selected
+        setSelectedFeeds(feedList.map(f => f.name));
       }
     } catch (error) {
       console.error('Error fetching feeds:', error);
@@ -208,15 +213,32 @@ function AdminPanel({ onBackToPublic }) {
     if (scrapingState.is_running || unfinishedScrape) {
       setShowScrapeChoiceModal(true);
     } else {
-      startScraping();
+      // Show feed selector for new scrape
+      setShowFeedSelector(true);
     }
+  };
+
+  const toggleFeedSelection = (feedName) => {
+    setSelectedFeeds(prev =>
+      prev.includes(feedName)
+        ? prev.filter(f => f !== feedName)
+        : [...prev, feedName]
+    );
+  };
+
+  const selectAllFeeds = () => {
+    setSelectedFeeds(feeds.map(f => f.name));
+  };
+
+  const selectNoFeeds = () => {
+    setSelectedFeeds([]);
   };
 
   const startScraping = async (abandonOld = false) => {
     try {
       const body = abandonOld && unfinishedScrape
-        ? { abandon_scrape_id: unfinishedScrape.objectId, force: true }
-        : { force: true };  // Always force to handle stuck state
+        ? { abandon_scrape_id: unfinishedScrape.objectId, force: true, selected_feeds: selectedFeeds }
+        : { force: true, selected_feeds: selectedFeeds };  // Always force to handle stuck state
 
       const response = await fetch(`${BACKEND_URL}/api/start`, {
         method: 'POST',
@@ -244,6 +266,7 @@ function AdminPanel({ onBackToPublic }) {
         setRecentMeetings([]);
         setUnfinishedScrape(null); // Clear any unfinished scrape notice
         setShowScrapeChoiceModal(false);
+        setShowFeedSelector(false);
         isRunningRef.current = true;
       } else {
         alert(data.message);
@@ -928,6 +951,64 @@ function AdminPanel({ onBackToPublic }) {
                 </div>
               </>
             ) : null}
+          </div>
+        </div>
+      )}
+
+      {showFeedSelector && (
+        <div className="modal-overlay">
+          <div className="modal feed-selector-modal">
+            <h2>Select Sources to Scrape</h2>
+            <p className="feed-selector-info">
+              Choose which data sources to include in this scrape.
+            </p>
+
+            <div className="feed-selector-actions">
+              <button onClick={selectAllFeeds} className="btn btn-ghost btn-sm">
+                Select All
+              </button>
+              <button onClick={selectNoFeeds} className="btn btn-ghost btn-sm">
+                Select None
+              </button>
+            </div>
+
+            <div className="feed-selector-list">
+              {feeds.map((feed) => (
+                <label key={feed.name} className="feed-selector-item">
+                  <input
+                    type="checkbox"
+                    checked={selectedFeeds.includes(feed.name)}
+                    onChange={() => toggleFeedSelection(feed.name)}
+                  />
+                  <span className="feed-checkbox"></span>
+                  <div className="feed-item-info">
+                    <span className="feed-item-name">{feed.name}</span>
+                    <span className="feed-item-state">{feed.state}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            <div className="feed-selector-footer">
+              <span className="selected-count">
+                {selectedFeeds.length} of {feeds.length} selected
+              </span>
+              <div className="feed-selector-buttons">
+                <button
+                  onClick={() => setShowFeedSelector(false)}
+                  className="btn btn-ghost"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => startScraping(false)}
+                  className="btn btn-primary"
+                  disabled={selectedFeeds.length === 0}
+                >
+                  Start Scraping
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
