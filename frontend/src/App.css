@@ -1637,26 +1637,6 @@
   background: #f2efe9 !important;
 }
 
-/* Enhance map contrast and saturation for better visibility */
-.leaflet-tile-pane,
-.leaflet-tile,
-.map-tiles {
-  opacity: 1 !important;
-  filter: contrast(1.1) saturate(1.2) !important;
-}
-
-.leaflet-tile-container {
-  opacity: 1 !important;
-}
-
-/* Ensure map tiles are always visible regardless of parent background */
-.airbnb-map-panel .leaflet-tile-pane,
-.airbnb-map-panel .leaflet-tile,
-.airbnb-map-panel .map-tiles {
-  opacity: 1 !important;
-  filter: contrast(1.1) saturate(1.2) !important;
-}
-
 .leaflet-popup-content-wrapper {
   border-radius: 0.5rem;
 }
