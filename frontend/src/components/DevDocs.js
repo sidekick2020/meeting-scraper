@@ -176,7 +176,7 @@ const downloadFile = (content, filename) => {
 };
 
 function DevDocs({ onClose, standalone = false }) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('user-guide');
   const navigate = useNavigate();
 
   const handleClose = () => {
@@ -220,6 +220,20 @@ function DevDocs({ onClose, standalone = false }) {
 
           <div className="dev-docs-layout">
             <nav className="dev-docs-sidebar">
+              <div className="sidebar-section">
+                <h3>Getting Started</h3>
+                <button
+                  className={`sidebar-item ${activeTab === 'user-guide' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('user-guide')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  User Guide
+                </button>
+              </div>
               <div className="sidebar-section">
                 <h3>Documentation</h3>
                 <button
@@ -327,6 +341,7 @@ function DevDocs({ onClose, standalone = false }) {
             </nav>
 
             <main className="dev-docs-content">
+              {activeTab === 'user-guide' && <UserGuideTab />}
               {activeTab === 'overview' && <OverviewTab />}
               {activeTab === 'schema' && <MeetingSchema />}
               {activeTab === 'api' && <ApiReferenceTab />}
@@ -349,6 +364,120 @@ function DevDocs({ onClose, standalone = false }) {
         {content}
       </div>
     </>
+  );
+}
+
+function UserGuideTab() {
+  return (
+    <div className="docs-page">
+      <h1>Finding Meetings</h1>
+      <p className="lead">
+        Welcome to the 12-Step Meeting Finder. This guide will help you find AA, NA, and other
+        recovery meetings in your area.
+      </p>
+
+      <h2>How to Search for Meetings</h2>
+
+      <h3>Step 1: Use the Search Bar</h3>
+      <p>
+        At the top of the page, you'll see a search bar. You can search by:
+      </p>
+      <ul>
+        <li><strong>City name</strong> - Type your city (e.g., "San Diego" or "Houston")</li>
+        <li><strong>State</strong> - Type a state name or abbreviation (e.g., "California" or "CA")</li>
+        <li><strong>Meeting name</strong> - If you know the name of a specific meeting</li>
+        <li><strong>ZIP code</strong> - Enter your ZIP code to find nearby meetings</li>
+      </ul>
+
+      <h3>Step 2: Filter Your Results</h3>
+      <p>
+        Use the filter options to narrow down your search:
+      </p>
+      <ul>
+        <li><strong>Day of Week</strong> - Find meetings on specific days (Monday, Tuesday, etc.)</li>
+        <li><strong>Meeting Type</strong> - Choose AA, NA, Al-Anon, or other fellowship types</li>
+        <li><strong>Format</strong> - Filter by in-person, online, or hybrid meetings</li>
+      </ul>
+
+      <h3>Step 3: View Meeting Details</h3>
+      <p>
+        Click on any meeting card to see more information:
+      </p>
+      <ul>
+        <li><strong>Address</strong> - Full location with map</li>
+        <li><strong>Time</strong> - When the meeting starts and ends</li>
+        <li><strong>Meeting types</strong> - Open, closed, speaker, discussion, etc.</li>
+        <li><strong>Online link</strong> - For virtual or hybrid meetings</li>
+        <li><strong>Special notes</strong> - Accessibility info, parking, etc.</li>
+      </ul>
+
+      <h2>Understanding Meeting Types</h2>
+
+      <h3>Fellowship Types</h3>
+      <ul>
+        <li><strong>AA (Alcoholics Anonymous)</strong> - For people who want to stop drinking</li>
+        <li><strong>NA (Narcotics Anonymous)</strong> - For people recovering from drug addiction</li>
+        <li><strong>Al-Anon</strong> - For friends and family of alcoholics</li>
+      </ul>
+
+      <h3>Meeting Formats</h3>
+      <ul>
+        <li><strong>Open</strong> - Anyone can attend, including non-alcoholics/addicts</li>
+        <li><strong>Closed</strong> - Only for people who have a desire to stop drinking/using</li>
+        <li><strong>Speaker</strong> - One or more members share their story</li>
+        <li><strong>Discussion</strong> - Group discusses a topic or reading</li>
+        <li><strong>Big Book</strong> - Studies the AA Big Book</li>
+        <li><strong>Step Study</strong> - Focuses on the 12 Steps</li>
+        <li><strong>Beginners</strong> - Welcoming to newcomers</li>
+        <li><strong>Women Only / Men Only</strong> - Gender-specific meetings</li>
+      </ul>
+
+      <h2>Using the Map</h2>
+      <p>
+        The interactive map shows meeting locations as markers. You can:
+      </p>
+      <ul>
+        <li><strong>Zoom in/out</strong> - Use the + and - buttons or scroll</li>
+        <li><strong>Click markers</strong> - See meeting details in a popup</li>
+        <li><strong>Drag the map</strong> - Move around to explore different areas</li>
+        <li><strong>Click clusters</strong> - When markers are grouped, click to zoom in</li>
+      </ul>
+
+      <h2>Online & Hybrid Meetings</h2>
+      <p>
+        Many meetings are now available online:
+      </p>
+      <ul>
+        <li><strong>Online meetings</strong> - Held entirely via video call (Zoom, etc.)</li>
+        <li><strong>Hybrid meetings</strong> - Attend in-person OR join online</li>
+      </ul>
+      <p>
+        Look for the video icon or "Online" badge on meeting cards. Click the meeting to find
+        the video link or phone number to join.
+      </p>
+
+      <h2>Tips for Newcomers</h2>
+      <ul>
+        <li><strong>Try different meetings</strong> - Each meeting has its own personality</li>
+        <li><strong>Arrive a few minutes early</strong> - Gives you time to settle in</li>
+        <li><strong>You don't have to speak</strong> - It's okay to just listen</li>
+        <li><strong>Look for "Beginners" meetings</strong> - These are especially welcoming</li>
+        <li><strong>Ask for help</strong> - People at meetings are happy to answer questions</li>
+      </ul>
+
+      <div className="user-guide-cta">
+        <h3>Need Help?</h3>
+        <p>
+          If you're struggling and need immediate support:
+        </p>
+        <ul>
+          <li><strong>AA Hotline:</strong> 1-800-839-1686</li>
+          <li><strong>NA Helpline:</strong> 1-818-773-9999</li>
+          <li><strong>SAMHSA National Helpline:</strong> 1-800-662-4357 (free, 24/7)</li>
+        </ul>
+        <p><em>You're never alone. Help is always available.</em></p>
+      </div>
+    </div>
   );
 }
 
