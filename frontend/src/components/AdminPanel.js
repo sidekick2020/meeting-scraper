@@ -51,6 +51,7 @@ function AdminPanel({ onBackToPublic }) {
   const [unfinishedScrape, setUnfinishedScrape] = useState(null);
   const [checkedUnfinished, setCheckedUnfinished] = useState(false);
   const [showScrapeChoiceModal, setShowScrapeChoiceModal] = useState(false);
+  const [feeds, setFeeds] = useState([]);
 
   const isRunningRef = useRef(false);
   const pollIntervalRef = useRef(null);
@@ -85,6 +86,19 @@ function AdminPanel({ onBackToPublic }) {
       setCheckedUnfinished(true);
     }
   }, [checkedUnfinished]);
+
+  // Fetch configured feeds
+  const fetchFeeds = useCallback(async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/feeds`);
+      if (response.ok) {
+        const data = await response.json();
+        setFeeds(data.feeds || []);
+      }
+    } catch (error) {
+      console.error('Error fetching feeds:', error);
+    }
+  }, []);
 
   const checkConnection = useCallback(async () => {
     try {
@@ -136,11 +150,12 @@ function AdminPanel({ onBackToPublic }) {
     checkConnection();
     checkBackendConfig();
     checkUnfinishedScrape();
+    fetchFeeds();
     pollIntervalRef.current = setInterval(checkConnection, POLL_INTERVAL_IDLE);
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [checkConnection, checkBackendConfig, checkUnfinishedScrape]);
+  }, [checkConnection, checkBackendConfig, checkUnfinishedScrape, fetchFeeds]);
 
   useEffect(() => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -332,6 +347,13 @@ function AdminPanel({ onBackToPublic }) {
         <line x1="6" y1="20" x2="6" y2="14"/>
       </svg>
     )},
+    { id: 'sources', label: 'Sources', icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <ellipse cx="12" cy="5" rx="9" ry="3"/>
+        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+      </svg>
+    )},
     { id: 'directory', label: 'Directory', icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
@@ -467,6 +489,57 @@ function AdminPanel({ onBackToPublic }) {
               byType={scrapingState.meetings_by_type}
             />
           </>
+        );
+
+      case 'sources':
+        return (
+          <div className="sources-section">
+            <div className="sources-header">
+              <h2>Configured Data Sources</h2>
+              <p>These are the meeting feeds currently configured for scraping.</p>
+            </div>
+            <div className="sources-list">
+              {feeds.length === 0 ? (
+                <div className="sources-empty">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                  </svg>
+                  <p>Loading sources...</p>
+                </div>
+              ) : (
+                feeds.map((feed, index) => (
+                  <div key={index} className="source-card">
+                    <div className="source-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M2 12h20"/>
+                        <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+                      </svg>
+                    </div>
+                    <div className="source-info">
+                      <h3>{feed.name}</h3>
+                      <span className="source-state">{feed.state}</span>
+                    </div>
+                    <div className="source-status">
+                      <span className="status-badge status-active">Active</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="sources-footer">
+              <p className="sources-note">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                To add more sources, edit the <code>AA_FEEDS</code> configuration in <code>backend/app.py</code>
+              </p>
+            </div>
+          </div>
         );
 
       case 'directory':
