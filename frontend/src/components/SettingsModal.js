@@ -4,16 +4,24 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'
 
 // Release notes content
 const RELEASE_NOTES = `
+## Version 1.4.0
+
+### New Features
+- **Dedicated Docs Endpoint**: Documentation now has its own URL at /docs
+  - Direct link for sharing documentation
+  - Standalone page mode with "Back to App" navigation
+  - Can be accessed without signing in to admin panel
+- **React Router Integration**: Added URL-based routing to the frontend
+
+### Documentation
+- **README Enhancements**: Prominent Render Dashboard links, external links open in new tab
+
 ## Version 1.3.2
 
 ### New Features
 - **Alabama Meeting Feeds**: Added meeting data sources for Alabama
-  - Birmingham AA feed (TSML format)
-  - West Alabama AA feed covering Tuscaloosa, Jasper, Fayette areas
-  - Alabama NA feed with BMLT support covering all 11 NA service areas
-- **BMLT Feed Support**: Added support for BMLT (Basic Meeting List Toolkit) API format
-  - Automatic transformation from BMLT to standard format
-  - Enables scraping NA meetings from BMLT-powered sites
+  - Birmingham AA, West Alabama AA, Alabama NA feeds
+- **BMLT Feed Support**: Added support for BMLT API format
 
 ## Version 1.3.1
 

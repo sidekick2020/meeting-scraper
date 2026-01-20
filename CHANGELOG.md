@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-01-20
+
+### New Features
+- **Dedicated Docs Endpoint**: Documentation now has its own URL at `/docs`
+  - Direct link: https://meeting-scraper-frontend.onrender.com/docs
+  - Standalone page mode with "Back to App" navigation
+  - Can be accessed without signing in to admin panel
+- **React Router Integration**: Added URL-based routing to the frontend
+  - Enables direct linking to specific pages
+  - Better browser history support
+
+### Documentation
+- **README Enhancements**:
+  - Added prominent Render Dashboard links table for frontend and backend
+  - All external links now open in new tab for better UX
+  - Fixed broken screenshot references
+  - Added direct link to /docs endpoint
+
 ## [1.3.2] - 2026-01-20
 
 ### New Features
