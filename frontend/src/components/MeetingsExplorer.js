@@ -14,6 +14,7 @@ function MeetingsExplorer({ onAdminClick }) {
   const [hoveredMeeting, setHoveredMeeting] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [configStatus, setConfigStatus] = useState(null); // null, 'checking', 'configured', 'not_configured', 'unreachable'
   const [isMapCollapsed, setIsMapCollapsed] = useState(false);
 
   // Filters
@@ -162,9 +163,30 @@ function MeetingsExplorer({ onAdminClick }) {
     }
   }, []);
 
+  // Check backend configuration status
+  const checkBackendConfig = useCallback(async () => {
+    setConfigStatus('checking');
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/config`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.configured) {
+          setConfigStatus('configured');
+        } else {
+          setConfigStatus('not_configured');
+        }
+      } else {
+        setConfigStatus('unreachable');
+      }
+    } catch (err) {
+      setConfigStatus('unreachable');
+    }
+  }, []);
+
   useEffect(() => {
+    checkBackendConfig();
     fetchMeetings();
-  }, [fetchMeetings]);
+  }, [fetchMeetings, checkBackendConfig]);
 
   // Request thumbnails for visible meetings that don't have them
   useEffect(() => {
@@ -596,15 +618,27 @@ function MeetingsExplorer({ onAdminClick }) {
               <div className="loading-spinner"></div>
               <p>Loading meetings...</p>
             </div>
-          ) : error ? (
+          ) : error || configStatus === 'not_configured' || configStatus === 'unreachable' ? (
             <div className="list-error">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10"/>
                 <path d="M12 8v4"/>
                 <path d="M12 16h.01"/>
               </svg>
-              <p>{error}</p>
-              <button className="btn btn-primary" onClick={fetchMeetings}>
+              {configStatus === 'not_configured' ? (
+                <>
+                  <p><strong>Database Not Configured</strong></p>
+                  <p className="error-detail">Back4App credentials are not set. Please configure BACK4APP_APP_ID and BACK4APP_REST_KEY environment variables on Render.</p>
+                </>
+              ) : configStatus === 'unreachable' ? (
+                <>
+                  <p><strong>Backend Unreachable</strong></p>
+                  <p className="error-detail">Cannot connect to the backend server. It may be starting up or deploying.</p>
+                </>
+              ) : (
+                <p>{error}</p>
+              )}
+              <button className="btn btn-primary" onClick={() => { checkBackendConfig(); fetchMeetings(); }}>
                 Try Again
               </button>
             </div>
