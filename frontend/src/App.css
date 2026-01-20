@@ -2530,15 +2530,38 @@ a.sidebar-nav-item {
 .dev-docs-overlay {
   position: fixed;
   top: 0;
+  right: 0;
+  bottom: 0;
+  width: 600px;
+  max-width: 100%;
+  background: #1a1a2e;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+  animation: slideInRight 0.25s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.dev-docs-backdrop {
+  position: fixed;
+  top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1999;
   animation: fadeIn 0.2s ease-out;
 }
 
@@ -2548,16 +2571,10 @@ a.sidebar-nav-item {
 }
 
 .dev-docs-container {
-  background: #1a1a2e;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 1rem;
-  width: 100%;
-  max-width: 1200px;
-  height: 90vh;
   display: flex;
   flex-direction: column;
+  height: 100%;
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
 .dev-docs-header {
@@ -2924,13 +2941,8 @@ a.sidebar-nav-item {
 /* Responsive Docs */
 @media (max-width: 768px) {
   .dev-docs-overlay {
-    padding: 0;
-  }
-
-  .dev-docs-container {
-    border-radius: 0;
-    height: 100vh;
-    max-width: 100%;
+    width: 100%;
+    border-left: none;
   }
 
   .dev-docs-layout {
