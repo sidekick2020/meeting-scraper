@@ -1577,7 +1577,7 @@ def get_meetings():
         params = {
             'limit': min(limit, 1000),
             'skip': skip,
-            'order': '-updatedAt'
+            'order': '-createdAt'
         }
         if where:
             params['where'] = str(where).replace("'", '"')

@@ -657,6 +657,7 @@
 .meetings-panel h3 {
   margin-bottom: 1.5rem;
   font-size: 1.125rem;
+  color: var(--text-primary);
 }
 
 .meetings-list {
@@ -854,6 +855,14 @@
 
 .form-group input::placeholder {
   color: var(--text-muted);
+}
+
+.form-group input:-webkit-autofill,
+.form-group input:-webkit-autofill:hover,
+.form-group input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 30px var(--input-bg) inset !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  border: 1px solid var(--input-border);
 }
 
 .form-help {
