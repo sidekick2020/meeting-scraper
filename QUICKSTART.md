@@ -99,7 +99,7 @@ pip install -r requirements.txt
 - Ensure both backend and frontend are running
 - Check browser console for errors (F12)
 - Verify Back4app credentials are correct
-- Make sure your Meeting schema exists in Back4app
+- Make sure your Meetings class exists in Back4app
 
 ---
 

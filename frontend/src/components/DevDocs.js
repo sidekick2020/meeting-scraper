@@ -644,7 +644,7 @@ function DeploymentTab() {
         <li>Create a new app at <a href="https://www.back4app.com" target="_blank" rel="noopener noreferrer">back4app.com</a></li>
         <li>Go to <strong>App Settings → Security & Keys</strong></li>
         <li>Copy your Application ID and REST API Key</li>
-        <li>The Meeting schema will be auto-created on first save</li>
+        <li>The Meetings class will be auto-created on first save</li>
       </ol>
 
       <h2>Google OAuth Setup</h2>
@@ -678,7 +678,7 @@ function DeploymentTab() {
       <ul>
         <li>Check Back4app credentials</li>
         <li>Look at Render logs for API errors</li>
-        <li>Verify the Meeting class exists in Back4app</li>
+        <li>Verify the Meetings class exists in Back4app</li>
       </ul>
     </div>
   );

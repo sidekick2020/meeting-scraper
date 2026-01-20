@@ -492,7 +492,7 @@ val uiState by viewModel.uiState.collectAsState()
 - Ensure your app has internet permission (Android)
 
 **Empty results?**
-- The Meeting class name is case-sensitive: `Meeting` not `meeting`
+- The class name is case-sensitive: `Meetings` not `meetings`
 - Check query filters aren't too restrictive
 
 **Parse initialization errors?**

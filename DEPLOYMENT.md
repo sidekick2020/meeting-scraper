@@ -236,7 +236,7 @@ aws s3 sync build/ s3://your-bucket-name --acl public-read
 **Back4app Connection Issues:**
 - Verify credentials are correct
 - Check Back4app dashboard for API errors
-- Ensure Meeting schema exists
+- Ensure Meetings class exists
 
 ---
 
