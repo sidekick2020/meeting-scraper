@@ -1729,6 +1729,12 @@
   color: #2f5dff;
 }
 
+.sidebar-logo-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
 .sidebar-nav {
   flex: 1;
   padding: 1rem 0.75rem;
@@ -3571,10 +3577,12 @@ a.sidebar-nav-item {
 }
 
 .airbnb-logo .logo-icon {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   object-fit: contain;
   display: block;
+  /* Ensure logo renders exactly as-is without any filters or modifications */
+  image-rendering: auto;
 }
 
 .airbnb-logo svg {

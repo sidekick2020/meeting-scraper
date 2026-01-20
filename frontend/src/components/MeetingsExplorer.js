@@ -29,6 +29,25 @@ function MeetingsExplorer({ onAdminClick }) {
   const [mapBounds, setMapBounds] = useState(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
+  // Theme detection for logo switching
+  const [currentTheme, setCurrentTheme] = useState(
+    document.documentElement.getAttribute('data-theme') || 'dark'
+  );
+
+  // Listen for theme changes
+  useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'data-theme') {
+          setCurrentTheme(document.documentElement.getAttribute('data-theme') || 'dark');
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, { attributes: true });
+    return () => observer.disconnect();
+  }, []);
+
   // Get unique values from meetings
   const [availableStates, setAvailableStates] = useState([]);
   const [availableCities, setAvailableCities] = useState([]);
@@ -351,7 +370,11 @@ function MeetingsExplorer({ onAdminClick }) {
       {/* Top Navigation Bar */}
       <header className="airbnb-header">
         <div className="airbnb-logo" onClick={() => window.location.reload()}>
-          <img src="/favicon.svg" alt="Sober Sidekick" className="logo-icon" />
+          <img
+            src={currentTheme === 'dark' ? '/logo-dark.svg' : '/logo-light.svg'}
+            alt="Sober Sidekick"
+            className="logo-icon"
+          />
           <div className="logo-text">
             <span className="logo-brand">Sober Sidekick</span>
             <span className="logo-tagline">You're Never Alone</span>

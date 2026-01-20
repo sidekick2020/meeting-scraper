@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="circleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#c4b5d8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a8c4e8;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Top triangle -->
+  <path d="M50,2 L35,32 Q50,28 65,32 Z" fill="#1f2937"/>
+  <!-- Bottom left triangle -->
+  <path d="M8,88 L22,58 Q28,70 18,80 Z" fill="#1f2937"/>
+  <!-- Bottom right triangle -->
+  <path d="M92,88 L78,58 Q72,70 82,80 Z" fill="#1f2937"/>
+  <!-- Center circle with gradient -->
+  <circle cx="50" cy="52" r="30" fill="url(#circleGradient)" stroke="#ffffff" stroke-width="3"/>
+  <!-- Number 1 -->
+  <text x="50" y="62" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#1f2937">1</text>
+</svg>
