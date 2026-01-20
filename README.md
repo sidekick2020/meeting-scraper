@@ -6,15 +6,102 @@ A comprehensive meeting management system by [Sober Sidekick](https://sobersidek
 
 ## Overview
 
-This system provides:
+| Feature | Description |
+|---------|-------------|
+| **Admin Dashboard** | Manage and monitor meeting data with a modern, responsive interface |
+| **Public Directory** | Airbnb-style browsable interface for finding meetings |
+| **Data Scraper** | Automated collection from official 12-step organization feeds |
+| **Mobile SDKs** | iOS and Android integration guides included |
+| **Analytics** | Coverage analysis and statistics by state/region |
 
-- **Admin Dashboard** - Manage and monitor meeting data with a modern, responsive interface
-- **Public Meeting Directory** - Airbnb-style browsable interface for finding meetings
-- **Data Scraper** - Automated collection from official 12-step organization feeds
-- **Mobile SDK Support** - iOS and Android integration guides included
-- **Real-time Analytics** - Coverage analysis and statistics by state/region
+## Quick Start
 
-## Architecture
+**Try it now**: [https://meeting-scraper-frontend.onrender.com](https://meeting-scraper-frontend.onrender.com)
+
+Or run locally:
+
+```bash
+# Backend
+cd backend && pip install -r requirements.txt && python app.py
+
+# Frontend (new terminal)
+cd frontend && npm install && npm start
+```
+
+---
+
+## Current Coverage
+
+### Active Feeds
+
+| State | Feeds | Types |
+|-------|-------|-------|
+| **Alabama** | Birmingham AA, West Alabama AA, Alabama NA (BMLT) | AA, NA |
+| **Arizona** | Phoenix AA | AA |
+| **California** | Bay Area AA, San Diego AA | AA |
+
+<details>
+<summary><strong>Priority States Needing Coverage</strong></summary>
+
+The following high-population states currently have **no active feeds**:
+
+| State | Population | Priority |
+|-------|------------|----------|
+| Texas | 30.5M | Critical |
+| Florida | 22.6M | Critical |
+| New York | 19.6M | Critical |
+| Pennsylvania | 13.0M | High |
+| Illinois | 12.6M | High |
+| Ohio | 11.8M | High |
+| Georgia | 11.0M | High |
+| North Carolina | 10.8M | High |
+| Michigan | 10.0M | High |
+| New Jersey | 9.3M | High |
+
+</details>
+
+<details>
+<summary><strong>How to Add a New Feed</strong></summary>
+
+Most AA/NA websites use one of two feed formats:
+
+**TSML (12 Step Meeting List)** - WordPress plugin used by most AA sites:
+```
+https://[domain]/wp-admin/admin-ajax.php?action=meetings
+```
+
+**BMLT (Basic Meeting List Toolkit)** - Used by many NA regions:
+```
+https://[bmlt-server]/main_server/client_interface/json/?switcher=GetSearchResults&services[]=XX
+```
+
+To contribute:
+1. Find your local AA/NA intergroup website
+2. Check if it uses TSML or BMLT (look for "Meeting Guide" app compatibility)
+3. Open an issue or PR with the feed URL and state coverage
+
+</details>
+
+---
+
+## Screenshots
+
+| Public Directory | Admin Dashboard |
+|------------------|-----------------|
+| ![Directory](docs/screenshots/directory.png) | ![Admin](docs/screenshots/admin-dashboard.png) |
+| *Browse meetings with map and filters* | *Real-time scraping progress* |
+
+| Coverage Analysis | Developer Docs |
+|-------------------|----------------|
+| ![Coverage](docs/screenshots/coverage.png) | ![Docs](docs/screenshots/dev-docs.png) |
+| *State-by-state coverage metrics* | *iOS & Android SDK guides* |
+
+> Screenshots can be added by placing images in `docs/screenshots/`
+
+---
+
+<details>
+<summary><h2>Architecture</h2></summary>
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -67,81 +154,10 @@ This system provides:
 5. **API**: RESTful endpoints serve data to frontend and mobile apps
 6. **Display**: React frontend renders maps and lists for users
 
-## Current Coverage
+</details>
 
-### States with Active Feeds
-
-| State | Feeds | Fellowship Types |
-|-------|-------|------------------|
-| **Alabama** | Birmingham AA, West Alabama AA, Alabama NA (BMLT) | AA, NA |
-| **Arizona** | Phoenix AA | AA |
-| **California** | Bay Area AA, San Diego AA | AA |
-
-### Priority States Needing Coverage
-
-The following high-population states currently have **no active feeds** and need community support to add data sources:
-
-| State | Population | Priority |
-|-------|------------|----------|
-| Texas | 30.5M | Critical |
-| Florida | 22.6M | Critical |
-| New York | 19.6M | Critical |
-| Pennsylvania | 13.0M | High |
-| Illinois | 12.6M | High |
-| Ohio | 11.8M | High |
-| Georgia | 11.0M | High |
-| North Carolina | 10.8M | High |
-| Michigan | 10.0M | High |
-| New Jersey | 9.3M | High |
-
-### How to Add a New Feed
-
-We welcome contributions to expand coverage! Most AA/NA websites use one of two feed formats:
-
-**TSML (12 Step Meeting List)** - WordPress plugin used by most AA sites:
-```
-https://[domain]/wp-admin/admin-ajax.php?action=meetings
-```
-
-**BMLT (Basic Meeting List Toolkit)** - Used by many NA regions:
-```
-https://[bmlt-server]/main_server/client_interface/json/?switcher=GetSearchResults&services[]=XX
-```
-
-To contribute a feed:
-1. Find your local AA/NA intergroup website
-2. Check if it uses TSML or BMLT (look for "Meeting Guide" app compatibility)
-3. Open an issue or PR with the feed URL and state coverage
-
-## Screenshots
-
-### Public Meeting Directory
-The main public interface shows an interactive map with meeting locations and filterable list.
-
-![Meeting Directory](docs/screenshots/directory.png)
-*Browse meetings with map view, filters, and search*
-
-### Admin Dashboard
-Administrators can manage meetings, run scrapers, and view analytics.
-
-![Admin Dashboard](docs/screenshots/admin-dashboard.png)
-*Real-time scraping progress and statistics*
-
-### Coverage Analysis
-View meeting coverage by state with population-weighted metrics.
-
-![Coverage Analysis](docs/screenshots/coverage.png)
-*Identify states needing more meeting data*
-
-### Mobile Integration
-Comprehensive guides for iOS and Android development.
-
-![Developer Docs](docs/screenshots/dev-docs.png)
-*SDK integration guides with code examples*
-
-> **Note**: Screenshots can be added by placing images in `docs/screenshots/`
-
-## Features
+<details>
+<summary><h2>Features</h2></summary>
 
 ### Data Management
 - Automated web scraping from 50+ regional AA/NA/Al-Anon feeds
@@ -171,7 +187,10 @@ Comprehensive guides for iOS and Android development.
 - Comprehensive API documentation
 - Back4app Parse integration
 
-## Tech Stack
+</details>
+
+<details>
+<summary><h2>Tech Stack</h2></summary>
 
 ### Backend
 | Technology | Purpose |
@@ -190,26 +209,16 @@ Comprehensive guides for iOS and Android development.
 | Leaflet | Maps |
 | CSS3 | Styling (no frameworks) |
 
-## Prerequisites
-
+### Prerequisites
 - Python 3.8+
 - Node.js 16+
 - Back4app account ([Create free](https://www.back4app.com/))
 - Google Cloud Console project (for authentication)
 
-## Try It Now
+</details>
 
-**Production Version**: Visit the live app hosted on Render:
-- **Frontend**: [https://meeting-scraper-frontend.onrender.com](https://meeting-scraper-frontend.onrender.com)
-- **Admin Dashboard**: Click "Admin" in the top right to access the dashboard
-
-No setup required - just browse meetings or sign in with Google to access admin features.
-
----
-
-## Local Development
-
-If you prefer to run the app locally:
+<details>
+<summary><h2>Local Development</h2></summary>
 
 ### 1. Clone the Repository
 
@@ -245,7 +254,10 @@ The frontend starts on `http://localhost:3000`
 3. Copy your **Application ID** and **REST API Key**
 4. In the dashboard, click Settings and enter your credentials
 
-## Project Structure
+</details>
+
+<details>
+<summary><h2>Project Structure</h2></summary>
 
 ```
 meeting-scraper/
@@ -268,10 +280,16 @@ meeting-scraper/
 │       ├── contexts/       # React contexts
 │       ├── App.js          # Main app component
 │       └── App.css         # Styles
+├── docs/
+│   ├── MOBILE_QUICKSTART.md
+│   └── screenshots/
 └── README.md
 ```
 
-## API Reference
+</details>
+
+<details>
+<summary><h2>API Reference</h2></summary>
 
 ### Status & Control
 
@@ -300,7 +318,33 @@ meeting-scraper/
 | `/api/users/<id>` | PUT | Update user role |
 | `/api/users/<id>` | DELETE | Remove user |
 
-## Deployment
+</details>
+
+<details>
+<summary><h2>Data Schema</h2></summary>
+
+Each meeting record includes:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `objectId` | String | Unique identifier |
+| `name` | String | Meeting name |
+| `meetingType` | String | AA, NA, Al-Anon, etc. |
+| `day` | Number | Day of week (0=Sun, 6=Sat) |
+| `time` | String | Start time (HH:MM) |
+| `address` | String | Street address |
+| `city` | String | City |
+| `state` | String | State abbreviation |
+| `latitude` | Number | GPS latitude |
+| `longitude` | Number | GPS longitude |
+| `isOnline` | Boolean | Virtual meeting flag |
+| `onlineUrl` | String | Zoom/video link |
+| `types` | Array | Meeting type codes |
+
+</details>
+
+<details>
+<summary><h2>Deployment</h2></summary>
 
 ### Docker (Recommended)
 
@@ -324,41 +368,9 @@ npm run build
 # Deploy the 'build' folder
 ```
 
-Set environment variable:
-- `REACT_APP_BACKEND_URL` = Your backend URL
+### Environment Variables
 
-## Mobile Integration
-
-The documentation includes comprehensive guides for integrating meeting data into mobile apps:
-
-- **iOS**: ParseSwift SDK with SwiftUI examples
-- **Android**: Parse-SDK-Android with Jetpack Compose examples
-
-Access these guides from the Docs section in the admin dashboard.
-
-## Data Schema
-
-Each meeting record includes:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `objectId` | String | Unique identifier |
-| `name` | String | Meeting name |
-| `meetingType` | String | AA, NA, Al-Anon, etc. |
-| `day` | Number | Day of week (0=Sun, 6=Sat) |
-| `time` | String | Start time (HH:MM) |
-| `address` | String | Street address |
-| `city` | String | City |
-| `state` | String | State abbreviation |
-| `latitude` | Number | GPS latitude |
-| `longitude` | Number | GPS longitude |
-| `isOnline` | Boolean | Virtual meeting flag |
-| `onlineUrl` | String | Zoom/video link |
-| `types` | Array | Meeting type codes |
-
-## Environment Variables
-
-### Backend
+#### Backend
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | Server port | 5000 |
@@ -366,13 +378,30 @@ Each meeting record includes:
 | `SMTP_USER` | Email username | - |
 | `SMTP_PASS` | Email password | - |
 
-### Frontend
+#### Frontend
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `REACT_APP_BACKEND_URL` | Backend API URL | http://localhost:5000 |
 | `REACT_APP_GOOGLE_CLIENT_ID` | Google OAuth client ID | - |
 
-## Troubleshooting
+</details>
+
+<details>
+<summary><h2>Mobile Integration</h2></summary>
+
+The documentation includes comprehensive guides for integrating meeting data into mobile apps:
+
+- **iOS**: ParseSwift SDK with SwiftUI examples
+- **Android**: Parse-SDK-Android with Jetpack Compose examples
+
+See [Mobile Quick Start Guide](docs/MOBILE_QUICKSTART.md) for detailed instructions.
+
+Access interactive guides from the Docs section in the admin dashboard.
+
+</details>
+
+<details>
+<summary><h2>Troubleshooting</h2></summary>
 
 ### Backend Issues
 - Ensure Python 3.8+ is installed
@@ -388,6 +417,10 @@ Each meeting record includes:
 - Some feeds may be temporarily unavailable
 - Check the activity log for specific errors
 - Review rate limiting on external sites
+
+</details>
+
+---
 
 ## Contributing
 
