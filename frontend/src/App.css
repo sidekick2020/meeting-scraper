@@ -7,13 +7,13 @@
   --bg-primary: #f8fafc;
   --bg-secondary: #f1f5f9;
   --bg-tertiary: #e2e8f0;
-  --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-hover: rgba(0, 0, 0, 0.06);
   --bg-active: rgba(47, 93, 255, 0.1);
 
-  --text-primary: #151414;
-  --text-secondary: #4b5563;
-  --text-muted: #6b7280;
-  --text-faint: #9ca3af;
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-muted: #4b5563;
+  --text-faint: #6b7280;
 
   --border-light: rgba(0, 0, 0, 0.1);
   --border-medium: rgba(0, 0, 0, 0.18);
@@ -6205,6 +6205,191 @@ a.sidebar-nav-item {
   box-shadow: inset 3px 0 0 #2f5dff;
 }
 
+/* Light Mode: Detail Sidebar */
+[data-theme="light"] .detail-sidebar {
+  background: #ffffff;
+  border-left: 2px solid rgba(0, 0, 0, 0.12);
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .sidebar-detail-header {
+  background: #f8fafc;
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .sidebar-detail-header h2 {
+  color: #111827;
+}
+
+[data-theme="light"] .sidebar-close {
+  background: #f3f4f6;
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #4b5563;
+}
+
+[data-theme="light"] .sidebar-close:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+[data-theme="light"] .sidebar-detail-body {
+  background: #ffffff;
+  color: #1f2937;
+}
+
+[data-theme="light"] .sidebar-detail-body .detail-section h4 {
+  color: #4b5563;
+}
+
+[data-theme="light"] .sidebar-detail-body .detail-row {
+  color: #1f2937;
+}
+
+[data-theme="light"] .sidebar-detail-body .detail-notes {
+  color: #4b5563;
+}
+
+[data-theme="light"] .sidebar-detail-body .detail-notes-block {
+  background: #f3f4f6;
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #374151;
+}
+
+[data-theme="light"] .sidebar-detail-body .detail-metadata {
+  background: #f3f4f6;
+}
+
+[data-theme="light"] .sidebar-detail-body .metadata-row {
+  color: #4b5563;
+}
+
+/* Light Mode: Profile Section */
+[data-theme="light"] .profile-name {
+  color: #111827;
+}
+
+[data-theme="light"] .profile-status {
+  color: #4b5563;
+}
+
+[data-theme="light"] .profile-avatar {
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+/* Light Mode: Section Headers and Labels */
+[data-theme="light"] .section-description {
+  color: #4b5563;
+}
+
+[data-theme="light"] .version-description {
+  color: #4b5563;
+}
+
+[data-theme="light"] .api-endpoint-info h4 {
+  color: #4b5563;
+}
+
+/* Light Mode: Source Preview Cards */
+[data-theme="light"] .source-preview-card {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .source-preview-card:hover {
+  background: #f8fafc;
+  border-color: #1a4fd8;
+}
+
+[data-theme="light"] .source-preview-name {
+  color: #111827;
+}
+
+[data-theme="light"] .source-preview-date {
+  color: #4b5563;
+}
+
+[data-theme="light"] .source-preview-expand {
+  color: #4b5563;
+}
+
+[data-theme="light"] .source-mini-badge.format {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+/* Light Mode: Source Detail Panel */
+[data-theme="light"] .source-detail-panel {
+  background: #ffffff;
+  border-left-color: rgba(0, 0, 0, 0.12);
+}
+
+/* Light Mode: Placeholder Icons and Text */
+[data-theme="light"] .placeholder-icon {
+  color: #6b7280;
+}
+
+[data-theme="light"] .directory-placeholder p {
+  color: #4b5563;
+}
+
+/* Light Mode: Status Rows */
+[data-theme="light"] .deployment-status-row {
+  color: #374151;
+}
+
+[data-theme="light"] .deployment-status-row.stable {
+  color: #4b5563;
+}
+
+[data-theme="light"] .deployment-indicator-note {
+  color: #4b5563;
+}
+
+[data-theme="light"] .deployment-current-task .task-label {
+  color: #4b5563;
+}
+
+[data-theme="light"] .deployment-current-task .task-name {
+  color: #111827;
+}
+
+/* Light Mode: Release Items */
+[data-theme="light"] .release-subitem {
+  color: #4b5563;
+}
+
+/* Light Mode: Stat Cards and Values */
+[data-theme="light"] .stat-label {
+  color: #4b5563;
+}
+
+[data-theme="light"] .stat-value {
+  color: #111827;
+}
+
+/* Light Mode: Meeting Card Details */
+[data-theme="light"] .meeting-date,
+[data-theme="light"] .meeting-time,
+[data-theme="light"] .meeting-location {
+  color: #4b5563;
+}
+
+/* Light Mode: Directory Search Icons */
+[data-theme="light"] .search-icon {
+  color: #6b7280;
+}
+
+/* Light Mode: External Links */
+[data-theme="light"] .external-icon {
+  color: #6b7280;
+}
+
+/* Light Mode: Badge Text */
+[data-theme="light"] .type-other {
+  background: rgba(107, 114, 128, 0.15);
+  color: #4b5563;
+}
+
 /* Theme Toggle Button */
 .theme-toggle-item {
   display: flex;
@@ -6904,5 +7089,130 @@ a.sidebar-nav-item {
 
 [data-theme="light"] .source-format-badge {
   background: #e5e7eb;
+  color: #4b5563;
+}
+
+/* Additional Light Mode Overrides for Text Contrast */
+[data-theme="light"] .source-panel-close {
+  background: #f3f4f6;
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #4b5563;
+}
+
+[data-theme="light"] .source-panel-close:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+[data-theme="light"] .source-section h4,
+[data-theme="light"] .source-detail-label {
+  color: #4b5563;
+}
+
+[data-theme="light"] .source-detail-icon {
+  color: #4b5563;
+}
+
+[data-theme="light"] .source-quality-item {
+  color: #374151;
+}
+
+/* Light Mode: Form Labels and Hints */
+[data-theme="light"] .form-group label {
+  color: #374151;
+}
+
+[data-theme="light"] .form-hint {
+  color: #4b5563;
+}
+
+[data-theme="light"] .scrape-choice-info,
+[data-theme="light"] .feed-selector-info {
+  color: #4b5563;
+}
+
+/* Light Mode: Empty States */
+[data-theme="light"] .no-data,
+[data-theme="light"] .empty-state,
+[data-theme="light"] .users-empty {
+  color: #4b5563;
+}
+
+[data-theme="light"] .users-empty svg {
+  color: #6b7280;
+}
+
+/* Light Mode: Search and Filter Elements */
+[data-theme="light"] .search-input::placeholder {
+  color: #6b7280;
+}
+
+[data-theme="light"] .directory-search svg {
+  color: #6b7280;
+}
+
+[data-theme="light"] .directory-filter {
+  color: #111827;
+}
+
+[data-theme="light"] .pagination-info {
+  color: #4b5563;
+}
+
+/* Light Mode: Meeting Cards */
+[data-theme="light"] .meeting-card-details {
+  color: #4b5563;
+}
+
+/* Light Mode: Sign In */
+[data-theme="light"] .sign-in-body p {
+  color: #4b5563;
+}
+
+[data-theme="light"] .sign-in-note {
+  color: #4b5563;
+}
+
+/* Light Mode: Detail Labels */
+[data-theme="light"] .detail-label {
+  color: #4b5563;
+}
+
+[data-theme="light"] .detail-notes {
+  color: #4b5563;
+}
+
+/* Light Mode: Priority and State Items */
+[data-theme="light"] .priority-item .state-meetings {
+  color: #4b5563;
+}
+
+/* Light Mode: API Documentation */
+[data-theme="light"] .api-endpoint p {
+  color: #4b5563;
+}
+
+/* Light Mode: Unfinished Info */
+[data-theme="light"] .unfinished-info span {
+  color: #4b5563;
+}
+
+[data-theme="light"] .current-meeting-progress {
+  color: #4b5563;
+}
+
+/* Light Mode: User Invited State */
+[data-theme="light"] .user-invited {
+  color: #4b5563;
+}
+
+/* Light Mode: Sources Hint */
+[data-theme="light"] .sources-hint {
+  color: #4b5563;
+}
+
+/* Light Mode: Badge for Unknown Types */
+[data-theme="light"] .badge-unknown {
+  background: rgba(107, 114, 128, 0.15);
   color: #4b5563;
 }
