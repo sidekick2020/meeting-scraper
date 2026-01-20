@@ -56,35 +56,100 @@ def generate_meeting_hash(meeting):
 
 def generate_ai_prompt(meeting):
     """Generate a descriptive prompt for AI image generation based on meeting data."""
+    meeting_name = meeting.get('name', '')
     meeting_type = meeting.get('meetingType', 'AA')
     city = meeting.get('city', '')
     state = meeting.get('state', '')
     is_online = meeting.get('isOnline', False)
 
-    # Base style
-    style = "minimalist, abstract, calming, supportive, modern digital art, soft gradients"
+    # Cartoonish style base
+    style = "cartoon style, vibrant colors, friendly illustration, cute and welcoming, soft rounded shapes, warm lighting, digital art, Pixar-inspired"
 
-    # Meeting type specific themes
-    type_themes = {
-        'AA': 'sobriety, recovery journey, unity, hope, serenity',
-        'NA': 'recovery, strength, new beginnings, community support',
-        'Al-Anon': 'family support, healing together, understanding, compassion',
-        'Other': 'wellness, personal growth, community, support group',
+    # Extract keywords from meeting name for imagery
+    name_lower = meeting_name.lower() if meeting_name else ''
+
+    # Determine scene based on meeting name keywords
+    scene_elements = []
+
+    # Nature/outdoor keywords
+    if any(word in name_lower for word in ['sunrise', 'morning', 'dawn', 'early']):
+        scene_elements.append('beautiful sunrise over hills')
+    elif any(word in name_lower for word in ['sunset', 'evening', 'dusk']):
+        scene_elements.append('warm sunset sky with orange and pink clouds')
+    elif any(word in name_lower for word in ['mountain', 'hill', 'peak']):
+        scene_elements.append('majestic cartoon mountains')
+    elif any(word in name_lower for word in ['beach', 'ocean', 'sea', 'coast']):
+        scene_elements.append('peaceful cartoon beach with gentle waves')
+    elif any(word in name_lower for word in ['lake', 'river', 'water']):
+        scene_elements.append('serene cartoon lake reflecting the sky')
+    elif any(word in name_lower for word in ['garden', 'flower', 'bloom']):
+        scene_elements.append('colorful cartoon flower garden')
+    elif any(word in name_lower for word in ['forest', 'tree', 'wood', 'grove']):
+        scene_elements.append('friendly cartoon forest with tall trees')
+    elif any(word in name_lower for word in ['park', 'meadow', 'field']):
+        scene_elements.append('sunny cartoon park with green grass')
+
+    # Time/celestial keywords
+    elif any(word in name_lower for word in ['star', 'night', 'moon']):
+        scene_elements.append('whimsical night sky with twinkling cartoon stars')
+    elif any(word in name_lower for word in ['sun', 'bright', 'light', 'ray']):
+        scene_elements.append('bright cheerful sun with warm rays')
+    elif any(word in name_lower for word in ['rainbow', 'color']):
+        scene_elements.append('cheerful cartoon rainbow arching across the sky')
+
+    # Hope/recovery keywords
+    elif any(word in name_lower for word in ['hope', 'new', 'fresh', 'start', 'beginning']):
+        scene_elements.append('sunrise with a winding path leading forward')
+    elif any(word in name_lower for word in ['serenity', 'peace', 'calm', 'tranquil']):
+        scene_elements.append('peaceful zen garden with smooth stones')
+    elif any(word in name_lower for word in ['strength', 'strong', 'courage']):
+        scene_elements.append('sturdy cartoon lighthouse on rocky coast')
+    elif any(word in name_lower for word in ['together', 'unity', 'group', 'circle']):
+        scene_elements.append('warm campfire circle under starry sky')
+    elif any(word in name_lower for word in ['heart', 'love', 'care']):
+        scene_elements.append('cozy cottage with warm glowing windows')
+    elif any(word in name_lower for word in ['path', 'way', 'road', 'journey']):
+        scene_elements.append('winding cartoon path through rolling hills')
+    elif any(word in name_lower for word in ['bridge', 'cross']):
+        scene_elements.append('charming cartoon bridge over gentle stream')
+
+    # Location-based imagery
+    elif city or state:
+        if state in ['CA', 'California']:
+            scene_elements.append('cartoon California coastline with palm trees')
+        elif state in ['AZ', 'Arizona']:
+            scene_elements.append('cartoon desert landscape with colorful cacti')
+        elif state in ['CO', 'Colorado']:
+            scene_elements.append('cartoon Rocky Mountain scenery')
+        elif state in ['FL', 'Florida']:
+            scene_elements.append('tropical cartoon beach with palm trees')
+        elif state in ['NY', 'New York']:
+            scene_elements.append('cozy cartoon city park with trees')
+        elif state in ['TX', 'Texas']:
+            scene_elements.append('cartoon prairie with wildflowers')
+        else:
+            scene_elements.append('friendly cartoon landscape with rolling hills')
+
+    # Default scene if no keywords matched
+    if not scene_elements:
+        scene_elements.append('peaceful cartoon landscape with gentle hills and a winding path')
+
+    # Meeting type colors
+    type_colors = {
+        'AA': 'blue and gold accents',
+        'NA': 'green and teal accents',
+        'Al-Anon': 'purple and lavender accents',
+        'Other': 'warm orange and yellow accents',
     }
-
-    theme = type_themes.get(meeting_type, type_themes['Other'])
-
-    # Location context
-    location_desc = ""
-    if city and state:
-        location_desc = f"inspired by {city}, {state} scenery, "
-    elif state:
-        location_desc = f"inspired by {state} landscape, "
+    colors = type_colors.get(meeting_type, type_colors['Other'])
 
     # Online meeting modifier
-    online_desc = "digital connection, virtual gathering, " if is_online else ""
+    if is_online:
+        scene_elements.append('with floating friendly clouds')
 
-    prompt = f"Abstract artwork representing {theme}, {online_desc}{location_desc}{style}. Blue and purple color scheme. No text, no people, no faces. Safe for all audiences."
+    scene = ', '.join(scene_elements)
+
+    prompt = f"{scene}, {colors}, {style}. No text, no words, no letters, no people, no faces, no hands. Safe for all audiences, family friendly."
 
     return prompt
 
