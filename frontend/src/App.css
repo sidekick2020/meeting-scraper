@@ -2257,6 +2257,29 @@ a.sidebar-nav-item {
   font-size: 0.875rem;
 }
 
+.directory-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem 0;
+}
+
+.directory-load-more .load-more-btn {
+  padding: 0.875rem 2rem;
+  font-size: 0.9375rem;
+  min-width: 280px;
+}
+
+.search-highlight {
+  background-color: rgba(255, 213, 0, 0.4);
+  color: inherit;
+  padding: 0.1em 0.2em;
+  border-radius: 2px;
+}
+
+[data-theme="light"] .search-highlight {
+  background-color: rgba(255, 200, 0, 0.5);
+}
+
 /* Sources Section */
 .sources-section {
   padding: 0;

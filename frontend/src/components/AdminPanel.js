@@ -61,11 +61,12 @@ function AdminPanel({ onBackToPublic }) {
   // Directory state
   const [directoryMeetings, setDirectoryMeetings] = useState([]);
   const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [directoryLoadingMore, setDirectoryLoadingMore] = useState(false);
   const [directorySearch, setDirectorySearch] = useState('');
   const [directoryState, setDirectoryState] = useState('');
-  const [directoryPage, setDirectoryPage] = useState(0);
   const [directoryTotal, setDirectoryTotal] = useState(0);
-  const DIRECTORY_PAGE_SIZE = 10;
+  const [directoryHasMore, setDirectoryHasMore] = useState(true);
+  const DIRECTORY_PAGE_SIZE = 25;
 
   const isRunningRef = useRef(false);
   const pollIntervalRef = useRef(null);
@@ -153,14 +154,15 @@ function AdminPanel({ onBackToPublic }) {
     }
   }, []);
 
-  // Fetch directory meetings
-  const fetchDirectoryMeetings = useCallback(async (page = 0, search = '', state = '') => {
+  // Fetch directory meetings (initial load or filter change)
+  const fetchDirectoryMeetings = useCallback(async (search = '', state = '') => {
     setDirectoryLoading(true);
+    setDirectoryMeetings([]);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     try {
-      let url = `${BACKEND_URL}/api/meetings?limit=${DIRECTORY_PAGE_SIZE}&skip=${page * DIRECTORY_PAGE_SIZE}`;
+      let url = `${BACKEND_URL}/api/meetings?limit=${DIRECTORY_PAGE_SIZE}&skip=0`;
       if (search) url += `&search=${encodeURIComponent(search)}`;
       if (state) url += `&state=${encodeURIComponent(state)}`;
 
@@ -169,8 +171,10 @@ function AdminPanel({ onBackToPublic }) {
 
       if (response.ok) {
         const data = await response.json();
-        setDirectoryMeetings(data.meetings || []);
+        const meetings = data.meetings || [];
+        setDirectoryMeetings(meetings);
         setDirectoryTotal(data.total || 0);
+        setDirectoryHasMore(meetings.length < (data.total || 0));
       }
     } catch (error) {
       clearTimeout(timeoutId);
@@ -181,6 +185,40 @@ function AdminPanel({ onBackToPublic }) {
       setDirectoryLoading(false);
     }
   }, [DIRECTORY_PAGE_SIZE]);
+
+  // Load more directory meetings (append to existing)
+  const loadMoreDirectoryMeetings = useCallback(async () => {
+    if (directoryLoadingMore || !directoryHasMore) return;
+
+    setDirectoryLoadingMore(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const skip = directoryMeetings.length;
+      let url = `${BACKEND_URL}/api/meetings?limit=${DIRECTORY_PAGE_SIZE}&skip=${skip}`;
+      if (directorySearch) url += `&search=${encodeURIComponent(directorySearch)}`;
+      if (directoryState) url += `&state=${encodeURIComponent(directoryState)}`;
+
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const data = await response.json();
+        const newMeetings = data.meetings || [];
+        setDirectoryMeetings(prev => [...prev, ...newMeetings]);
+        setDirectoryTotal(data.total || 0);
+        setDirectoryHasMore(skip + newMeetings.length < (data.total || 0));
+      }
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name !== 'AbortError') {
+        console.error('Error loading more directory meetings:', error);
+      }
+    } finally {
+      setDirectoryLoadingMore(false);
+    }
+  }, [directoryMeetings.length, directorySearch, directoryState, directoryLoadingMore, directoryHasMore, DIRECTORY_PAGE_SIZE]);
 
   const checkConnection = useCallback(async () => {
     try {
@@ -251,9 +289,9 @@ function AdminPanel({ onBackToPublic }) {
   // Fetch directory meetings when section is active or filters change
   useEffect(() => {
     if (activeSection === 'directory') {
-      fetchDirectoryMeetings(directoryPage, directorySearch, directoryState);
+      fetchDirectoryMeetings(directorySearch, directoryState);
     }
-  }, [activeSection, directoryPage, directorySearch, directoryState, fetchDirectoryMeetings]);
+  }, [activeSection, directorySearch, directoryState, fetchDirectoryMeetings]);
 
   const handleStartClick = () => {
     // If scraper is currently running OR there's an unfinished scrape, show choice modal
@@ -683,6 +721,20 @@ function AdminPanel({ onBackToPublic }) {
           return `${hour12}:${minutes} ${ampm}`;
         };
 
+        // Highlight search terms in text
+        const highlightText = (text, search) => {
+          if (!text || !search || search.length < 2) return text;
+          try {
+            const regex = new RegExp(`(${search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            const parts = text.split(regex);
+            return parts.map((part, i) =>
+              regex.test(part) ? <mark key={i} className="search-highlight">{part}</mark> : part
+            );
+          } catch {
+            return text;
+          }
+        };
+
         return (
           <div className="directory-section">
             <div className="directory-toolbar">
@@ -695,26 +747,20 @@ function AdminPanel({ onBackToPublic }) {
                   type="text"
                   placeholder="Search meetings..."
                   value={directorySearch}
-                  onChange={(e) => {
-                    setDirectorySearch(e.target.value);
-                    setDirectoryPage(0);
-                  }}
+                  onChange={(e) => setDirectorySearch(e.target.value)}
                 />
               </div>
               <select
                 className="directory-filter"
                 value={directoryState}
-                onChange={(e) => {
-                  setDirectoryState(e.target.value);
-                  setDirectoryPage(0);
-                }}
+                onChange={(e) => setDirectoryState(e.target.value)}
               >
                 <option value="">All States</option>
                 <option value="AZ">Arizona</option>
                 <option value="CA">California</option>
               </select>
               <div className="directory-count">
-                {directoryTotal} meeting{directoryTotal !== 1 ? 's' : ''}
+                {directoryMeetings.length} of {directoryTotal} meeting{directoryTotal !== 1 ? 's' : ''}
               </div>
             </div>
 
@@ -753,7 +799,9 @@ function AdminPanel({ onBackToPublic }) {
                           className="directory-row"
                         >
                           <td className="meeting-name-cell">
-                            <span className="meeting-name">{meeting.name || 'Unnamed'}</span>
+                            <span className="meeting-name">
+                              {highlightText(meeting.name || 'Unnamed', directorySearch)}
+                            </span>
                             {meeting.isOnline && (
                               <span className="online-badge">
                                 {meeting.isHybrid ? 'Hybrid' : 'Online'}
@@ -761,7 +809,7 @@ function AdminPanel({ onBackToPublic }) {
                             )}
                           </td>
                           <td className="location-cell">
-                            {meeting.locationName || meeting.address || '—'}
+                            {highlightText(meeting.locationName || meeting.address || '—', directorySearch)}
                           </td>
                           <td>{meeting.day !== undefined ? dayNames[meeting.day] : '—'}</td>
                           <td>{formatTime(meeting.time) || '—'}</td>
@@ -775,25 +823,24 @@ function AdminPanel({ onBackToPublic }) {
                   </table>
                 </div>
 
-                <div className="directory-pagination">
-                  <button
-                    className="btn btn-ghost"
-                    disabled={directoryPage === 0}
-                    onClick={() => setDirectoryPage(p => Math.max(0, p - 1))}
-                  >
-                    Previous
-                  </button>
-                  <span className="pagination-info">
-                    Page {directoryPage + 1} of {Math.ceil(directoryTotal / DIRECTORY_PAGE_SIZE) || 1}
-                  </span>
-                  <button
-                    className="btn btn-ghost"
-                    disabled={(directoryPage + 1) * DIRECTORY_PAGE_SIZE >= directoryTotal}
-                    onClick={() => setDirectoryPage(p => p + 1)}
-                  >
-                    Next
-                  </button>
-                </div>
+                {directoryHasMore && (
+                  <div className="directory-load-more">
+                    <button
+                      className="btn btn-primary load-more-btn"
+                      onClick={loadMoreDirectoryMeetings}
+                      disabled={directoryLoadingMore}
+                    >
+                      {directoryLoadingMore ? (
+                        <>
+                          <span className="btn-spinner"></span>
+                          Loading...
+                        </>
+                      ) : (
+                        `Load More Meetings (${directoryMeetings.length} of ${directoryTotal})`
+                      )}
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>

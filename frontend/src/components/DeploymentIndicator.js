@@ -95,6 +95,9 @@ function DeploymentIndicator() {
             setTimeout(() => {
               window.location.reload();
             }, 3000);
+          } else if (frontendStatus !== 'stable') {
+            // Deployment finished, version matches - reset to stable
+            setFrontendStatus('stable');
           }
         } else {
           // Frontend version check failed - might be deploying
@@ -114,7 +117,7 @@ function DeploymentIndicator() {
     checkFrontend();
     const interval = setInterval(checkFrontend, CHECK_INTERVAL);
     return () => clearInterval(interval);
-  }, []);
+  }, [frontendStatus]);
 
   const isDeploying = backendStatus !== 'stable' || frontendStatus !== 'stable';
 
