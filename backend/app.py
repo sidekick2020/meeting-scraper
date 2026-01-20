@@ -1448,31 +1448,40 @@ def get_coverage():
     }
 
     try:
-        # Get meeting counts by state from Back4app
-        # Using aggregation pipeline to count by state
+        # Fetch all meetings with only the state field to count by state
+        # This is much faster than making 52 separate requests
         import urllib.parse
+        from collections import Counter
 
-        # First, get total count
-        count_url = f"{BACK4APP_URL}?count=1&limit=0"
-        count_response = requests.get(count_url, headers=headers, timeout=10)
+        meetings_by_state = Counter()
         total_meetings = 0
-        if count_response.status_code == 200:
-            total_meetings = count_response.json().get("count", 0)
+        skip = 0
+        batch_size = 1000
 
-        # Get meetings grouped by state (we'll fetch a sample and count)
-        # Parse doesn't support GROUP BY directly, so we'll use a different approach
-        # Fetch all unique states and their counts
-        meetings_by_state = {}
+        # Fetch all meetings in batches, only getting the state field
+        while True:
+            url = f"{BACK4APP_URL}?keys=state&limit={batch_size}&skip={skip}"
+            response = requests.get(url, headers=headers, timeout=30)
+            if response.status_code != 200:
+                break
 
-        # Query each state's count individually (more reliable)
-        for state_code in US_STATE_POPULATION.keys():
-            where = json.dumps({"state": state_code})
-            url = f"{BACK4APP_URL}?where={urllib.parse.quote(where)}&count=1&limit=0"
-            response = requests.get(url, headers=headers, timeout=5)
-            if response.status_code == 200:
-                count = response.json().get("count", 0)
-                if count > 0:
-                    meetings_by_state[state_code] = count
+            data = response.json()
+            results = data.get("results", [])
+            if not results:
+                break
+
+            # Count meetings by state
+            for meeting in results:
+                state = meeting.get("state")
+                if state:
+                    meetings_by_state[state] += 1
+                total_meetings += 1
+
+            # If we got fewer results than batch_size, we've reached the end
+            if len(results) < batch_size:
+                break
+
+            skip += batch_size
 
         # Calculate coverage metrics
         coverage_data = []
