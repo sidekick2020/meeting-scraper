@@ -242,6 +242,34 @@ function AdminPanel({ onBackToPublic }) {
     }
   };
 
+  const resetScraper = async () => {
+    try {
+      await fetch(`${BACKEND_URL}/api/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      setScrapingState({
+        is_running: false,
+        total_found: 0,
+        total_saved: 0,
+        current_source: '',
+        errors: [],
+        meetings_by_state: {},
+        meetings_by_type: { AA: 0, NA: 0, 'Al-Anon': 0, Other: 0 },
+        progress_message: '',
+        current_feed_index: 0,
+        total_feeds: 3,
+        current_feed_progress: 0,
+        current_feed_total: 0,
+        current_meeting: null,
+        activity_log: []
+      });
+      isRunningRef.current = false;
+    } catch (error) {
+      console.error('Error stopping scraper:', error);
+    }
+  };
+
   const saveConfig = async (newConfig) => {
     setIsSavingConfig(true);
     try {
@@ -392,6 +420,9 @@ function AdminPanel({ onBackToPublic }) {
                 Stop Scraping
               </button>
             )}
+            <button onClick={resetScraper} className="btn btn-ghost" title="Reset scraper if stuck">
+              Reset
+            </button>
           </div>
 
           {!backendConfigured && !config.appId && !config.restKey && (

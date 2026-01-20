@@ -1070,6 +1070,25 @@ def stop_scraping():
     add_log("Scraping stopped by user", "warning")
     return jsonify({"success": True, "message": "Scraper stopped"})
 
+@app.route('/api/reset', methods=['POST'])
+def reset_scraper():
+    """Force reset the scraper state - use if scraper gets stuck"""
+    scraping_state["is_running"] = False
+    scraping_state["total_found"] = 0
+    scraping_state["total_saved"] = 0
+    scraping_state["current_source"] = ""
+    scraping_state["errors"] = []
+    scraping_state["meetings_by_state"] = {}
+    scraping_state["meetings_by_type"] = {"AA": 0, "NA": 0, "Al-Anon": 0, "Other": 0}
+    scraping_state["recent_meetings"] = []
+    scraping_state["progress_message"] = ""
+    scraping_state["current_feed_index"] = 0
+    scraping_state["current_feed_progress"] = 0
+    scraping_state["current_feed_total"] = 0
+    scraping_state["current_meeting"] = None
+    scraping_state["activity_log"] = []
+    return jsonify({"success": True, "message": "Scraper state reset"})
+
 @app.route('/api/status', methods=['GET'])
 def get_status():
     """Get current scraping status"""
