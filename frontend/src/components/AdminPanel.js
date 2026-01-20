@@ -64,7 +64,7 @@ function AdminPanel({ onBackToPublic }) {
   const [directoryState, setDirectoryState] = useState('');
   const [directoryPage, setDirectoryPage] = useState(0);
   const [directoryTotal, setDirectoryTotal] = useState(0);
-  const DIRECTORY_PAGE_SIZE = 50;
+  const DIRECTORY_PAGE_SIZE = 10;
 
   const isRunningRef = useRef(false);
   const pollIntervalRef = useRef(null);
@@ -119,19 +119,27 @@ function AdminPanel({ onBackToPublic }) {
   // Fetch directory meetings
   const fetchDirectoryMeetings = useCallback(async (page = 0, search = '', state = '') => {
     setDirectoryLoading(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     try {
       let url = `${BACKEND_URL}/api/meetings?limit=${DIRECTORY_PAGE_SIZE}&skip=${page * DIRECTORY_PAGE_SIZE}`;
       if (search) url += `&search=${encodeURIComponent(search)}`;
       if (state) url += `&state=${encodeURIComponent(state)}`;
 
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
       if (response.ok) {
         const data = await response.json();
         setDirectoryMeetings(data.meetings || []);
         setDirectoryTotal(data.total || 0);
       }
     } catch (error) {
-      console.error('Error fetching directory meetings:', error);
+      clearTimeout(timeoutId);
+      if (error.name !== 'AbortError') {
+        console.error('Error fetching directory meetings:', error);
+      }
     } finally {
       setDirectoryLoading(false);
     }

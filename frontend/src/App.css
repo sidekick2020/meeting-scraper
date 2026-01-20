@@ -1347,6 +1347,11 @@
 .detail-metadata {
   font-size: 0.8rem;
   color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
 }
 
 .metadata-row {
@@ -2652,6 +2657,25 @@ a.sidebar-nav-item {
 
 .coverage-header h3 {
   margin: 0;
+}
+
+.coverage-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  gap: 1rem;
+}
+
+.coverage-loading p {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.coverage-loading .loading-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 .coverage-summary {
