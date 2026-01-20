@@ -881,6 +881,7 @@ function AdminPanel({ onBackToPublic }) {
         <MeetingDetail
           meeting={selectedMeeting}
           onClose={() => setSelectedMeeting(null)}
+          isSidebar={true}
         />
       )}
 
