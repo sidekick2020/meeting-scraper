@@ -233,6 +233,17 @@ function DevDocs({ onClose, standalone = false }) {
                   </svg>
                   User Guide
                 </button>
+                <button
+                  className={`sidebar-item ${activeTab === 'admin-guide' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('admin-guide')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="3" y1="9" x2="21" y2="9"/>
+                    <line x1="9" y1="21" x2="9" y2="9"/>
+                  </svg>
+                  Admin Guide
+                </button>
               </div>
               <div className="sidebar-section">
                 <h3>Documentation</h3>
@@ -342,6 +353,7 @@ function DevDocs({ onClose, standalone = false }) {
 
             <main className="dev-docs-content">
               {activeTab === 'user-guide' && <UserGuideTab />}
+              {activeTab === 'admin-guide' && <AdminGuideTab />}
               {activeTab === 'overview' && <OverviewTab />}
               {activeTab === 'schema' && <MeetingSchema />}
               {activeTab === 'api' && <ApiReferenceTab />}
@@ -364,6 +376,187 @@ function DevDocs({ onClose, standalone = false }) {
         {content}
       </div>
     </>
+  );
+}
+
+function AdminGuideTab() {
+  return (
+    <div className="docs-page">
+      <h1>Using the Meeting Scraper</h1>
+      <p className="lead">
+        This guide will help you understand how to use the admin dashboard to collect and manage
+        meeting data from various sources across the United States.
+      </p>
+
+      <h2>Getting Started</h2>
+
+      <h3>Step 1: Sign In</h3>
+      <p>
+        Click the <strong>"Admin"</strong> button in the top-right corner of the public directory.
+        You'll need to sign in with a Google account that has been authorized by an administrator.
+      </p>
+
+      <h3>Step 2: Configure Back4app (First Time Only)</h3>
+      <p>
+        If this is your first time using the scraper, you'll need to set up your database connection:
+      </p>
+      <ol>
+        <li>Click <strong>"Settings"</strong> in the admin sidebar</li>
+        <li>Go to the <strong>"Configuration"</strong> tab</li>
+        <li>Enter your Back4app <strong>Application ID</strong> and <strong>REST API Key</strong></li>
+        <li>Click <strong>"Save Configuration"</strong></li>
+      </ol>
+      <p>
+        <em>Don't have Back4app credentials? Contact your administrator or create a free account
+        at back4app.com.</em>
+      </p>
+
+      <h2>Running the Scraper</h2>
+
+      <h3>Starting a Scrape</h3>
+      <ol>
+        <li>From the admin dashboard, locate the <strong>"Start Scraping"</strong> button</li>
+        <li>Click the button to begin collecting meeting data</li>
+        <li>Watch the progress in real-time on the dashboard</li>
+      </ol>
+
+      <h3>What Happens During Scraping</h3>
+      <p>
+        The scraper automatically:
+      </p>
+      <ul>
+        <li><strong>Connects to data feeds</strong> - Official AA, NA, and Al-Anon websites</li>
+        <li><strong>Collects meeting information</strong> - Names, times, locations, and details</li>
+        <li><strong>Removes duplicates</strong> - Prevents the same meeting from being saved twice</li>
+        <li><strong>Geocodes addresses</strong> - Adds map coordinates for locations</li>
+        <li><strong>Saves to database</strong> - Stores everything in your Back4app database</li>
+      </ul>
+
+      <h3>Monitoring Progress</h3>
+      <p>
+        While the scraper is running, you'll see:
+      </p>
+      <ul>
+        <li><strong>Progress bar</strong> - Shows how many feeds have been processed</li>
+        <li><strong>Meetings found</strong> - Total number of meetings discovered</li>
+        <li><strong>Meetings saved</strong> - How many were successfully saved to the database</li>
+        <li><strong>Current source</strong> - Which feed is currently being scraped</li>
+        <li><strong>Activity log</strong> - Real-time updates on what's happening</li>
+      </ul>
+
+      <h3>Stopping the Scraper</h3>
+      <p>
+        If you need to stop the scraper before it finishes:
+      </p>
+      <ol>
+        <li>Click the <strong>"Stop Scraping"</strong> button</li>
+        <li>The scraper will finish the current feed and then stop</li>
+        <li>Any meetings already saved will remain in the database</li>
+      </ol>
+
+      <h2>Understanding the Dashboard</h2>
+
+      <h3>Dashboard Stats</h3>
+      <ul>
+        <li><strong>Total Meetings</strong> - All meetings in your database</li>
+        <li><strong>States Covered</strong> - Number of states with meeting data</li>
+        <li><strong>Meeting Types</strong> - Breakdown by AA, NA, Al-Anon, etc.</li>
+        <li><strong>Recent Activity</strong> - Latest scraping operations</li>
+      </ul>
+
+      <h3>Coverage Analysis</h3>
+      <p>
+        The Coverage tab shows you:
+      </p>
+      <ul>
+        <li><strong>Meetings per state</strong> - How many meetings each state has</li>
+        <li><strong>Population coverage</strong> - Meetings per 100,000 residents</li>
+        <li><strong>Priority states</strong> - States that need more meeting data</li>
+      </ul>
+
+      <h3>Activity Log</h3>
+      <p>
+        The activity log shows real-time updates including:
+      </p>
+      <ul>
+        <li>When feeds are started and completed</li>
+        <li>How many meetings were found in each feed</li>
+        <li>Any errors that occurred</li>
+        <li>Duplicate meetings that were skipped</li>
+      </ul>
+
+      <h2>Managing Meetings</h2>
+
+      <h3>Viewing Meetings</h3>
+      <p>
+        Use the <strong>"Directory"</strong> tab to browse all meetings in your database.
+        You can filter by state, day, or search for specific meetings.
+      </p>
+
+      <h3>Meeting Details</h3>
+      <p>
+        Click on any meeting to see full details including:
+      </p>
+      <ul>
+        <li>Complete address and map location</li>
+        <li>Meeting schedule and duration</li>
+        <li>Meeting type codes and descriptions</li>
+        <li>Online meeting links (if available)</li>
+        <li>Source feed information</li>
+      </ul>
+
+      <h2>Managing Team Members</h2>
+
+      <h3>Inviting Users (Admin Only)</h3>
+      <ol>
+        <li>Go to <strong>Settings → Users</strong></li>
+        <li>Click <strong>"Invite User"</strong></li>
+        <li>Enter their email address</li>
+        <li>Choose their role (Standard or Admin)</li>
+        <li>Click <strong>"Send Invite"</strong></li>
+      </ol>
+
+      <h3>User Roles</h3>
+      <ul>
+        <li><strong>Standard</strong> - Can view dashboard and run the scraper</li>
+        <li><strong>Admin</strong> - Can also manage users and settings</li>
+      </ul>
+
+      <h2>Troubleshooting</h2>
+
+      <h3>Scraper Won't Start</h3>
+      <ul>
+        <li>Check that Back4app is configured in Settings</li>
+        <li>Verify your internet connection</li>
+        <li>Try refreshing the page</li>
+      </ul>
+
+      <h3>No Meetings Being Saved</h3>
+      <ul>
+        <li>Check the activity log for error messages</li>
+        <li>Verify your Back4app credentials are correct</li>
+        <li>The feed source may be temporarily unavailable</li>
+      </ul>
+
+      <h3>Slow Performance</h3>
+      <ul>
+        <li>Scraping can take several minutes per feed</li>
+        <li>Large feeds (1000+ meetings) take longer</li>
+        <li>The scraper includes delays to avoid overloading sources</li>
+      </ul>
+
+      <div className="user-guide-cta">
+        <h3>Need Help?</h3>
+        <p>
+          If you're having trouble with the scraper:
+        </p>
+        <ul>
+          <li>Check the <strong>Activity Log</strong> for error messages</li>
+          <li>Review the <strong>Settings</strong> to verify configuration</li>
+          <li>Contact your administrator for access issues</li>
+        </ul>
+      </div>
+    </div>
   );
 }
 
