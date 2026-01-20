@@ -14,6 +14,133 @@ This system provides:
 - **Mobile SDK Support** - iOS and Android integration guides included
 - **Real-time Analytics** - Coverage analysis and statistics by state/region
 
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                           FRONTEND                                   │
+│                     (React 18 + Leaflet)                            │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────────┐ │
+│  │   Public    │  │   Admin     │  │  Coverage   │  │    Docs    │ │
+│  │  Directory  │  │  Dashboard  │  │  Analysis   │  │   Portal   │ │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └─────┬──────┘ │
+└─────────┼────────────────┼────────────────┼───────────────┼────────┘
+          │                │                │               │
+          └────────────────┼────────────────┘               │
+                           ▼                                │
+┌─────────────────────────────────────────────────────────────────────┐
+│                          BACKEND API                                 │
+│                      (Python Flask + Gunicorn)                       │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────────┐ │
+│  │  Meetings   │  │   Scraper   │  │    User     │  │  Coverage  │ │
+│  │    CRUD     │  │   Engine    │  │ Management  │  │   Stats    │ │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └─────┬──────┘ │
+└─────────┼────────────────┼────────────────┼───────────────┼────────┘
+          │                │                │               │
+          ▼                ▼                ▼               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                          DATABASE                                    │
+│                    (Back4app / Parse Server)                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────────┐ │
+│  │  Meetings   │  │   Users     │  │   Scrape    │  │  Activity  │ │
+│  │   Class     │  │   Class     │  │   History   │  │    Logs    │ │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+          ▲
+          │  Data Sources
+          │
+┌─────────┴───────────────────────────────────────────────────────────┐
+│                       EXTERNAL FEEDS                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
+│  │  TSML/JSON  │  │    BMLT     │  │   Google    │                 │
+│  │   (AA/NA)   │  │  (NA/CA)    │  │   Sheets    │                 │
+│  └─────────────┘  └─────────────┘  └─────────────┘                 │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+1. **Scraping**: Backend fetches meeting data from TSML and BMLT feeds
+2. **Transformation**: Raw data is normalized to a standard schema
+3. **Deduplication**: Unique keys prevent duplicate entries
+4. **Storage**: Meetings saved to Back4app Parse database
+5. **API**: RESTful endpoints serve data to frontend and mobile apps
+6. **Display**: React frontend renders maps and lists for users
+
+## Current Coverage
+
+### States with Active Feeds
+
+| State | Feeds | Fellowship Types |
+|-------|-------|------------------|
+| **Alabama** | Birmingham AA, West Alabama AA, Alabama NA (BMLT) | AA, NA |
+| **Arizona** | Phoenix AA | AA |
+| **California** | Bay Area AA, San Diego AA | AA |
+
+### Priority States Needing Coverage
+
+The following high-population states currently have **no active feeds** and need community support to add data sources:
+
+| State | Population | Priority |
+|-------|------------|----------|
+| Texas | 30.5M | Critical |
+| Florida | 22.6M | Critical |
+| New York | 19.6M | Critical |
+| Pennsylvania | 13.0M | High |
+| Illinois | 12.6M | High |
+| Ohio | 11.8M | High |
+| Georgia | 11.0M | High |
+| North Carolina | 10.8M | High |
+| Michigan | 10.0M | High |
+| New Jersey | 9.3M | High |
+
+### How to Add a New Feed
+
+We welcome contributions to expand coverage! Most AA/NA websites use one of two feed formats:
+
+**TSML (12 Step Meeting List)** - WordPress plugin used by most AA sites:
+```
+https://[domain]/wp-admin/admin-ajax.php?action=meetings
+```
+
+**BMLT (Basic Meeting List Toolkit)** - Used by many NA regions:
+```
+https://[bmlt-server]/main_server/client_interface/json/?switcher=GetSearchResults&services[]=XX
+```
+
+To contribute a feed:
+1. Find your local AA/NA intergroup website
+2. Check if it uses TSML or BMLT (look for "Meeting Guide" app compatibility)
+3. Open an issue or PR with the feed URL and state coverage
+
+## Screenshots
+
+### Public Meeting Directory
+The main public interface shows an interactive map with meeting locations and filterable list.
+
+![Meeting Directory](docs/screenshots/directory.png)
+*Browse meetings with map view, filters, and search*
+
+### Admin Dashboard
+Administrators can manage meetings, run scrapers, and view analytics.
+
+![Admin Dashboard](docs/screenshots/admin-dashboard.png)
+*Real-time scraping progress and statistics*
+
+### Coverage Analysis
+View meeting coverage by state with population-weighted metrics.
+
+![Coverage Analysis](docs/screenshots/coverage.png)
+*Identify states needing more meeting data*
+
+### Mobile Integration
+Comprehensive guides for iOS and Android development.
+
+![Developer Docs](docs/screenshots/dev-docs.png)
+*SDK integration guides with code examples*
+
+> **Note**: Screenshots can be added by placing images in `docs/screenshots/`
+
 ## Features
 
 ### Data Management
