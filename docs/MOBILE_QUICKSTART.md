@@ -389,6 +389,94 @@ val searchQuery = ParseQuery.getQuery(Meeting::class.java)
 
 ---
 
+## Advanced: Production-Ready ViewModels
+
+For production apps, we provide full-featured ViewModels with:
+- Flexible query building with fluent API
+- Pagination with "Load More"
+- Caching for performance
+- Location-based queries
+- Multiple filter combinations
+- Loading states and error handling
+
+### iOS ViewModel
+
+Download the complete ViewModel: [`ios/MeetingViewModel.swift`](ios/MeetingViewModel.swift)
+
+```swift
+// Quick examples with the ViewModel:
+
+let viewModel = MeetingViewModel()
+
+// Load today's meetings
+await viewModel.loadTodaysMeetings()
+
+// Load nearby meetings
+await viewModel.loadNearbyMeetings(location: userLocation)
+
+// Search
+await viewModel.search("Serenity")
+
+// Fluent query builder - chain multiple filters
+await viewModel.query()
+    .states("CA", "AZ")
+    .days(1, 3, 5)           // Mon, Wed, Fri
+    .meetingTypes("AA")
+    .typeCodes("O", "W")     // Open, Women
+    .limit(100)
+    .execute()
+
+// Find online NA meetings
+await viewModel.query()
+    .meetingTypes("NA")
+    .onlineOnly()
+    .execute()
+```
+
+### Android ViewModel
+
+Download the complete ViewModel: [`android/MeetingViewModel.kt`](android/MeetingViewModel.kt)
+
+```kotlin
+// Quick examples with the ViewModel:
+
+val viewModel: MeetingViewModel by viewModels()
+
+// Load today's meetings
+viewModel.loadTodaysMeetings()
+
+// Load nearby meetings
+viewModel.loadNearbyMeetings(userLocation)
+
+// Search
+viewModel.search("Serenity")
+
+// Fluent query builder - chain multiple filters
+viewModel.query()
+    .states("CA", "AZ")
+    .days(1, 3, 5)           // Mon, Wed, Fri
+    .meetingTypes("AA")
+    .typeCodes("O", "W")     // Open, Women
+    .limit(100)
+    .execute()
+
+// Observe state with Compose
+val uiState by viewModel.uiState.collectAsState()
+```
+
+### ViewModel Features
+
+| Feature | Description |
+|---------|-------------|
+| **Quick Methods** | `loadMeetings()`, `loadTodaysMeetings()`, `loadNearbyMeetings()`, `search()` |
+| **Filters** | `filterByStates()`, `filterByDays()`, `filterByMeetingTypes()`, `filterByTypeCodes()` |
+| **Query Builder** | Fluent API: `.states().days().meetingTypes().onlineOnly().execute()` |
+| **Pagination** | `loadMore()` with automatic state tracking |
+| **Caching** | 5-minute cache to reduce API calls |
+| **Location** | `near(location, radiusMiles)` for proximity searches |
+
+---
+
 ## Next Steps
 
 - See [iOS Guide](https://docs.parseplatform.org/ios/guide/) for advanced ParseSwift usage
