@@ -591,6 +591,9 @@ def check_duplicates_batch(unique_keys):
                 for item in results:
                     if item.get("uniqueKey"):
                         existing_keys.add(item["uniqueKey"])
+            else:
+                # Log non-200 responses
+                print(f"Duplicate check returned {response.status_code}: {response.text[:200]}")
         except Exception as e:
             print(f"Error checking duplicates batch: {e}")
 
@@ -619,6 +622,8 @@ def save_to_back4app_batch(meetings):
 
     try:
         batch_url = "https://parseapi.back4app.com/batch"
+        add_log(f"Sending batch of {len(meetings)} to Back4app...", "info")
+
         response = requests.post(
             batch_url,
             headers=headers,
@@ -626,20 +631,37 @@ def save_to_back4app_batch(meetings):
             timeout=30
         )
 
+        add_log(f"Batch response status: {response.status_code}", "info")
+
         if response.status_code == 200:
             results = response.json()
+
+            # Debug: Log the actual response structure
+            if results and isinstance(results, list) and len(results) > 0:
+                first_result = results[0]
+                add_log(f"Response structure: {list(first_result.keys()) if isinstance(first_result, dict) else type(first_result)}", "info")
+
             saved = sum(1 for r in results if "success" in r)
             errors = sum(1 for r in results if "error" in r)
-            # Log first error if any for debugging
+
+            # If no success/error keys found, check for objectId (Parse returns objectId on success)
+            if saved == 0 and errors == 0 and isinstance(results, list):
+                # Parse batch API might return list of objects with objectId on success
+                saved = sum(1 for r in results if isinstance(r, dict) and ("objectId" in r or "createdAt" in r))
+                errors = len(results) - saved
+
+            # Log all errors for debugging
             if errors > 0:
-                first_error = next((r for r in results if "error" in r), None)
-                if first_error:
-                    add_log(f"Batch had {errors} errors. First: {first_error.get('error', {})}", "warning")
+                for r in results:
+                    if "error" in r:
+                        add_log(f"Save error: {r.get('error', {})}", "error")
+                        break  # Just log first one to avoid spam
+
+            add_log(f"Batch result: {saved} saved, {errors} errors", "info" if saved > 0 else "warning")
             return {"saved": saved, "errors": errors}
         else:
             error_detail = response.text[:500] if response.text else "No details"
-            add_log(f"Batch save failed: {response.status_code} - {error_detail[:100]}", "error")
-            print(f"Batch save error {response.status_code}: {error_detail}")
+            add_log(f"Batch save failed HTTP {response.status_code}: {error_detail[:200]}", "error")
             return {"saved": 0, "errors": len(meetings)}
     except Exception as e:
         add_log(f"Batch save exception: {e}", "error")
@@ -736,9 +758,8 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
                 else:
                     meetings_to_save.append(meeting)
 
-            # Debug: log duplicate check results
-            if batch_num == 1:
-                add_log(f"Batch 1 debug: {len(batch_keys)} keys checked, {len(existing_keys)} found existing, {len(meetings_to_save)} to save", "info")
+            # Debug: log duplicate check results for every batch
+            add_log(f"Batch {batch_num}: {len(batch_keys)} keys, {len(existing_keys)} existing, {len(meetings_to_save)} new", "info")
 
             # Step 3: Batch save non-duplicates (1 request for up to 50 meetings)
             if meetings_to_save:
@@ -859,6 +880,168 @@ def test_save():
             "error": str(e)
         }), 500
 
+@app.route('/api/test-batch', methods=['POST'])
+def test_batch_save():
+    """Test batch saving to Back4app - for debugging"""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({
+            "success": False,
+            "error": "Back4app not configured"
+        }), 400
+
+    # Fetch a few meetings from the first feed
+    feed_name = list(AA_FEEDS.keys())[0]
+    feed_config = AA_FEEDS[feed_name]
+
+    try:
+        response = requests.get(feed_config["url"], headers=REQUEST_HEADERS, timeout=30)
+        response.raise_for_status()
+        raw_meetings = response.json()
+
+        if not raw_meetings or not isinstance(raw_meetings, list):
+            return jsonify({"success": False, "error": "No meetings found in feed"}), 400
+
+        # Normalize 5 meetings for testing
+        test_meetings = []
+        for i, raw in enumerate(raw_meetings[:5]):
+            meeting = normalize_meeting(raw, feed_name, feed_config["state"], skip_geocoding=True)
+            # Add test suffix to make unique
+            meeting["uniqueKey"] = f"TEST_{i}_{meeting.get('uniqueKey', '')}"
+            meeting["name"] = f"[TEST] {meeting.get('name', '')}"
+            test_meetings.append(meeting)
+
+        # Check what keys we're sending
+        keys_info = [m.get("uniqueKey", "NO_KEY")[:50] for m in test_meetings]
+
+        # Try batch save
+        result = save_to_back4app_batch(test_meetings)
+
+        return jsonify({
+            "success": result["saved"] > 0,
+            "result": result,
+            "meetings_sent": len(test_meetings),
+            "sample_keys": keys_info,
+            "first_meeting_fields": list(test_meetings[0].keys()) if test_meetings else []
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+@app.route('/api/diagnose', methods=['GET'])
+def diagnose_saves():
+    """Diagnose why meetings might not be saving"""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({"error": "Back4app not configured"}), 400
+
+    results = {
+        "config": {
+            "hasAppId": bool(BACK4APP_APP_ID),
+            "hasRestKey": bool(BACK4APP_REST_KEY),
+            "appIdPrefix": BACK4APP_APP_ID[:8] + "..." if BACK4APP_APP_ID else None
+        },
+        "feeds": {},
+        "duplicateCheck": {}
+    }
+
+    # Test each feed
+    for feed_name, feed_config in AA_FEEDS.items():
+        try:
+            response = requests.get(feed_config["url"], headers=REQUEST_HEADERS, timeout=30)
+            response.raise_for_status()
+            raw_meetings = response.json()
+
+            if isinstance(raw_meetings, list):
+                # Normalize first 10 meetings and check for duplicates
+                sample_keys = []
+                for raw in raw_meetings[:10]:
+                    meeting = normalize_meeting(raw, feed_name, feed_config["state"], skip_geocoding=True)
+                    sample_keys.append(meeting.get("uniqueKey"))
+
+                # Check how many are duplicates
+                existing = check_duplicates_batch(sample_keys)
+
+                results["feeds"][feed_name] = {
+                    "status": "ok",
+                    "total_meetings": len(raw_meetings),
+                    "sample_size": len(sample_keys),
+                    "duplicates_in_sample": len(existing),
+                    "sample_keys": sample_keys[:3]  # Show first 3 keys
+                }
+            else:
+                results["feeds"][feed_name] = {"status": "error", "error": "Not a list"}
+        except Exception as e:
+            results["feeds"][feed_name] = {"status": "error", "error": str(e)}
+
+    # Get total count in Back4app
+    try:
+        headers = {
+            "X-Parse-Application-Id": BACK4APP_APP_ID,
+            "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+        }
+        count_url = f"{BACK4APP_URL}?count=1&limit=0"
+        count_response = requests.get(count_url, headers=headers, timeout=10)
+        if count_response.status_code == 200:
+            results["totalMeetingsInDb"] = count_response.json().get("count", 0)
+        else:
+            results["totalMeetingsInDb"] = f"Error: {count_response.status_code}"
+    except Exception as e:
+        results["totalMeetingsInDb"] = f"Error: {e}"
+
+    return jsonify(results)
+
+@app.route('/api/test-single-save', methods=['POST'])
+def test_single_save():
+    """Test saving a SINGLE meeting directly (no batch) - for debugging"""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({"error": "Back4app not configured"}), 400
+
+    feed_name = list(AA_FEEDS.keys())[0]
+    feed_config = AA_FEEDS[feed_name]
+
+    try:
+        # Fetch one meeting
+        response = requests.get(feed_config["url"], headers=REQUEST_HEADERS, timeout=30)
+        response.raise_for_status()
+        raw_meetings = response.json()
+
+        if not raw_meetings:
+            return jsonify({"error": "No meetings in feed"}), 400
+
+        # Normalize it
+        meeting = normalize_meeting(raw_meetings[0], feed_name, feed_config["state"], skip_geocoding=True)
+        # Make it unique so it won't be a duplicate
+        meeting["uniqueKey"] = f"SINGLE_TEST_{datetime.now().isoformat()}"
+        meeting["name"] = f"[SINGLE TEST] {meeting.get('name', '')}"
+
+        # Try direct POST (not batch)
+        headers = {
+            "X-Parse-Application-Id": BACK4APP_APP_ID,
+            "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+            "Content-Type": "application/json"
+        }
+
+        save_response = requests.post(BACK4APP_URL, headers=headers, json=meeting, timeout=10)
+
+        return jsonify({
+            "success": save_response.status_code == 201,
+            "status_code": save_response.status_code,
+            "response_text": save_response.text[:500] if save_response.text else None,
+            "meeting_name": meeting.get("name"),
+            "meeting_keys_count": len(meeting.keys())
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
 def save_scrape_history(status="completed", feeds_processed=0):
     """Save scrape run to history (both in-memory and Back4app)"""
     global current_scrape_object_id
@@ -958,13 +1141,41 @@ def start_scraping():
     global current_scrape_object_id
     from datetime import datetime
 
-    if scraping_state["is_running"]:
-        return jsonify({"success": False, "message": "Scraper already running"}), 400
-
     # Check if we're resuming an existing scrape
     data = request.json or {}
+
+    # Allow force start to override stuck state
+    force = data.get('force', False)
+
+    if scraping_state["is_running"] and not force:
+        return jsonify({"success": False, "message": "Scraper already running"}), 400
+
+    # If forcing, reset the state first
+    if force and scraping_state["is_running"]:
+        scraping_state["is_running"] = False
+        add_log("Force starting - previous scrape state cleared", "warning")
     resume_scrape_id = data.get('resume_scrape_id')
     resume_feeds_processed = data.get('resume_feeds_processed', 0)
+
+    # Check if we need to abandon an old scrape before starting new
+    abandon_scrape_id = data.get('abandon_scrape_id')
+    if abandon_scrape_id and BACK4APP_APP_ID and BACK4APP_REST_KEY:
+        try:
+            headers = {
+                "X-Parse-Application-Id": BACK4APP_APP_ID,
+                "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+                "Content-Type": "application/json"
+            }
+            # Mark the old scrape as abandoned
+            abandon_url = f"https://parseapi.back4app.com/classes/ScrapeHistory/{abandon_scrape_id}"
+            abandon_data = {
+                "status": "abandoned",
+                "completed_at": datetime.now().isoformat()
+            }
+            requests.put(abandon_url, headers=headers, json=abandon_data, timeout=10)
+            add_log(f"Previous scrape marked as abandoned", "info")
+        except Exception as e:
+            print(f"Error abandoning old scrape: {e}")
 
     # Reset state
     scraping_state["is_running"] = True

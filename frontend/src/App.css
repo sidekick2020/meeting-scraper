@@ -721,6 +721,66 @@
   justify-content: flex-end;
 }
 
+/* Scrape Choice Modal */
+.scrape-choice-modal {
+  max-width: 450px;
+  text-align: center;
+}
+
+.scrape-choice-modal h2 {
+  margin-bottom: 1rem;
+  color: #f59e0b;
+}
+
+.scrape-choice-info {
+  color: #9ca3af;
+  margin-bottom: 1.5rem;
+}
+
+.scrape-choice-stats {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.5rem;
+}
+
+.scrape-choice-stats .stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.scrape-choice-stats .stat-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #667eea;
+}
+
+.scrape-choice-stats .stat-label {
+  font-size: 0.875rem;
+  color: #9ca3af;
+}
+
+.scrape-choice-question {
+  color: #e5e7eb;
+  margin-bottom: 1.5rem;
+  font-weight: 500;
+}
+
+.scrape-choice-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.scrape-choice-buttons .btn {
+  width: 100%;
+  justify-content: center;
+}
+
 /* View Toggle */
 .view-toggle {
   display: flex;

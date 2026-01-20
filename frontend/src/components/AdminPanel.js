@@ -49,6 +49,7 @@ function AdminPanel({ onBackToPublic }) {
   const [showDocs, setShowDocs] = useState(false);
   const [unfinishedScrape, setUnfinishedScrape] = useState(null);
   const [checkedUnfinished, setCheckedUnfinished] = useState(false);
+  const [showScrapeChoiceModal, setShowScrapeChoiceModal] = useState(false);
 
   const isRunningRef = useRef(false);
   const pollIntervalRef = useRef(null);
@@ -149,11 +150,25 @@ function AdminPanel({ onBackToPublic }) {
     };
   }, [scrapingState.is_running, checkConnection]);
 
-  const startScraping = async () => {
+  const handleStartClick = () => {
+    // If scraper is currently running OR there's an unfinished scrape, show choice modal
+    if (scrapingState.is_running || unfinishedScrape) {
+      setShowScrapeChoiceModal(true);
+    } else {
+      startScraping();
+    }
+  };
+
+  const startScraping = async (abandonOld = false) => {
     try {
+      const body = abandonOld && unfinishedScrape
+        ? { abandon_scrape_id: unfinishedScrape.objectId, force: true }
+        : { force: true };  // Always force to handle stuck state
+
       const response = await fetch(`${BACKEND_URL}/api/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
       });
       const data = await response.json();
       if (data.success) {
@@ -175,6 +190,7 @@ function AdminPanel({ onBackToPublic }) {
         }));
         setRecentMeetings([]);
         setUnfinishedScrape(null); // Clear any unfinished scrape notice
+        setShowScrapeChoiceModal(false);
         isRunningRef.current = true;
       } else {
         alert(data.message);
@@ -215,6 +231,7 @@ function AdminPanel({ onBackToPublic }) {
           activity_log: []
         }));
         setUnfinishedScrape(null);
+        setShowScrapeChoiceModal(false);
         isRunningRef.current = true;
       } else {
         alert(data.message);
@@ -409,16 +426,21 @@ function AdminPanel({ onBackToPublic }) {
           <div className="control-buttons">
             {!scrapingState.is_running ? (
               <button
-                onClick={startScraping}
+                onClick={handleStartClick}
                 className="btn btn-primary btn-large"
                 disabled={!isConnected}
               >
                 Start Scraping
               </button>
             ) : (
-              <button onClick={stopScraping} className="btn btn-danger btn-large">
-                Stop Scraping
-              </button>
+              <>
+                <button onClick={() => setShowScrapeChoiceModal(true)} className="btn btn-danger btn-large">
+                  Stop Scraping
+                </button>
+                <button onClick={handleStartClick} className="btn btn-secondary btn-large">
+                  Start New
+                </button>
+              </>
             )}
             <button onClick={resetScraper} className="btn btn-ghost" title="Reset scraper if stuck">
               Reset
@@ -506,6 +528,73 @@ function AdminPanel({ onBackToPublic }) {
 
       {showDocs && (
         <DevDocs onClose={() => setShowDocs(false)} />
+      )}
+
+      {showScrapeChoiceModal && (
+        <div className="modal-overlay">
+          <div className="modal scrape-choice-modal">
+            {scrapingState.is_running ? (
+              <>
+                <h2>Scraper Currently Running</h2>
+                <p className="scrape-choice-info">
+                  A scrape is currently in progress.
+                </p>
+                <div className="scrape-choice-stats">
+                  <div className="stat-item">
+                    <span className="stat-value">{scrapingState.total_found}</span>
+                    <span className="stat-label">found</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-value">{scrapingState.total_saved}</span>
+                    <span className="stat-label">saved</span>
+                  </div>
+                </div>
+                <p className="scrape-choice-question">What would you like to do?</p>
+                <div className="scrape-choice-buttons">
+                  <button onClick={() => { stopScraping(); setShowScrapeChoiceModal(false); }} className="btn btn-danger">
+                    Stop Current Scrape
+                  </button>
+                  <button onClick={() => { stopScraping(); setTimeout(() => startScraping(true), 500); }} className="btn btn-secondary">
+                    Cancel &amp; Start New
+                  </button>
+                  <button onClick={() => setShowScrapeChoiceModal(false)} className="btn btn-ghost">
+                    Keep Running
+                  </button>
+                </div>
+              </>
+            ) : unfinishedScrape ? (
+              <>
+                <h2>Unfinished Scrape Detected</h2>
+                <p className="scrape-choice-info">
+                  There's an unfinished scrape from{' '}
+                  <strong>{new Date(unfinishedScrape.started_at).toLocaleString()}</strong>
+                </p>
+                <div className="scrape-choice-stats">
+                  <div className="stat-item">
+                    <span className="stat-value">{unfinishedScrape.feeds_processed}</span>
+                    <span className="stat-label">of {unfinishedScrape.total_feeds || 3} feeds</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-value">{unfinishedScrape.total_saved}</span>
+                    <span className="stat-label">meetings saved</span>
+                  </div>
+                </div>
+                <p className="scrape-choice-question">What would you like to do?</p>
+                <div className="scrape-choice-buttons">
+                  <button onClick={resumeScraping} className="btn btn-primary">
+                    Resume Previous Scrape
+                  </button>
+                  <button onClick={() => startScraping(true)} className="btn btn-secondary">
+                    Start New Scrape
+                  </button>
+                  <button onClick={() => setShowScrapeChoiceModal(false)} className="btn btn-ghost">
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
       )}
     </div>
   );
