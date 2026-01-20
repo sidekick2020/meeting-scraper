@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import MeetingMap from './MeetingMap';
 import MeetingDetail from './MeetingDetail';
+import ThemeToggle from './ThemeToggle';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -388,6 +389,7 @@ function MeetingsExplorer({ onAdminClick }) {
         </div>
 
         <div className="airbnb-header-right">
+          <ThemeToggle />
           <button className="btn btn-ghost admin-link" onClick={onAdminClick}>
             Admin
           </button>
