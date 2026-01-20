@@ -233,6 +233,17 @@ function DevDocs({ onClose, standalone = false }) {
                   </svg>
                   User Guide
                 </button>
+                <button
+                  className={`sidebar-item ${activeTab === 'admin-guide' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('admin-guide')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="3" y1="9" x2="21" y2="9"/>
+                    <line x1="9" y1="21" x2="9" y2="9"/>
+                  </svg>
+                  Admin Guide
+                </button>
               </div>
               <div className="sidebar-section">
                 <h3>Documentation</h3>
@@ -342,6 +353,7 @@ function DevDocs({ onClose, standalone = false }) {
 
             <main className="dev-docs-content">
               {activeTab === 'user-guide' && <UserGuideTab />}
+              {activeTab === 'admin-guide' && <AdminGuideTab />}
               {activeTab === 'overview' && <OverviewTab />}
               {activeTab === 'schema' && <MeetingSchema />}
               {activeTab === 'api' && <ApiReferenceTab />}
@@ -367,6 +379,285 @@ function DevDocs({ onClose, standalone = false }) {
   );
 }
 
+function AdminGuideTab() {
+  return (
+    <div className="docs-page">
+      <h1>Using the Meeting Scraper</h1>
+      <p className="lead">
+        Learn how to use the admin dashboard to collect and manage meeting data from
+        recovery organizations across the United States.
+      </p>
+
+      <h2>Getting Started</h2>
+
+      <div className="step-cards">
+        <div className="step-card">
+          <div className="step-number">1</div>
+          <div className="step-content">
+            <h4>Sign In to Admin</h4>
+            <p>Click the <strong>"Admin"</strong> button in the top-right corner. Sign in with your authorized Google account.</p>
+          </div>
+        </div>
+        <div className="step-card">
+          <div className="step-number">2</div>
+          <div className="step-content">
+            <h4>Configure Database (First Time)</h4>
+            <p>Go to <strong>Settings → Configuration</strong> and enter your Back4app Application ID and REST API Key.</p>
+          </div>
+        </div>
+        <div className="step-card">
+          <div className="step-number">3</div>
+          <div className="step-content">
+            <h4>Start Scraping</h4>
+            <p>Click <strong>"Start Scraping"</strong> on the dashboard to begin collecting meeting data automatically.</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="info-box">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        <p><strong>Need credentials?</strong> Contact your administrator or create a free Back4app account at back4app.com</p>
+      </div>
+
+      <h2>Running the Scraper</h2>
+
+      <div className="guide-section">
+        <h3>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          What Happens During Scraping
+        </h3>
+        <div className="feature-grid">
+          <div className="feature-item">
+            <h4>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9"/>
+              </svg>
+              Connects to Feeds
+            </h4>
+            <p>Reaches official AA, NA, and Al-Anon websites to gather data</p>
+          </div>
+          <div className="feature-item">
+            <h4>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <path d="M14 2v6h6M16 13H8M16 17H8"/>
+              </svg>
+              Collects Information
+            </h4>
+            <p>Gathers meeting names, times, locations, and all details</p>
+          </div>
+          <div className="feature-item">
+            <h4>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                <circle cx="8.5" cy="7" r="4"/>
+                <line x1="18" y1="8" x2="23" y2="13"/>
+                <line x1="23" y1="8" x2="18" y2="13"/>
+              </svg>
+              Removes Duplicates
+            </h4>
+            <p>Prevents the same meeting from being saved twice</p>
+          </div>
+          <div className="feature-item">
+            <h4>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+              Geocodes Addresses
+            </h4>
+            <p>Adds map coordinates for accurate location display</p>
+          </div>
+        </div>
+      </div>
+
+      <h3>Monitoring Progress</h3>
+      <table className="quick-ref">
+        <thead>
+          <tr>
+            <th>Indicator</th>
+            <th>What It Shows</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Progress Bar</strong></td>
+            <td>How many feeds have been processed out of the total</td>
+          </tr>
+          <tr>
+            <td><strong>Meetings Found</strong></td>
+            <td>Total number of meetings discovered so far</td>
+          </tr>
+          <tr>
+            <td><strong>Meetings Saved</strong></td>
+            <td>How many were successfully saved to your database</td>
+          </tr>
+          <tr>
+            <td><strong>Current Source</strong></td>
+            <td>Which feed is currently being scraped</td>
+          </tr>
+          <tr>
+            <td><strong>Activity Log</strong></td>
+            <td>Real-time updates on scraping activity</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div className="tip-box">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+        <p><strong>Tip:</strong> You can stop the scraper anytime by clicking "Stop Scraping". Any meetings already saved will remain in the database.</p>
+      </div>
+
+      <h2>Understanding the Dashboard</h2>
+
+      <div className="feature-grid">
+        <div className="feature-item">
+          <h4>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+            </svg>
+            Total Meetings
+          </h4>
+          <p>All meetings currently stored in your database</p>
+        </div>
+        <div className="feature-item">
+          <h4>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="10" r="3"/>
+              <path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 10-16 0c0 3 2.7 7 8 11.7z"/>
+            </svg>
+            States Covered
+          </h4>
+          <p>Number of states with meeting data available</p>
+        </div>
+        <div className="feature-item">
+          <h4>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+            Coverage Analysis
+          </h4>
+          <p>Meetings per capita and priority states needing data</p>
+        </div>
+        <div className="feature-item">
+          <h4>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            Activity Log
+          </h4>
+          <p>Real-time feed of scraping events and status updates</p>
+        </div>
+      </div>
+
+      <h2>Managing Team Members</h2>
+
+      <div className="step-cards">
+        <div className="step-card">
+          <div className="step-number">1</div>
+          <div className="step-content">
+            <h4>Open User Settings</h4>
+            <p>Go to <strong>Settings → Users</strong> tab (Admin access required)</p>
+          </div>
+        </div>
+        <div className="step-card">
+          <div className="step-number">2</div>
+          <div className="step-content">
+            <h4>Invite New User</h4>
+            <p>Click <strong>"Invite User"</strong>, enter their email, and select a role</p>
+          </div>
+        </div>
+        <div className="step-card">
+          <div className="step-number">3</div>
+          <div className="step-content">
+            <h4>Send Invitation</h4>
+            <p>Click <strong>"Send Invite"</strong> - they'll receive an email with instructions</p>
+          </div>
+        </div>
+      </div>
+
+      <table className="quick-ref">
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>Permissions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Standard</strong></td>
+            <td>View dashboard, run scraper, browse meetings</td>
+          </tr>
+          <tr>
+            <td><strong>Admin</strong></td>
+            <td>All standard permissions + manage users and settings</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Troubleshooting</h2>
+
+      <div className="warning-box">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <p><strong>Scraper won't start?</strong> Check that Back4app is configured in Settings and verify your internet connection.</p>
+      </div>
+
+      <table className="quick-ref">
+        <thead>
+          <tr>
+            <th>Problem</th>
+            <th>Solution</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>No meetings being saved</td>
+            <td>Check activity log for errors; verify Back4app credentials</td>
+          </tr>
+          <tr>
+            <td>Slow performance</td>
+            <td>Normal - large feeds take several minutes; delays prevent server overload</td>
+          </tr>
+          <tr>
+            <td>Feed errors</td>
+            <td>Source may be temporarily unavailable; try again later</td>
+          </tr>
+          <tr>
+            <td>Can't access admin</td>
+            <td>Contact your administrator to verify your account is authorized</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div className="user-guide-cta">
+        <h3>Need More Help?</h3>
+        <p>If you're still having trouble:</p>
+        <ul>
+          <li>Check the <strong>Activity Log</strong> for detailed error messages</li>
+          <li>Review <strong>Settings → Configuration</strong> to verify your setup</li>
+          <li>Contact your system administrator for access or technical issues</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 function UserGuideTab() {
   return (
     <div className="docs-page">
@@ -378,103 +669,229 @@ function UserGuideTab() {
 
       <h2>How to Search for Meetings</h2>
 
-      <h3>Step 1: Use the Search Bar</h3>
-      <p>
-        At the top of the page, you'll see a search bar. You can search by:
-      </p>
-      <ul>
-        <li><strong>City name</strong> - Type your city (e.g., "San Diego" or "Houston")</li>
-        <li><strong>State</strong> - Type a state name or abbreviation (e.g., "California" or "CA")</li>
-        <li><strong>Meeting name</strong> - If you know the name of a specific meeting</li>
-        <li><strong>ZIP code</strong> - Enter your ZIP code to find nearby meetings</li>
-      </ul>
+      <div className="step-cards">
+        <div className="step-card">
+          <div className="step-number">1</div>
+          <div className="step-content">
+            <h4>Use the Search Bar</h4>
+            <p>Type a city name, state, ZIP code, or meeting name to find meetings near you.</p>
+          </div>
+        </div>
+        <div className="step-card">
+          <div className="step-number">2</div>
+          <div className="step-content">
+            <h4>Filter Your Results</h4>
+            <p>Narrow down by day of week, meeting type (AA, NA), or format (in-person, online).</p>
+          </div>
+        </div>
+        <div className="step-card">
+          <div className="step-number">3</div>
+          <div className="step-content">
+            <h4>View Meeting Details</h4>
+            <p>Click any meeting card to see the full address, time, and how to join.</p>
+          </div>
+        </div>
+      </div>
 
-      <h3>Step 2: Filter Your Results</h3>
-      <p>
-        Use the filter options to narrow down your search:
-      </p>
-      <ul>
-        <li><strong>Day of Week</strong> - Find meetings on specific days (Monday, Tuesday, etc.)</li>
-        <li><strong>Meeting Type</strong> - Choose AA, NA, Al-Anon, or other fellowship types</li>
-        <li><strong>Format</strong> - Filter by in-person, online, or hybrid meetings</li>
-      </ul>
-
-      <h3>Step 3: View Meeting Details</h3>
-      <p>
-        Click on any meeting card to see more information:
-      </p>
-      <ul>
-        <li><strong>Address</strong> - Full location with map</li>
-        <li><strong>Time</strong> - When the meeting starts and ends</li>
-        <li><strong>Meeting types</strong> - Open, closed, speaker, discussion, etc.</li>
-        <li><strong>Online link</strong> - For virtual or hybrid meetings</li>
-        <li><strong>Special notes</strong> - Accessibility info, parking, etc.</li>
-      </ul>
+      <div className="tip-box">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <p><strong>Tip:</strong> Search by ZIP code to find the meetings closest to your location.</p>
+      </div>
 
       <h2>Understanding Meeting Types</h2>
 
-      <h3>Fellowship Types</h3>
-      <ul>
-        <li><strong>AA (Alcoholics Anonymous)</strong> - For people who want to stop drinking</li>
-        <li><strong>NA (Narcotics Anonymous)</strong> - For people recovering from drug addiction</li>
-        <li><strong>Al-Anon</strong> - For friends and family of alcoholics</li>
-      </ul>
+      <div className="guide-section">
+        <h3>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+          </svg>
+          Fellowship Types
+        </h3>
+        <table className="quick-ref">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Who It's For</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>AA</strong> (Alcoholics Anonymous)</td>
+              <td>People who want to stop drinking alcohol</td>
+            </tr>
+            <tr>
+              <td><strong>NA</strong> (Narcotics Anonymous)</td>
+              <td>People recovering from drug addiction</td>
+            </tr>
+            <tr>
+              <td><strong>Al-Anon</strong></td>
+              <td>Friends and family members of alcoholics</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-      <h3>Meeting Formats</h3>
-      <ul>
-        <li><strong>Open</strong> - Anyone can attend, including non-alcoholics/addicts</li>
-        <li><strong>Closed</strong> - Only for people who have a desire to stop drinking/using</li>
-        <li><strong>Speaker</strong> - One or more members share their story</li>
-        <li><strong>Discussion</strong> - Group discusses a topic or reading</li>
-        <li><strong>Big Book</strong> - Studies the AA Big Book</li>
-        <li><strong>Step Study</strong> - Focuses on the 12 Steps</li>
-        <li><strong>Beginners</strong> - Welcoming to newcomers</li>
-        <li><strong>Women Only / Men Only</strong> - Gender-specific meetings</li>
-      </ul>
+      <div className="guide-section">
+        <h3>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          Meeting Formats
+        </h3>
+        <div className="feature-grid">
+          <div className="feature-item">
+            <h4>Open</h4>
+            <p>Anyone can attend, including family and friends</p>
+          </div>
+          <div className="feature-item">
+            <h4>Closed</h4>
+            <p>Only for those with a desire to stop drinking/using</p>
+          </div>
+          <div className="feature-item">
+            <h4>Speaker</h4>
+            <p>Members share their personal recovery stories</p>
+          </div>
+          <div className="feature-item">
+            <h4>Discussion</h4>
+            <p>Group discusses a topic or reading together</p>
+          </div>
+          <div className="feature-item">
+            <h4>Big Book</h4>
+            <p>Study of the AA Big Book text</p>
+          </div>
+          <div className="feature-item">
+            <h4>Beginners</h4>
+            <p>Especially welcoming to newcomers</p>
+          </div>
+        </div>
+      </div>
 
       <h2>Using the Map</h2>
-      <p>
-        The interactive map shows meeting locations as markers. You can:
-      </p>
-      <ul>
-        <li><strong>Zoom in/out</strong> - Use the + and - buttons or scroll</li>
-        <li><strong>Click markers</strong> - See meeting details in a popup</li>
-        <li><strong>Drag the map</strong> - Move around to explore different areas</li>
-        <li><strong>Click clusters</strong> - When markers are grouped, click to zoom in</li>
-      </ul>
+
+      <div className="feature-grid">
+        <div className="feature-item">
+          <h4>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              <line x1="11" y1="8" x2="11" y2="14"/>
+              <line x1="8" y1="11" x2="14" y2="11"/>
+            </svg>
+            Zoom In/Out
+          </h4>
+          <p>Use + and - buttons or scroll to zoom</p>
+        </div>
+        <div className="feature-item">
+          <h4>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+            Click Markers
+          </h4>
+          <p>Tap any pin to see meeting details</p>
+        </div>
+        <div className="feature-item">
+          <h4>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="5 9 2 12 5 15"/>
+              <polyline points="9 5 12 2 15 5"/>
+              <polyline points="15 19 12 22 9 19"/>
+              <polyline points="19 9 22 12 19 15"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <line x1="12" y1="2" x2="12" y2="22"/>
+            </svg>
+            Drag to Move
+          </h4>
+          <p>Click and drag to explore different areas</p>
+        </div>
+        <div className="feature-item">
+          <h4>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            Click Clusters
+          </h4>
+          <p>Grouped markers expand when clicked</p>
+        </div>
+      </div>
 
       <h2>Online & Hybrid Meetings</h2>
-      <p>
-        Many meetings are now available online:
-      </p>
-      <ul>
-        <li><strong>Online meetings</strong> - Held entirely via video call (Zoom, etc.)</li>
-        <li><strong>Hybrid meetings</strong> - Attend in-person OR join online</li>
-      </ul>
-      <p>
-        Look for the video icon or "Online" badge on meeting cards. Click the meeting to find
-        the video link or phone number to join.
-      </p>
+
+      <div className="info-box">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        <p><strong>Online meetings</strong> are held via video call (Zoom, etc.). <strong>Hybrid meetings</strong> let you attend in-person OR join online. Look for the video icon on meeting cards.</p>
+      </div>
 
       <h2>Tips for Newcomers</h2>
-      <ul>
-        <li><strong>Try different meetings</strong> - Each meeting has its own personality</li>
-        <li><strong>Arrive a few minutes early</strong> - Gives you time to settle in</li>
-        <li><strong>You don't have to speak</strong> - It's okay to just listen</li>
-        <li><strong>Look for "Beginners" meetings</strong> - These are especially welcoming</li>
-        <li><strong>Ask for help</strong> - People at meetings are happy to answer questions</li>
-      </ul>
+
+      <div className="guide-section">
+        <h3>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+          Making the Most of Meetings
+        </h3>
+        <div className="feature-grid">
+          <div className="feature-item">
+            <h4>Try Different Meetings</h4>
+            <p>Each meeting has its own personality - find what works for you</p>
+          </div>
+          <div className="feature-item">
+            <h4>Arrive Early</h4>
+            <p>A few minutes early gives you time to settle in</p>
+          </div>
+          <div className="feature-item">
+            <h4>Just Listen</h4>
+            <p>You don't have to speak - it's okay to just listen</p>
+          </div>
+          <div className="feature-item">
+            <h4>Ask for Help</h4>
+            <p>People at meetings are happy to answer questions</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="tip-box">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <p><strong>Look for "Beginners" meetings</strong> - these are especially welcoming to newcomers and often explain how meetings work.</p>
+      </div>
 
       <div className="user-guide-cta">
-        <h3>Need Help?</h3>
-        <p>
-          If you're struggling and need immediate support:
-        </p>
-        <ul>
-          <li><strong>AA Hotline:</strong> 1-800-839-1686</li>
-          <li><strong>NA Helpline:</strong> 1-818-773-9999</li>
-          <li><strong>SAMHSA National Helpline:</strong> 1-800-662-4357 (free, 24/7)</li>
-        </ul>
+        <h3>Need Immediate Support?</h3>
+        <p>If you're struggling and need help right now, these resources are available 24/7:</p>
+        <table className="quick-ref">
+          <tbody>
+            <tr>
+              <td><strong>AA Hotline</strong></td>
+              <td>1-800-839-1686</td>
+            </tr>
+            <tr>
+              <td><strong>NA Helpline</strong></td>
+              <td>1-818-773-9999</td>
+            </tr>
+            <tr>
+              <td><strong>SAMHSA National Helpline</strong></td>
+              <td>1-800-662-4357 (free, 24/7)</td>
+            </tr>
+          </tbody>
+        </table>
         <p><em>You're never alone. Help is always available.</em></p>
       </div>
     </div>
