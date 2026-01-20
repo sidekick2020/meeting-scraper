@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MeetingSchema from './MeetingSchema';
 
 // Swift Meeting model file content
@@ -174,32 +175,48 @@ const downloadFile = (content, filename) => {
   URL.revokeObjectURL(url);
 };
 
-function DevDocs({ onClose }) {
+function DevDocs({ onClose, standalone = false }) {
   const [activeTab, setActiveTab] = useState('overview');
+  const navigate = useNavigate();
 
-  return (
-    <>
-      <div className="dev-docs-backdrop" onClick={onClose} />
-      <div className="dev-docs-overlay">
-        <div className="dev-docs-container">
-          <header className="dev-docs-header">
-            <div className="dev-docs-title">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14,2 14,8 20,8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
-                <polyline points="10,9 9,9 8,9"/>
-              </svg>
-              <h1>Documentation</h1>
-            </div>
-            <button onClick={onClose} className="dev-docs-close">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
-          </header>
+  const handleClose = () => {
+    if (standalone) {
+      navigate('/');
+    } else if (onClose) {
+      onClose();
+    }
+  };
+
+  const content = (
+    <div className={`dev-docs-container ${standalone ? 'dev-docs-standalone' : ''}`}>
+      <header className="dev-docs-header">
+        <div className="dev-docs-title">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10,9 9,9 8,9"/>
+          </svg>
+          <h1>Documentation</h1>
+        </div>
+        {standalone ? (
+          <button onClick={handleClose} className="dev-docs-back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="19" y1="12" x2="5" y2="12"/>
+              <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to App
+          </button>
+        ) : (
+          <button onClick={handleClose} className="dev-docs-close">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        )}
+      </header>
 
           <div className="dev-docs-layout">
             <nav className="dev-docs-sidebar">
@@ -319,6 +336,17 @@ function DevDocs({ onClose }) {
             </main>
           </div>
         </div>
+  );
+
+  if (standalone) {
+    return content;
+  }
+
+  return (
+    <>
+      <div className="dev-docs-backdrop" onClick={handleClose} />
+      <div className="dev-docs-overlay">
+        {content}
       </div>
     </>
   );

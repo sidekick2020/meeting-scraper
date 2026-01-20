@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './App.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import MeetingsExplorer from './components/MeetingsExplorer';
 import AdminPanel from './components/AdminPanel';
 import DeploymentIndicator from './components/DeploymentIndicator';
+import DevDocs from './components/DevDocs';
 
 function SignInModal({ onClose }) {
   const { signIn, authError, clearError, allowedDomains } = useAuth();
@@ -103,13 +105,26 @@ function AppContent() {
   );
 }
 
+function DocsPage() {
+  return (
+    <div className="App">
+      <DevDocs standalone={true} />
+    </div>
+  );
+}
+
 function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </ThemeProvider>
+    <BrowserRouter>
+      <ThemeProvider>
+        <AuthProvider>
+          <Routes>
+            <Route path="/docs" element={<DocsPage />} />
+            <Route path="/*" element={<AppContent />} />
+          </Routes>
+        </AuthProvider>
+      </ThemeProvider>
+    </BrowserRouter>
   );
 }
 
