@@ -43,6 +43,25 @@ AA_FEEDS = {
         "url": "https://westalaa.org/wp-admin/admin-ajax.php?action=meetings",
         "state": "AL"
     },
+    # Virginia feeds (verified January 2026)
+    "Richmond AA": {
+        "url": "https://www.aarichmond.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "VA"
+    },
+    "Blue Ridge AA": {
+        "url": "https://aablueridge.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "VA"
+    },
+    # Washington feeds (verified January 2026)
+    "Eastside AA (Seattle)": {
+        "url": "https://www.eastsideaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "WA"
+    },
+    # Indiana feeds (verified January 2026)
+    "Indianapolis AA": {
+        "url": "https://indyaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "IN"
+    },
 }
 
 # BMLT (Basic Meeting List Toolkit) feeds for NA meetings
@@ -51,6 +70,12 @@ NA_FEEDS = {
     "Alabama NA": {
         "url": "https://bmlt.sezf.org/main_server/client_interface/json/?switcher=GetSearchResults&services[]=80&services[]=81&services[]=82&services[]=83&services[]=85&services[]=86&services[]=87&services[]=88&services[]=89&services[]=92&services[]=125",
         "state": "AL",
+        "type": "bmlt"
+    },
+    # Missouri NA feed (verified January 2026)
+    "Missouri NA": {
+        "url": "https://missourina.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "MO",
         "type": "bmlt"
     },
 }
