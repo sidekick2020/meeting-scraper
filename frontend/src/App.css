@@ -5056,7 +5056,8 @@ a.sidebar-nav-item {
   gap: 1rem;
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--border-light);
-  background: var(--bg-secondary);
+  background: var(--panel-header-bg);
+  color: var(--text-primary);
 }
 
 .sidebar-detail-header h2 {
@@ -5092,6 +5093,8 @@ a.sidebar-nav-item {
   flex: 1;
   overflow-y: auto;
   padding: 1.5rem;
+  background: var(--panel-bg);
+  color: var(--text-primary);
 }
 
 .sidebar-detail-body .meeting-badges {
@@ -5133,7 +5136,7 @@ a.sidebar-nav-item {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #2f5dff;
+  color: var(--accent-primary);
   margin-top: 2px;
 }
 
