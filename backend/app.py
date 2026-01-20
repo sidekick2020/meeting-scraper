@@ -1598,9 +1598,27 @@ def get_meetings():
 
         if response.status_code == 200:
             data = response.json()
+            results = data.get("results", [])
+
+            # Get total count for pagination (separate count query)
+            total = len(results)
+            if len(results) == min(limit, 1000):
+                # Might be more results, get actual count
+                count_params = {'count': 1, 'limit': 0}
+                if where:
+                    count_params['where'] = json.dumps(where)
+                count_query = urllib.parse.urlencode(count_params)
+                count_url = f"{BACK4APP_URL}?{count_query}"
+                try:
+                    count_response = requests.get(count_url, headers=headers, timeout=10)
+                    if count_response.status_code == 200:
+                        total = count_response.json().get("count", len(results))
+                except:
+                    pass  # Use len(results) as fallback
+
             return jsonify({
-                "meetings": data.get("results", []),
-                "total": len(data.get("results", []))
+                "meetings": results,
+                "total": total
             })
         else:
             return jsonify({"meetings": [], "total": 0, "error": "Failed to fetch meetings"}), 500

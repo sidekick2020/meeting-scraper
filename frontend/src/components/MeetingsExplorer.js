@@ -24,7 +24,16 @@ function MeetingsExplorer({ onAdminClick }) {
   const [selectedDay, setSelectedDay] = useState('');
   const [selectedType, setSelectedType] = useState('');
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+  const [showHybridOnly, setShowHybridOnly] = useState(false);
+  const [selectedFormat, setSelectedFormat] = useState('');
+  const [selectedAccessibility, setSelectedAccessibility] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+
+  // Pagination
+  const [totalMeetings, setTotalMeetings] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const PAGE_SIZE = 50;
 
   // Map bounds for dynamic loading
   const [mapBounds, setMapBounds] = useState(null);
@@ -53,6 +62,15 @@ function MeetingsExplorer({ onAdminClick }) {
   const [availableStates, setAvailableStates] = useState([]);
   const [availableCities, setAvailableCities] = useState([]);
   const [availableTypes, setAvailableTypes] = useState([]);
+  const [availableFormats, setAvailableFormats] = useState([]);
+
+  // Accessibility options
+  const accessibilityOptions = [
+    { key: 'wheelchairAccessible', label: 'Wheelchair Accessible', icon: '♿' },
+    { key: 'hasChildcare', label: 'Childcare Available', icon: '👶' },
+    { key: 'signLanguageAvailable', label: 'Sign Language', icon: '🤟' },
+    { key: 'hasParking', label: 'Parking Available', icon: '🅿️' },
+  ];
 
   // Search autocomplete
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -107,8 +125,12 @@ function MeetingsExplorer({ onAdminClick }) {
     }
   }, [fetchThumbnail]);
 
-  const fetchMeetings = useCallback(async (bounds = null) => {
-    if (bounds) {
+  const fetchMeetings = useCallback(async (options = {}) => {
+    const { bounds = null, loadMore = false, resetPagination = false } = options;
+
+    if (loadMore) {
+      setIsLoadingMore(true);
+    } else if (bounds) {
       setIsLoadingMore(true);
     } else {
       setIsLoading(true);
@@ -116,9 +138,9 @@ function MeetingsExplorer({ onAdminClick }) {
     setError(null);
 
     try {
-      // Use smaller limit for initial load to improve first-load performance
-    const requestLimit = bounds ? 1000 : 100;
-    let url = `${BACKEND_URL}/api/meetings?limit=${requestLimit}`;
+      const skip = loadMore ? meetings.length : 0;
+      const limit = bounds ? 1000 : PAGE_SIZE;
+      let url = `${BACKEND_URL}/api/meetings?limit=${limit}&skip=${skip}`;
 
       // Add bounds parameters if provided
       if (bounds) {
@@ -129,8 +151,20 @@ function MeetingsExplorer({ onAdminClick }) {
       if (response.ok) {
         const data = await response.json();
         const newMeetings = data.meetings || [];
+        const total = data.total || newMeetings.length;
 
-        if (bounds) {
+        setTotalMeetings(total);
+        setHasMore(skip + newMeetings.length < total);
+
+        if (loadMore) {
+          // Append new meetings
+          setMeetings(prev => {
+            const existingIds = new Set(prev.map(m => m.objectId));
+            const uniqueNew = newMeetings.filter(m => !existingIds.has(m.objectId));
+            return [...prev, ...uniqueNew];
+          });
+          setCurrentPage(prev => prev + 1);
+        } else if (bounds) {
           // Merge new meetings with existing ones, avoiding duplicates
           setMeetings(prev => {
             const existingIds = new Set(prev.map(m => m.objectId));
@@ -139,10 +173,11 @@ function MeetingsExplorer({ onAdminClick }) {
           });
         } else {
           setMeetings(newMeetings);
+          setCurrentPage(0);
         }
 
-        // Extract unique values (only on initial load)
-        if (!bounds) {
+        // Extract unique values (only on initial load or reset)
+        if (!bounds && !loadMore) {
           const states = [...new Set(newMeetings.map(m => m.state).filter(Boolean))].sort();
           setAvailableStates(states);
 
@@ -151,17 +186,26 @@ function MeetingsExplorer({ onAdminClick }) {
 
           const types = [...new Set(newMeetings.map(m => m.meetingType).filter(Boolean))].sort();
           setAvailableTypes(types);
+
+          const formats = [...new Set(newMeetings.map(m => m.format).filter(Boolean))].sort();
+          setAvailableFormats(formats);
         }
       } else {
-        if (!bounds) setError('Failed to load meetings');
+        if (!bounds && !loadMore) setError('Failed to load meetings');
       }
     } catch (err) {
-      if (!bounds) setError('Unable to connect to server');
+      if (!bounds && !loadMore) setError('Unable to connect to server');
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, []);
+  }, [meetings.length, PAGE_SIZE]);
+
+  const loadMoreMeetings = useCallback(() => {
+    if (!isLoadingMore && hasMore) {
+      fetchMeetings({ loadMore: true });
+    }
+  }, [fetchMeetings, isLoadingMore, hasMore]);
 
   // Check backend configuration status
   const checkBackendConfig = useCallback(async () => {
@@ -210,7 +254,7 @@ function MeetingsExplorer({ onAdminClick }) {
     boundsTimeoutRef.current = setTimeout(() => {
       setMapBounds(bounds);
       // Fetch meetings for the new bounds
-      fetchMeetings(bounds);
+      fetchMeetings({ bounds });
     }, 500);
   }, [fetchMeetings]);
 
@@ -257,8 +301,22 @@ function MeetingsExplorer({ onAdminClick }) {
       filtered = filtered.filter(m => m.isOnline);
     }
 
+    if (showHybridOnly) {
+      filtered = filtered.filter(m => m.isHybrid);
+    }
+
+    if (selectedFormat) {
+      filtered = filtered.filter(m => m.format === selectedFormat);
+    }
+
+    if (selectedAccessibility.length > 0) {
+      filtered = filtered.filter(m =>
+        selectedAccessibility.every(key => m[key] === true)
+      );
+    }
+
     setFilteredMeetings(filtered);
-  }, [meetings, searchQuery, selectedState, selectedCity, selectedDay, selectedType, showOnlineOnly]);
+  }, [meetings, searchQuery, selectedState, selectedCity, selectedDay, selectedType, showOnlineOnly, showHybridOnly, selectedFormat, selectedAccessibility]);
 
   // Update available cities when state changes
   useEffect(() => {
@@ -284,9 +342,20 @@ function MeetingsExplorer({ onAdminClick }) {
     setSelectedDay('');
     setSelectedType('');
     setShowOnlineOnly(false);
+    setShowHybridOnly(false);
+    setSelectedFormat('');
+    setSelectedAccessibility([]);
   };
 
-  const hasActiveFilters = searchQuery || selectedState || selectedCity || selectedDay || selectedType || showOnlineOnly;
+  const toggleAccessibility = (key) => {
+    setSelectedAccessibility(prev =>
+      prev.includes(key)
+        ? prev.filter(k => k !== key)
+        : [...prev, key]
+    );
+  };
+
+  const hasActiveFilters = searchQuery || selectedState || selectedCity || selectedDay || selectedType || showOnlineOnly || showHybridOnly || selectedFormat || selectedAccessibility.length > 0;
 
   // Compute autocomplete suggestions
   const computeSuggestions = useCallback((query) => {
@@ -721,6 +790,31 @@ function MeetingsExplorer({ onAdminClick }) {
                   </div>
                 ))}
               </div>
+
+              {/* Load More Button */}
+              {hasMore && !hasActiveFilters && (
+                <div className="load-more-container">
+                  <button
+                    className="btn btn-secondary load-more-btn"
+                    onClick={loadMoreMeetings}
+                    disabled={isLoadingMore}
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <span className="loading-spinner-small"></span>
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        Load More Meetings
+                        <span className="load-more-count">
+                          ({meetings.length} of {totalMeetings})
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -851,6 +945,76 @@ function MeetingsExplorer({ onAdminClick }) {
                       ))}
                     </select>
                   )}
+                </div>
+              </div>
+
+              {/* Meeting Format */}
+              {availableFormats.length > 0 && (
+                <div className="filter-section">
+                  <h3>Meeting format</h3>
+                  <div className="filter-segment-control">
+                    <button
+                      className={`filter-segment-btn ${selectedFormat === '' ? 'active' : ''}`}
+                      onClick={() => setSelectedFormat('')}
+                    >
+                      Any format
+                    </button>
+                    {availableFormats.map(format => (
+                      <button
+                        key={format}
+                        className={`filter-segment-btn ${selectedFormat === format ? 'active' : ''}`}
+                        onClick={() => setSelectedFormat(format)}
+                      >
+                        {format.replace(/_/g, ' ')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Online/Hybrid Options */}
+              <div className="filter-section">
+                <h3>Meeting mode</h3>
+                <div className="filter-quick-options">
+                  <button
+                    className={`filter-quick-btn ${showOnlineOnly ? 'active' : ''}`}
+                    onClick={() => { setShowOnlineOnly(!showOnlineOnly); setShowHybridOnly(false); }}
+                  >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="2" y="3" width="20" height="14" rx="2"/>
+                      <path d="M8 21h8"/>
+                      <path d="M12 17v4"/>
+                    </svg>
+                    <span>Online Only</span>
+                  </button>
+                  <button
+                    className={`filter-quick-btn ${showHybridOnly ? 'active' : ''}`}
+                    onClick={() => { setShowHybridOnly(!showHybridOnly); setShowOnlineOnly(false); }}
+                  >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                      <circle cx="12" cy="10" r="3"/>
+                      <path d="M2 3l20 18"/>
+                    </svg>
+                    <span>Hybrid</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Accessibility */}
+              <div className="filter-section">
+                <h3>Accessibility</h3>
+                <div className="filter-accessibility-grid">
+                  {accessibilityOptions.map(opt => (
+                    <button
+                      key={opt.key}
+                      className={`filter-accessibility-btn ${selectedAccessibility.includes(opt.key) ? 'active' : ''}`}
+                      onClick={() => toggleAccessibility(opt.key)}
+                    >
+                      <span className="accessibility-icon">{opt.icon}</span>
+                      <span className="accessibility-label">{opt.label}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
