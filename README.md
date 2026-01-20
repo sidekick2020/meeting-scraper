@@ -18,6 +18,8 @@ A comprehensive meeting management system by [Sober Sidekick](https://sobersidek
 
 **Try it now**: [https://meeting-scraper-frontend.onrender.com](https://meeting-scraper-frontend.onrender.com)
 
+**Documentation**: [https://meeting-scraper-frontend.onrender.com/docs](https://meeting-scraper-frontend.onrender.com/docs)
+
 Or run locally:
 
 ```bash
