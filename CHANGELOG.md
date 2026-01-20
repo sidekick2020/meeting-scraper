@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-01-20
+
+### New Features
+- **Admin Directory Load More**: Replaced Previous/Next pagination with "Load More" button
+  - Meetings accumulate as you click Load More instead of replacing
+  - Shows progress counter (e.g., "25 of 3450")
+  - Increased page size from 10 to 25 for better initial load
+- **Search Highlighting**: Added search term highlighting in admin directory
+  - Matching text highlighted in yellow in Name and Location columns
+  - Case-insensitive matching with 2+ character minimum
+
+### Bug Fixes
+- **Deployment Indicator**: Fixed indicator not disappearing when deployment finishes
+  - Added recovery logic for frontend status to reset to 'stable'
+  - Added frontendStatus to useEffect dependency array
+
+### Performance Improvements
+- **Faster Initial Page Load**: Fixed duplicate API calls on home page
+  - Used refs instead of state for skip calculation to avoid useCallback recreation
+  - Added guard to prevent initial useEffect from running multiple times
+  - Skip first map bounds change to avoid extra fetch on map initialization
+  - Reduced initial API calls from 3 to 1
+
 ## [1.2.0] - 2026-01-20
 
 ### New Features
