@@ -20,6 +20,13 @@ A comprehensive meeting management system by [Sober Sidekick](https://sobersidek
 
 **Documentation**: [https://meeting-scraper-frontend.onrender.com/docs](https://meeting-scraper-frontend.onrender.com/docs)
 
+### Render Dashboards
+
+| Service | Live URL | Render Dashboard |
+|---------|----------|------------------|
+| **Frontend** | [meeting-scraper-frontend.onrender.com](https://meeting-scraper-frontend.onrender.com) | [Open Dashboard](https://dashboard.render.com/static/srv-d0ff8np6ubrc73b7lii0) |
+| **Backend API** | [meeting-scraper.onrender.com](https://meeting-scraper.onrender.com) | [Open Dashboard](https://dashboard.render.com/web/srv-d0f9gm68d50c73813op0) |
+
 Or run locally:
 
 ```bash
@@ -474,8 +481,8 @@ MIT License - See [LICENSE](LICENSE) for details.
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/sidekick2020/meeting-scraper/issues)
-- **Documentation**: Access from the Docs section in the dashboard
-- **Render Dashboard**: [https://dashboard.render.com](https://dashboard.render.com)
+- **Documentation**: [/docs endpoint](https://meeting-scraper-frontend.onrender.com/docs) or via dashboard
+- **Render**: See [Render Dashboards](#render-dashboards) above for direct links
 - **Back4app**: [Back4app Documentation](https://www.back4app.com/docs)
 
 ---
