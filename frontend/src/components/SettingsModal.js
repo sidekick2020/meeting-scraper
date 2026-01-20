@@ -166,8 +166,9 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+    <>
+      <div className="settings-panel-overlay" onClick={onClose} />
+      <div className="settings-panel">
         <div className="settings-header">
           <h2>Settings</h2>
           <button className="modal-close" onClick={onClose} disabled={isSaving}>&times;</button>
@@ -415,7 +416,7 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
           )}
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

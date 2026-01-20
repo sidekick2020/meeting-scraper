@@ -225,7 +225,7 @@
 .card-value {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #fff;
+  color: #151414;
 }
 
 .card-label {
@@ -506,11 +506,12 @@
 }
 
 .meeting-card {
-  background: rgba(255, 255, 255, 0.03);
+  background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 0.75rem;
   padding: 1rem;
   transition: transform 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .meeting-card:hover {
@@ -542,7 +543,7 @@
   font-size: 1rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
-  color: #fff;
+  color: #151414;
 }
 
 .meeting-details {
@@ -624,12 +625,13 @@
 }
 
 .modal {
-  background: #1e1e30;
+  background: #ffffff;
   border-radius: 1rem;
   width: 100%;
   max-width: 500px;
   margin: 1rem;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
 .modal-header {
@@ -655,7 +657,7 @@
 }
 
 .modal-close:hover {
-  color: #fff;
+  color: #151414;
 }
 
 .modal-body {
@@ -679,7 +681,7 @@
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 0.5rem;
   background: rgba(0, 0, 0, 0.03);
-  color: #fff;
+  color: #151414;
   font-size: 0.875rem;
 }
 
@@ -923,7 +925,7 @@
 
 .toggle-btn:hover {
   background: rgba(0, 0, 0, 0.06);
-  color: #fff;
+  color: #151414;
 }
 
 .toggle-btn.active {
@@ -1067,16 +1069,17 @@
 
 /* Meeting Detail Modal */
 .meeting-detail-modal {
-  background: #1e1e30;
+  background: #ffffff;
   border-radius: 1rem;
   width: 100%;
   max-width: 600px;
   max-height: 90vh;
   margin: 1rem;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
 .meeting-detail-body {
@@ -1231,8 +1234,8 @@
 }
 
 .admin-link {
-  color: rgba(255, 255, 255, 0.8);
-  border-color: rgba(255, 255, 255, 0.3);
+  color: #4b5563;
+  border-color: rgba(0, 0, 0, 0.2);
 }
 
 .admin-link:hover {
@@ -1303,7 +1306,7 @@
 }
 
 .filter-select option {
-  background: #1e1e30;
+  background: #ffffff;
   color: #151414;
 }
 
@@ -1435,13 +1438,14 @@
 /* ==================== */
 
 .sign-in-modal {
-  background: #1e1e30;
+  background: #ffffff;
   border-radius: 1rem;
   width: 100%;
   max-width: 400px;
   margin: 1rem;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
 .sign-in-body {
@@ -1690,10 +1694,10 @@ a.sidebar-nav-item {
   left: 0;
   right: 0;
   margin-bottom: 0.5rem;
-  background: #1e1e2e;
+  background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 0.75rem;
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
   padding: 0.5rem;
   animation: dropdownSlideUp 0.15s ease-out;
   z-index: 1000;
@@ -2496,7 +2500,7 @@ a.sidebar-nav-item {
 .summary-value {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #fff;
+  color: #151414;
   margin-bottom: 0.25rem;
 }
 
@@ -2798,6 +2802,22 @@ a.sidebar-nav-item {
   opacity: 1;
 }
 
+.sidebar-item.external-link {
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sidebar-item.external-link .external-icon {
+  margin-left: auto;
+  opacity: 0.5;
+}
+
+.sidebar-item.external-link:hover .external-icon {
+  opacity: 0.8;
+}
+
 .dev-docs-content {
   flex: 1;
   overflow-y: auto;
@@ -2807,7 +2827,7 @@ a.sidebar-nav-item {
 /* Docs Page Styling */
 .docs-page {
   max-width: 800px;
-  color: #e5e7eb;
+  color: #374151;
   line-height: 1.7;
 }
 
@@ -3208,7 +3228,7 @@ a.sidebar-nav-item {
 }
 
 .unfinished-info span {
-  color: rgba(255, 255, 255, 0.7);
+  color: #6b7280;
   font-size: 0.875rem;
 }
 
@@ -3251,7 +3271,7 @@ a.sidebar-nav-item {
 .current-meeting-text {
   flex: 1;
   font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.9);
+  color: #374151;
 }
 
 .current-meeting-text strong {
@@ -3259,7 +3279,7 @@ a.sidebar-nav-item {
 }
 
 .current-meeting-progress {
-  color: rgba(255, 255, 255, 0.5);
+  color: #6b7280;
   margin-left: 0.5rem;
   font-size: 0.8125rem;
 }
@@ -3408,7 +3428,7 @@ a.sidebar-nav-item {
 }
 
 .search-section select option {
-  background: #1e1e30;
+  background: #ffffff;
   color: #151414;
 }
 
@@ -3425,7 +3445,7 @@ a.sidebar-nav-item {
   border-radius: 50%;
   background: linear-gradient(135deg, #2f5dff 0%, #0f2ccf 100%);
   border: none;
-  color: #151414;
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3450,10 +3470,10 @@ a.sidebar-nav-item {
   left: 0;
   right: 0;
   margin-top: 0.5rem;
-  background: #1e1e30;
+  background: #ffffff;
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   z-index: 1000;
   overflow: hidden;
   min-width: 280px;
@@ -3609,7 +3629,7 @@ a.sidebar-nav-item {
 }
 
 .filter-chip-select option {
-  background: #1e1e30;
+  background: #ffffff;
   color: #151414;
 }
 
@@ -3624,23 +3644,44 @@ a.sidebar-nav-item {
 }
 
 /* =====================================================
-   SETTINGS MODAL
+   SETTINGS PANEL (Right Side)
    ===================================================== */
 
-.settings-modal {
+.settings-panel {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  max-width: 100%;
   background: #ffffff;
-  border-radius: 16px;
-  width: 90%;
-  max-width: 640px;
-  max-height: 85vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
   z-index: 1001;
+  animation: slideInRight 0.3s ease;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.settings-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .settings-header {
@@ -4353,20 +4394,21 @@ a.sidebar-nav-item {
   z-index: 1000;
   width: 24px;
   height: 48px;
-  background: #1e1e30;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
   border-left: none;
   border-radius: 0 0.5rem 0.5rem 0;
-  color: #9ca3af;
+  color: #6b7280;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
 }
 
 .map-collapse-btn:hover {
-  background: #252535;
+  background: #f3f4f6;
   color: #151414;
 }
 
@@ -4474,30 +4516,31 @@ a.sidebar-nav-item {
 
 /* Airbnb-style Meeting Card */
 .airbnb-list-panel .meeting-card {
-  background: rgba(255, 255, 255, 0.03);
+  background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 1rem;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.2s ease;
   padding: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .airbnb-list-panel .meeting-card:hover {
   transform: translateY(-4px);
   border-color: rgba(47, 93, 255, 0.4);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
 .airbnb-list-panel .meeting-card.hovered {
   border-color: rgba(47, 93, 255, 0.6);
-  background: rgba(47, 93, 255, 0.05);
+  background: rgba(47, 93, 255, 0.03);
 }
 
 .meeting-card-image {
   position: relative;
   height: 140px;
-  background: linear-gradient(135deg, #ffffff 0%, #252535 100%);
+  background: linear-gradient(135deg, #f0f4ff 0%, #e0e8ff 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4514,7 +4557,7 @@ a.sidebar-nav-item {
   left: 0.75rem;
   padding: 0.25rem 0.75rem;
   background: rgba(47, 93, 255, 0.9);
-  color: #151414;
+  color: #ffffff;
   font-size: 0.75rem;
   font-weight: 600;
   border-radius: 0.25rem;
@@ -4526,7 +4569,7 @@ a.sidebar-nav-item {
   right: 0.75rem;
   padding: 0.25rem 0.75rem;
   background: rgba(34, 197, 94, 0.9);
-  color: #151414;
+  color: #ffffff;
   font-size: 0.75rem;
   font-weight: 600;
   border-radius: 0.25rem;
