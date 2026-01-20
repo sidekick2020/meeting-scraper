@@ -1858,7 +1858,7 @@ def get_users():
                 'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
             },
             params={'order': '-createdAt', 'limit': 100},
-            timeout=8
+            timeout=30
         )
 
         if response.status_code == 200:
