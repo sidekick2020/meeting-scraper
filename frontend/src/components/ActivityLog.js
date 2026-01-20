@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 function ActivityLog({ logs, currentMeeting }) {
   const containerRef = useRef(null);
+  const [errorsOnly, setErrorsOnly] = useState(false);
 
   // Auto-scroll log container (not page) to bottom when new logs arrive
   useEffect(() => {
@@ -51,9 +52,26 @@ function ActivityLog({ logs, currentMeeting }) {
   // Reverse to show newest at bottom (for natural scroll)
   const sortedLogs = [...logs].reverse();
 
+  // Filter logs if errorsOnly is enabled
+  const filteredLogs = errorsOnly
+    ? sortedLogs.filter(log => log.level === 'error')
+    : sortedLogs;
+
+  const errorCount = logs.filter(log => log.level === 'error').length;
+
   return (
     <div className="activity-log">
-      <h3>Activity Log</h3>
+      <div className="activity-log-header">
+        <h3>Activity Log</h3>
+        <label className="errors-only-toggle">
+          <input
+            type="checkbox"
+            checked={errorsOnly}
+            onChange={(e) => setErrorsOnly(e.target.checked)}
+          />
+          <span>Errors only {errorCount > 0 && `(${errorCount})`}</span>
+        </label>
+      </div>
       {currentMeeting && (
         <div className="current-meeting-banner">
           <span className="processing-indicator"></span>
@@ -67,13 +85,17 @@ function ActivityLog({ logs, currentMeeting }) {
         </div>
       )}
       <div className="activity-log-container" ref={containerRef}>
-        {sortedLogs.map((log, index) => (
-          <div key={index} className={`log-entry log-${log.level}`}>
-            <span className="log-icon">{getLevelIcon(log.level)}</span>
-            <span className="log-time">{formatTime(log.timestamp)}</span>
-            <span className="log-message">{log.message}</span>
-          </div>
-        ))}
+        {filteredLogs.length === 0 && errorsOnly ? (
+          <div className="activity-log-empty">No errors logged.</div>
+        ) : (
+          filteredLogs.map((log, index) => (
+            <div key={index} className={`log-entry log-${log.level}`}>
+              <span className="log-icon">{getLevelIcon(log.level)}</span>
+              <span className="log-time">{formatTime(log.timestamp)}</span>
+              <span className="log-message">{log.message}</span>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
