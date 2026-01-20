@@ -1,6 +1,6 @@
 # Sober Sidekick - 12-Step Meeting Finder
 
-A comprehensive meeting management system by [Sober Sidekick](https://sobersidekick.com) that aggregates AA, NA, Al-Anon, and other 12-step support group meetings from across the United States. Built with React and Python/Flask, powered by Back4app.
+A comprehensive meeting management system by <a href="https://sobersidekick.com" target="_blank">Sober Sidekick</a> that aggregates AA, NA, Al-Anon, and other 12-step support group meetings from across the United States. Built with React and Python/Flask, powered by Back4app.
 
 **You're Never Alone.**
 
@@ -16,16 +16,16 @@ A comprehensive meeting management system by [Sober Sidekick](https://sobersidek
 
 ## Quick Start
 
-**Try it now**: [https://meeting-scraper-frontend.onrender.com](https://meeting-scraper-frontend.onrender.com)
+**Try it now**: <a href="https://meeting-scraper-frontend.onrender.com" target="_blank">https://meeting-scraper-frontend.onrender.com</a>
 
-**Documentation**: [https://meeting-scraper-frontend.onrender.com/docs](https://meeting-scraper-frontend.onrender.com/docs)
+**Documentation**: <a href="https://meeting-scraper-frontend.onrender.com/docs" target="_blank">https://meeting-scraper-frontend.onrender.com/docs</a>
 
 ### Render Dashboards
 
 | Service | Live URL | Render Dashboard |
 |---------|----------|------------------|
-| **Frontend** | [meeting-scraper-frontend.onrender.com](https://meeting-scraper-frontend.onrender.com) | [Open Dashboard](https://dashboard.render.com/static/srv-d0ff8np6ubrc73b7lii0) |
-| **Backend API** | [meeting-scraper.onrender.com](https://meeting-scraper.onrender.com) | [Open Dashboard](https://dashboard.render.com/web/srv-d0f9gm68d50c73813op0) |
+| **Frontend** | <a href="https://meeting-scraper-frontend.onrender.com" target="_blank">meeting-scraper-frontend.onrender.com</a> | <a href="https://dashboard.render.com/static/srv-d0ff8np6ubrc73b7lii0" target="_blank">Open Dashboard</a> |
+| **Backend API** | <a href="https://meeting-scraper.onrender.com" target="_blank">meeting-scraper.onrender.com</a> | <a href="https://dashboard.render.com/web/srv-d0f9gm68d50c73813op0" target="_blank">Open Dashboard</a> |
 
 Or run locally:
 
@@ -223,7 +223,7 @@ To contribute:
 ### Prerequisites
 - Python 3.8+
 - Node.js 16+
-- Back4app account ([Create free](https://www.back4app.com/))
+- Back4app account (<a href="https://www.back4app.com/" target="_blank">Create free</a>)
 - Google Cloud Console project (for authentication)
 
 </details>
@@ -260,7 +260,7 @@ The frontend starts on `http://localhost:3000`
 
 ### 4. Configure Back4app
 
-1. Create a new app at [Back4app](https://www.back4app.com/)
+1. Create a new app at <a href="https://www.back4app.com/" target="_blank">Back4app</a>
 2. Navigate to **App Settings > Security & Keys**
 3. Copy your **Application ID** and **REST API Key**
 4. In the dashboard, click Settings and enter your credentials
@@ -402,8 +402,8 @@ Integrate meeting data directly into your iOS and Android apps using Back4app's 
 
 | Platform | SDK | Guide |
 |----------|-----|-------|
-| **iOS** | [ParseSwift](https://github.com/parse-community/Parse-Swift) | SwiftUI + async/await examples |
-| **Android** | [Parse-SDK-Android](https://github.com/parse-community/Parse-SDK-Android) | Jetpack Compose + Coroutines |
+| **iOS** | <a href="https://github.com/parse-community/Parse-Swift" target="_blank">ParseSwift</a> | SwiftUI + async/await examples |
+| **Android** | <a href="https://github.com/parse-community/Parse-SDK-Android" target="_blank">Parse-SDK-Android</a> | Jetpack Compose + Coroutines |
 
 ### Quick Example (iOS)
 
@@ -477,11 +477,11 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/sidekick2020/meeting-scraper/issues)
-- **Documentation**: [/docs endpoint](https://meeting-scraper-frontend.onrender.com/docs) or via dashboard
+- **Issues**: <a href="https://github.com/sidekick2020/meeting-scraper/issues" target="_blank">GitHub Issues</a>
+- **Documentation**: <a href="https://meeting-scraper-frontend.onrender.com/docs" target="_blank">/docs endpoint</a> or via dashboard
 - **Render**: See [Render Dashboards](#render-dashboards) above for direct links
-- **Back4app**: [Back4app Documentation](https://www.back4app.com/docs)
+- **Back4app**: <a href="https://www.back4app.com/docs" target="_blank">Back4app Documentation</a>
 
 ---
 
-**Built with care by [Sober Sidekick](https://sobersidekick.com) - You're Never Alone.**
+**Built with care by <a href="https://sobersidekick.com" target="_blank">Sober Sidekick</a> - You're Never Alone.**
