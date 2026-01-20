@@ -1627,19 +1627,14 @@
 
 /* Leaflet overrides - use light background for map tiles */
 .leaflet-container {
-  background: #f2efe9;
+  background: #f2efe9 !important;
 }
 
-/* Enhance map contrast and saturation for better visibility */
-.leaflet-tile-pane,
-.leaflet-tile,
-.map-tiles {
-  opacity: 1 !important;
-  filter: contrast(1.1) saturate(1.2) !important;
-}
-
-.leaflet-tile-container {
-  opacity: 1 !important;
+/* Ensure leaflet container in airbnb map panel always has light background */
+.airbnb-map-panel .leaflet-container,
+.meeting-map-container .leaflet-container,
+.meeting-map .leaflet-container {
+  background: #f2efe9 !important;
 }
 
 .leaflet-popup-content-wrapper {
@@ -5324,7 +5319,7 @@ a.sidebar-nav-item {
   border: none;
   margin: 0;
   padding: 0;
-  background: transparent;
+  background: #f2efe9;
 }
 
 .airbnb-map-panel .meeting-map {
