@@ -19,7 +19,7 @@ CORS(app, origins="*")
 # Back4app Configuration - read from environment variables
 BACK4APP_APP_ID = os.environ.get('BACK4APP_APP_ID')
 BACK4APP_REST_KEY = os.environ.get('BACK4APP_REST_KEY')
-BACK4APP_URL = "https://parseapi.back4app.com/classes/Meeting"
+BACK4APP_URL = "https://parseapi.back4app.com/classes/Meetings"
 
 # Known working AA Meeting Guide API feeds (verified January 2026)
 AA_FEEDS = {
@@ -616,7 +616,7 @@ def save_to_back4app_batch(meetings):
     for meeting in meetings:
         requests_list.append({
             "method": "POST",
-            "path": "/classes/Meeting",
+            "path": "/classes/Meetings",
             "body": meeting
         })
 

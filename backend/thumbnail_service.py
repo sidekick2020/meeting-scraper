@@ -583,7 +583,7 @@ def save_thumbnail_to_back4app(meeting_id, thumbnail_url, app_id, rest_key):
     """Save the generated thumbnail URL to the meeting record in Back4app."""
     try:
         response = requests.put(
-            f'https://parseapi.back4app.com/classes/Meeting/{meeting_id}',
+            f'https://parseapi.back4app.com/classes/Meetings/{meeting_id}',
             headers={
                 'X-Parse-Application-Id': app_id,
                 'X-Parse-REST-API-Key': rest_key,
