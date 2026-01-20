@@ -177,6 +177,8 @@ scraping_state = {
     "is_running": False,
     "total_found": 0,
     "total_saved": 0,
+    "total_duplicates": 0,
+    "total_errors": 0,
     "current_source": "",
     "errors": [],
     "meetings_by_state": {},
@@ -192,6 +194,7 @@ scraping_state = {
     "activity_log": [],
     "started_at": None,
     "scrape_id": None,  # Unique ID for the current scrape run
+    "feed_stats": {},  # Per-feed breakdown: {feed_name: {found, saved, duplicates, errors}}
 }
 
 # Scrape history - stores last 50 scrape runs
@@ -897,26 +900,44 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
                 add_log(f"Batch {batch_num}: all {len(batch_meetings)} were duplicates", "info")
 
         scraping_state["total_found"] += total_in_feed
+        scraping_state["total_duplicates"] += duplicate_count
+        scraping_state["total_errors"] += error_count
         scraping_state["current_meeting"] = None
-        log_msg = f"Completed {feed_name}: saved {saved_count}/{total_in_feed} meetings"
+
+        # Store per-feed stats
+        scraping_state["feed_stats"][feed_name] = {
+            "found": total_in_feed,
+            "saved": saved_count,
+            "duplicates": duplicate_count,
+            "errors": error_count
+        }
+
+        # Enhanced completion log
+        log_msg = f"✓ {feed_name}: {saved_count} saved"
         if duplicate_count > 0:
-            log_msg += f" ({duplicate_count} duplicates skipped)"
+            log_msg += f", {duplicate_count} duplicates"
+        if error_count > 0:
+            log_msg += f", {error_count} errors"
+        log_msg += f" (of {total_in_feed} found)"
         add_log(log_msg, "success")
         return saved_count
 
     except requests.exceptions.Timeout:
         error_msg = f"{feed_name}: Request timed out"
         scraping_state["errors"].append(error_msg)
+        scraping_state["feed_stats"][feed_name] = {"found": 0, "saved": 0, "duplicates": 0, "errors": 1}
         add_log(error_msg, "error")
         return 0
     except requests.exceptions.RequestException as e:
         error_msg = f"{feed_name}: {str(e)}"
         scraping_state["errors"].append(error_msg)
+        scraping_state["feed_stats"][feed_name] = {"found": 0, "saved": 0, "duplicates": 0, "errors": 1}
         add_log(error_msg, "error")
         return 0
     except Exception as e:
         error_msg = f"{feed_name}: {str(e)}"
         scraping_state["errors"].append(error_msg)
+        scraping_state["feed_stats"][feed_name] = {"found": 0, "saved": 0, "duplicates": 0, "errors": 1}
         add_log(error_msg, "error")
         return 0
 
@@ -1260,7 +1281,20 @@ def run_scraper_in_background(start_from_feed=0, selected_feeds=None):
     scraping_state["current_source"] = ""
     scraping_state["current_meeting"] = None
     scraping_state["progress_message"] = "Completed!"
-    add_log(f"All feeds completed! Total: {scraping_state['total_found']} found, {scraping_state['total_saved']} saved", "success")
+
+    # Final summary with breakdown
+    total_found = scraping_state['total_found']
+    total_saved = scraping_state['total_saved']
+    total_duplicates = scraping_state['total_duplicates']
+    total_errors = scraping_state['total_errors']
+
+    add_log("─" * 40, "info")
+    add_log(f"SUMMARY: {total_found} found → {total_saved} saved", "success")
+    add_log(f"  • New meetings saved: {total_saved}", "info")
+    add_log(f"  • Duplicates skipped: {total_duplicates}", "info")
+    if total_errors > 0:
+        add_log(f"  • Errors: {total_errors}", "warning")
+    add_log("─" * 40, "info")
 
     # Save to scrape history
     save_scrape_history(status="completed", feeds_processed=feeds_completed)
@@ -1311,6 +1345,8 @@ def start_scraping():
     scraping_state["is_running"] = True
     scraping_state["total_found"] = data.get('resume_total_found', 0)
     scraping_state["total_saved"] = data.get('resume_total_saved', 0)
+    scraping_state["total_duplicates"] = data.get('resume_total_duplicates', 0)
+    scraping_state["total_errors"] = data.get('resume_total_errors', 0)
     scraping_state["errors"] = []
     scraping_state["meetings_by_state"] = data.get('resume_meetings_by_state', {})
     scraping_state["meetings_by_type"] = {"AA": 0, "NA": 0, "Al-Anon": 0, "Other": 0}
@@ -1321,6 +1357,7 @@ def start_scraping():
     scraping_state["current_feed_total"] = 0
     scraping_state["current_meeting"] = None
     scraping_state["activity_log"] = []
+    scraping_state["feed_stats"] = data.get('resume_feed_stats', {})
     scraping_state["started_at"] = data.get('resume_started_at') or datetime.now().isoformat()
     scraping_state["scrape_id"] = resume_scrape_id or generate_object_id()  # Use existing or new ID
 
@@ -1433,6 +1470,8 @@ def reset_scraper():
     scraping_state["is_running"] = False
     scraping_state["total_found"] = 0
     scraping_state["total_saved"] = 0
+    scraping_state["total_duplicates"] = 0
+    scraping_state["total_errors"] = 0
     scraping_state["current_source"] = ""
     scraping_state["errors"] = []
     scraping_state["meetings_by_state"] = {}
@@ -1444,6 +1483,7 @@ def reset_scraper():
     scraping_state["current_feed_total"] = 0
     scraping_state["current_meeting"] = None
     scraping_state["activity_log"] = []
+    scraping_state["feed_stats"] = {}
     return jsonify({"success": True, "message": "Scraper state reset"})
 
 @app.route('/api/status', methods=['GET'])
