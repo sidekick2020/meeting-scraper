@@ -4,9 +4,9 @@
 
 :root,
 [data-theme="light"] {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f9fafb;
-  --bg-tertiary: #f3f4f6;
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-tertiary: #e2e8f0;
   --bg-hover: rgba(0, 0, 0, 0.04);
   --bg-active: rgba(47, 93, 255, 0.1);
 
@@ -15,19 +15,19 @@
   --text-muted: #6b7280;
   --text-faint: #9ca3af;
 
-  --border-light: rgba(0, 0, 0, 0.08);
-  --border-medium: rgba(0, 0, 0, 0.15);
+  --border-light: rgba(0, 0, 0, 0.1);
+  --border-medium: rgba(0, 0, 0, 0.18);
 
   --accent-primary: #2f5dff;
   --accent-secondary: #0f2ccf;
   --accent-light: rgba(47, 93, 255, 0.1);
 
   --panel-bg: #ffffff;
-  --panel-header-bg: #fafafa;
+  --panel-header-bg: #f8fafc;
   --overlay-bg: rgba(0, 0, 0, 0.3);
 
   --card-bg: #ffffff;
-  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
 
   --input-bg: #ffffff;
   --input-border: rgba(0, 0, 0, 0.15);
@@ -69,7 +69,7 @@
 }
 
 .light-theme {
-  background: linear-gradient(135deg, #f5f7ff 0%, #eaefff 100%);
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
 }
 
 .App {
