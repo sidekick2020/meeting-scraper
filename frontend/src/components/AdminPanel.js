@@ -69,6 +69,25 @@ function AdminPanel({ onBackToPublic }) {
   const isRunningRef = useRef(false);
   const pollIntervalRef = useRef(null);
 
+  // Theme detection for logo switching
+  const [currentTheme, setCurrentTheme] = useState(
+    document.documentElement.getAttribute('data-theme') || 'dark'
+  );
+
+  // Listen for theme changes
+  useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'data-theme') {
+          setCurrentTheme(document.documentElement.getAttribute('data-theme') || 'dark');
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, { attributes: true });
+    return () => observer.disconnect();
+  }, []);
+
   // Check if backend has Back4app configured via env vars
   const checkBackendConfig = useCallback(async () => {
     try {
@@ -772,11 +791,12 @@ function AdminPanel({ onBackToPublic }) {
       <aside className="admin-sidebar">
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M12 6v6l4 2"/>
-            </svg>
-            <span>Meeting Scraper</span>
+            <img
+              src={currentTheme === 'dark' ? '/logo-dark.svg' : '/logo-light.svg'}
+              alt="Sober Sidekick"
+              className="sidebar-logo-icon"
+            />
+            <span>Sober Sidekick</span>
           </div>
         </div>
 
