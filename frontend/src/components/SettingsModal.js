@@ -69,6 +69,17 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
 
   // API Version state
   const [apiVersion, setApiVersion] = useState(localStorage.getItem('api_version') || 'v1');
+  const [isVersionSwitching, setIsVersionSwitching] = useState(false);
+  const [versionSwitchProgress, setVersionSwitchProgress] = useState('');
+  const [versionHistory, setVersionHistory] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('api_version_history') || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [versionError, setVersionError] = useState('');
+  const [versionSuccess, setVersionSuccess] = useState('');
 
   // Users state
   const [users, setUsers] = useState([]);
@@ -81,10 +92,87 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   const [userError, setUserError] = useState('');
   const [userSuccess, setUserSuccess] = useState('');
 
-  // Handle API version change
-  const handleApiVersionChange = (version) => {
-    setApiVersion(version);
-    localStorage.setItem('api_version', version);
+  // Handle API version change with progress indicator
+  const handleApiVersionChange = async (newVersion, isRollback = false) => {
+    if (newVersion === apiVersion || isVersionSwitching) return;
+
+    const previousVersion = apiVersion;
+    setIsVersionSwitching(true);
+    setVersionError('');
+    setVersionSuccess('');
+    setVersionSwitchProgress(isRollback ? 'Rolling back...' : 'Switching version...');
+
+    try {
+      // Step 1: Validate the new endpoint
+      setVersionSwitchProgress('Validating endpoint...');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const testResponse = await fetch(`${BACKEND_URL}/api/${newVersion}/meetings?limit=1`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!testResponse.ok) {
+        throw new Error(`API ${newVersion} returned status ${testResponse.status}`);
+      }
+
+      // Step 2: Save current version to history (for rollback)
+      setVersionSwitchProgress('Saving configuration...');
+      const historyEntry = {
+        version: previousVersion,
+        switchedAt: new Date().toISOString(),
+        switchedTo: newVersion
+      };
+
+      const updatedHistory = [historyEntry, ...versionHistory].slice(0, 10); // Keep last 10 entries
+      setVersionHistory(updatedHistory);
+      localStorage.setItem('api_version_history', JSON.stringify(updatedHistory));
+
+      // Step 3: Apply the new version
+      setVersionSwitchProgress('Applying changes...');
+      await new Promise(resolve => setTimeout(resolve, 300)); // Brief pause for UX
+
+      setApiVersion(newVersion);
+      localStorage.setItem('api_version', newVersion);
+
+      setVersionSuccess(isRollback
+        ? `Rolled back to ${newVersion}`
+        : `Switched to ${newVersion}`);
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setVersionSuccess(''), 3000);
+
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        setVersionError('Request timed out. The API endpoint may be unavailable.');
+      } else {
+        setVersionError(`Failed to switch version: ${error.message}`);
+      }
+    } finally {
+      setIsVersionSwitching(false);
+      setVersionSwitchProgress('');
+    }
+  };
+
+  // Handle rollback to previous version
+  const handleRollback = (historyEntry) => {
+    handleApiVersionChange(historyEntry.version, true);
+  };
+
+  // Format relative time for history
+  const formatRelativeTime = (isoString) => {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+    return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
   };
 
   // Check if current user is admin
@@ -557,11 +645,39 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
                 Select which API version to use for data requests. Changes take effect immediately.
               </p>
 
-              <div className="api-version-options">
+              {versionError && (
+                <div className="alert alert-error">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  {versionError}
+                </div>
+              )}
+
+              {versionSuccess && (
+                <div className="alert alert-success">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                    <polyline points="22,4 12,14.01 9,11.01"/>
+                  </svg>
+                  {versionSuccess}
+                </div>
+              )}
+
+              {isVersionSwitching && (
+                <div className="version-switch-progress">
+                  <div className="version-switch-spinner"></div>
+                  <span>{versionSwitchProgress}</span>
+                </div>
+              )}
+
+              <div className={`api-version-options ${isVersionSwitching ? 'disabled' : ''}`}>
                 {API_VERSIONS.map((v) => (
                   <label
                     key={v.version}
-                    className={`api-version-option ${apiVersion === v.version ? 'selected' : ''}`}
+                    className={`api-version-option ${apiVersion === v.version ? 'selected' : ''} ${isVersionSwitching ? 'disabled' : ''}`}
                   >
                     <input
                       type="radio"
@@ -569,12 +685,20 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
                       value={v.version}
                       checked={apiVersion === v.version}
                       onChange={() => handleApiVersionChange(v.version)}
+                      disabled={isVersionSwitching}
                     />
-                    <div className="version-radio"></div>
+                    <div className="version-radio">
+                      {isVersionSwitching && apiVersion !== v.version && (
+                        <div className="version-radio-loading"></div>
+                      )}
+                    </div>
                     <div className="version-info">
                       <span className="version-label">{v.label}</span>
                       <span className="version-description">{v.description}</span>
                     </div>
+                    {apiVersion === v.version && (
+                      <span className="version-active-badge">Active</span>
+                    )}
                   </label>
                 ))}
               </div>
@@ -585,6 +709,56 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
                   {BACKEND_URL}/api/{apiVersion}/meetings
                 </code>
               </div>
+
+              {versionHistory.length > 0 && (
+                <div className="api-rollback-section">
+                  <h4>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="1,4 1,10 7,10"/>
+                      <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+                    </svg>
+                    Version History
+                  </h4>
+                  <p className="rollback-description">
+                    Rollback to a previous API version if needed.
+                  </p>
+                  <div className="rollback-history">
+                    {versionHistory.slice(0, 5).map((entry, index) => (
+                      <div key={index} className="rollback-entry">
+                        <div className="rollback-entry-info">
+                          <span className="rollback-version">{entry.version}</span>
+                          <span className="rollback-meta">
+                            Used before switching to {entry.switchedTo} • {formatRelativeTime(entry.switchedAt)}
+                          </span>
+                        </div>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => handleRollback(entry)}
+                          disabled={isVersionSwitching || entry.version === apiVersion}
+                          title={entry.version === apiVersion ? 'Already using this version' : `Rollback to ${entry.version}`}
+                        >
+                          {entry.version === apiVersion ? (
+                            <>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="20,6 9,17 4,12"/>
+                              </svg>
+                              Current
+                            </>
+                          ) : (
+                            <>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="1,4 1,10 7,10"/>
+                                <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+                              </svg>
+                              Rollback
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

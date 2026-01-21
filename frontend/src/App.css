@@ -6515,6 +6515,148 @@ a.sidebar-nav-item {
   word-break: break-all;
 }
 
+/* API Version Switching Progress */
+.version-switch-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--accent-light);
+  border: 1px solid var(--accent-primary);
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  color: var(--accent-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.version-switch-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--accent-light);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.api-version-options.disabled {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.api-version-option.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.version-radio-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border-light);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.version-active-badge {
+  margin-left: auto;
+  padding: 0.25rem 0.5rem;
+  background: var(--accent-primary);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* API Rollback Section */
+.api-rollback-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.api-rollback-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.api-rollback-section h4 svg {
+  color: var(--text-muted);
+}
+
+.rollback-description {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: 0 0 1rem 0;
+}
+
+.rollback-history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rollback-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.rollback-entry:hover {
+  border-color: var(--border-medium);
+}
+
+.rollback-entry-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.rollback-version {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.rollback-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.rollback-entry .btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+.rollback-entry .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rollback-entry .btn svg {
+  width: 14px;
+  height: 14px;
+}
+
 /* Release Notes Section */
 .release-notes-section {
   padding: 0.5rem 0;
@@ -6603,6 +6745,34 @@ a.sidebar-nav-item {
 [data-theme="light"] .endpoint-url {
   color: #1a4fd8;
   background: rgba(26, 79, 216, 0.1);
+}
+
+[data-theme="light"] .version-switch-progress {
+  background: rgba(26, 79, 216, 0.08);
+  border-color: #1a4fd8;
+  color: #1a4fd8;
+}
+
+[data-theme="light"] .version-switch-spinner {
+  border-color: rgba(26, 79, 216, 0.2);
+  border-top-color: #1a4fd8;
+}
+
+[data-theme="light"] .version-active-badge {
+  background: #1a4fd8;
+}
+
+[data-theme="light"] .api-rollback-section {
+  border-top-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .rollback-entry {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .rollback-entry:hover {
+  border-color: rgba(0, 0, 0, 0.2);
 }
 
 /* Light Mode: Release Notes */
