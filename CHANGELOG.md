@@ -2,18 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.7.2] - 2026-01-21
+## [1.7.0] - 2026-01-21
+
+### New Features
+- **State Coverage Heatmap**: Click any state in the Coverage Analysis to view a detailed heatmap
+  - Interactive modal with map zoomed to the selected state
+  - Heatmap visualization showing meeting density across the state
+  - Color gradient from purple (low) to red (high) density
+  - State statistics: total meetings, population, coverage per 100k, area count
+  - Informative message for states with no meetings
+  - State bounding boxes for all 50 states, DC, and Puerto Rico
 
 ### UI/UX Improvements
-- **Faster Deployment Indicator**: Improved deployment detection responsiveness
-  - Shows "Checking connection..." state after first connection failure (~3s)
-  - Reduced check interval from 5s to 3s for faster initial detection
-  - Uses faster 1.5s checks when connection becomes unstable
-  - Reduced failure threshold from 3 to 2 for quicker escalation
-  - Blue styling for "checking" state vs orange for confirmed "deploying"
-  - Dynamic header title reflects current connection state
+- Coverage table rows are now clickable with hover effects
+- "View Map" hint appears on hover over state rows
+- Priority states section is now clickable
+- "States Without Coverage" tags are now clickable
+- Responsive modal design for mobile devices
 
-## [1.7.1] - 2026-01-21
+## [1.6.1] - 2026-01-21
 
 ### UI/UX Improvements
 - **Meetings List Placeholder**: Added visually friendly empty state when no scrape is in progress
@@ -22,7 +29,7 @@ All notable changes to this project will be documented in this file.
   - Hint pill directing users to click "Start Scraping"
   - Soft purple/indigo color scheme matching the app theme
 
-## [1.7.0] - 2026-01-21
+## [1.6.0] - 2026-01-21
 
 ### New Features
 - **API Versioning with Changelog**: Users can now view and switch between API versions in Settings
