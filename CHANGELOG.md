@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.6.1] - 2026-01-21
+## [1.7.1] - 2026-01-21
 
 ### UI/UX Improvements
 - **Meetings List Placeholder**: Added visually friendly empty state when no scrape is in progress
@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
   - Hint pill directing users to click "Start Scraping"
   - Soft purple/indigo color scheme matching the app theme
 
-## [1.6.0] - 2026-01-21
+## [1.7.0] - 2026-01-21
 
 ### New Features
 - **API Versioning with Changelog**: Users can now view and switch between API versions in Settings
