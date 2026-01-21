@@ -8,5 +8,5 @@ body {
   font-family: 'Helvetica Neue', Helvetica, Arial, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: linear-gradient(135deg, #f5f7ff 0%, #eaefff 100%);
   min-height: 100vh;
-  color: #151414;
+  color: var(--text-primary);
 }
