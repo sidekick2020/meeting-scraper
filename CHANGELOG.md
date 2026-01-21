@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.3] - 2026-01-21
+
+### New Features
+- **State Bubble Click**: Clicking a state bubble on the map filters meetings to that state
+  - Scrolls to the meeting list automatically
+  - Server-side filtering with pagination (50 at a time)
+  - "Load More" button works with state filter active
+- **Improved Map Interaction**: Map bubbles now support click-to-filter workflow
+  - State bubbles zoom in AND filter the meeting list
+  - Meetings load progressively as you scroll through the list
+
+### Performance
+- Server-side state filtering reduces data transfer
+- Pagination works consistently with filters applied
+
 ## [1.5.2] - 2026-01-21
 
 ### New Features

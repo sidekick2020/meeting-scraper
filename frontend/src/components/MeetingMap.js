@@ -210,13 +210,17 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange }) {
 }
 
 // State marker component
-function StateMarker({ stateData }) {
+function StateMarker({ stateData, onStateClick }) {
   const map = useMap();
 
   const handleClick = useCallback(() => {
     // Zoom in to this state
     map.setView([stateData.lat, stateData.lng], 7);
-  }, [map, stateData]);
+    // Notify parent to load meetings for this state
+    if (onStateClick) {
+      onStateClick(stateData);
+    }
+  }, [map, stateData, onStateClick]);
 
   return (
     <Marker
@@ -228,7 +232,7 @@ function StateMarker({ stateData }) {
         <div className="state-popup">
           <strong>{stateData.stateName}</strong>
           <div className="state-popup-count">{stateData.count.toLocaleString()} meetings</div>
-          <div className="cluster-popup-hint">Click to zoom in</div>
+          <div className="cluster-popup-hint">Click to view meetings</div>
         </div>
       </Popup>
     </Marker>
@@ -265,7 +269,7 @@ function ClusterMarker({ cluster, onClusterClick }) {
 // Format day number to day name
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function MeetingMap({ onSelectMeeting, showHeatmap = true }) {
+function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true }) {
   const [mapData, setMapData] = useState({ clusters: [], meetings: [], total: 0, mode: 'clustered' });
   const [stateData, setStateData] = useState({ states: [], total: 0 });
   const [currentZoom, setCurrentZoom] = useState(5);
@@ -337,6 +341,7 @@ function MeetingMap({ onSelectMeeting, showHeatmap = true }) {
           <StateMarker
             key={`state-${state.state}`}
             stateData={state}
+            onStateClick={onStateClick}
           />
         ))}
 

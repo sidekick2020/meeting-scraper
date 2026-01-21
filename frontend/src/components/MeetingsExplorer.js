@@ -131,7 +131,7 @@ function MeetingsExplorer({ onAdminClick }) {
   }, [fetchThumbnail]);
 
   const fetchMeetings = useCallback(async (options = {}) => {
-    const { bounds = null, loadMore = false } = options;
+    const { bounds = null, loadMore = false, stateFilter = null } = options;
 
     if (loadMore) {
       setIsLoadingMore(true);
@@ -151,6 +151,11 @@ function MeetingsExplorer({ onAdminClick }) {
       // Add bounds parameters if provided
       if (bounds) {
         url += `&north=${bounds.north}&south=${bounds.south}&east=${bounds.east}&west=${bounds.west}`;
+      }
+
+      // Add state filter if provided
+      if (stateFilter && stateFilter.length > 0) {
+        url += `&state=${encodeURIComponent(stateFilter[0])}`;
       }
 
       const response = await fetch(url);
@@ -212,9 +217,9 @@ function MeetingsExplorer({ onAdminClick }) {
     }
   }, [PAGE_SIZE]);
 
-  const loadMoreMeetings = useCallback(() => {
+  const loadMoreMeetings = useCallback((stateFilter = null) => {
     if (!isLoadingMore && hasMore) {
-      fetchMeetings({ loadMore: true });
+      fetchMeetings({ loadMore: true, stateFilter });
     }
   }, [fetchMeetings, isLoadingMore, hasMore]);
 
@@ -245,6 +250,31 @@ function MeetingsExplorer({ onAdminClick }) {
     checkBackendConfig();
     fetchMeetings();
   }, [fetchMeetings, checkBackendConfig]);
+
+  // Fetch meetings when state filter changes (server-side filtering)
+  const prevSelectedStatesRef = useRef([]);
+  useEffect(() => {
+    // Skip initial render
+    if (!initialFetchDoneRef.current) return;
+
+    // Check if selectedStates actually changed
+    const prevStates = prevSelectedStatesRef.current;
+    const statesChanged = selectedStates.length !== prevStates.length ||
+      selectedStates.some((s, i) => s !== prevStates[i]);
+
+    if (statesChanged) {
+      prevSelectedStatesRef.current = selectedStates;
+      if (selectedStates.length > 0) {
+        // Fetch from server with state filter
+        meetingsRef.current = [];
+        fetchMeetings({ stateFilter: selectedStates });
+      } else {
+        // Reset to all meetings
+        meetingsRef.current = [];
+        fetchMeetings();
+      }
+    }
+  }, [selectedStates, fetchMeetings]);
 
   // Request thumbnails for visible meetings that don't have them
   useEffect(() => {
@@ -760,6 +790,14 @@ function MeetingsExplorer({ onAdminClick }) {
               <>
                 <MeetingMap
                   onSelectMeeting={handleMapMarkerClick}
+                  onStateClick={(stateData) => {
+                    // Set the state filter to show meetings for this state
+                    setSelectedStates([stateData.state]);
+                    // Scroll to the meeting list
+                    if (listRef.current) {
+                      listRef.current.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
                   showHeatmap={true}
                 />
                 {isLoadingMore && (
@@ -885,11 +923,11 @@ function MeetingsExplorer({ onAdminClick }) {
               </div>
 
               {/* Load More Button */}
-              {hasMore && !hasActiveFilters && (
+              {hasMore && (
                 <div className="load-more-container">
                   <button
                     className="btn btn-secondary load-more-btn"
-                    onClick={loadMoreMeetings}
+                    onClick={() => loadMoreMeetings(selectedStates.length > 0 ? selectedStates : null)}
                     disabled={isLoadingMore}
                   >
                     {isLoadingMore ? (
