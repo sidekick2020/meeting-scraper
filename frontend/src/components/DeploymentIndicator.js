@@ -2,12 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 const RENDER_DASHBOARD_URL = process.env.REACT_APP_RENDER_DASHBOARD_URL || 'https://dashboard.render.com';
-const CHECK_INTERVAL = 5000; // Check every 5 seconds
-const FAILURE_THRESHOLD = 3; // Number of consecutive failures before showing deploying
+const CHECK_INTERVAL = 3000; // Check every 3 seconds for faster detection
+const CHECK_INTERVAL_FAST = 1500; // Faster checks when connection is unstable
+const FAILURE_THRESHOLD = 2; // Number of consecutive failures before showing deploying
 const TYPICAL_DEPLOY_TIME = 120; // Typical deployment takes ~2 minutes
 
 function DeploymentIndicator() {
-  const [backendStatus, setBackendStatus] = useState('stable'); // 'stable', 'deploying', 'updating'
+  // Status states: 'stable', 'checking', 'deploying', 'updating'
+  const [backendStatus, setBackendStatus] = useState('stable');
   const [frontendStatus, setFrontendStatus] = useState('stable'); // 'stable', 'updating'
   const [expanded, setExpanded] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -18,6 +20,7 @@ function DeploymentIndicator() {
   const backendFailsRef = useRef(0);
   const frontendFailsRef = useRef(0);
   const deployStartTimeRef = useRef(null);
+  const checkIntervalRef = useRef(CHECK_INTERVAL);
 
   // Track elapsed time when deploying
   useEffect(() => {
@@ -44,6 +47,8 @@ function DeploymentIndicator() {
   useEffect(() => {
     if (backendStatus === 'deploying') {
       setCurrentTask('Waiting for backend to restart...');
+    } else if (backendStatus === 'checking') {
+      setCurrentTask('Checking backend connection...');
     } else if (backendStatus === 'updating') {
       setCurrentTask('New backend version detected, refreshing...');
     } else if (frontendStatus === 'updating') {
@@ -57,10 +62,12 @@ function DeploymentIndicator() {
 
   // Check backend status
   useEffect(() => {
+    let intervalId = null;
+
     const checkBackend = async () => {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
 
         const response = await fetch(`${BACKEND_URL}/api/version`, {
           signal: controller.signal
@@ -70,6 +77,7 @@ function DeploymentIndicator() {
         if (response.ok) {
           const data = await response.json();
           backendFailsRef.current = 0;
+          checkIntervalRef.current = CHECK_INTERVAL; // Reset to normal interval
 
           if (!initialBackendVersionRef.current) {
             initialBackendVersionRef.current = data.version;
@@ -97,14 +105,28 @@ function DeploymentIndicator() {
 
     const handleBackendFailure = () => {
       backendFailsRef.current += 1;
-      if (backendFailsRef.current >= FAILURE_THRESHOLD && initialBackendVersionRef.current) {
+
+      // Only show indicators after we have an initial version (page has loaded successfully once)
+      if (!initialBackendVersionRef.current) return;
+
+      // After first failure, show 'checking' state and use faster interval
+      if (backendFailsRef.current === 1) {
+        setBackendStatus('checking');
+        checkIntervalRef.current = CHECK_INTERVAL_FAST;
+        // Restart the interval with faster checking
+        clearInterval(intervalId);
+        intervalId = setInterval(checkBackend, CHECK_INTERVAL_FAST);
+      }
+
+      // After threshold failures, show 'deploying' state
+      if (backendFailsRef.current >= FAILURE_THRESHOLD) {
         setBackendStatus('deploying');
       }
     };
 
     checkBackend();
-    const interval = setInterval(checkBackend, CHECK_INTERVAL);
-    return () => clearInterval(interval);
+    intervalId = setInterval(checkBackend, checkIntervalRef.current);
+    return () => clearInterval(intervalId);
   }, []); // Remove backendStatus from deps to avoid stale closures
 
   // Check frontend status
@@ -162,6 +184,7 @@ function DeploymentIndicator() {
   }, []); // Remove frontendStatus from deps to avoid stale closures
 
   const isDeploying = backendStatus !== 'stable' || frontendStatus !== 'stable';
+  const isChecking = backendStatus === 'checking';
 
   if (!isDeploying) {
     return null;
@@ -169,14 +192,22 @@ function DeploymentIndicator() {
 
   const getStatusIcon = (status) => {
     if (status === 'deploying') return '🔄';
+    if (status === 'checking') return '⏳';
     if (status === 'updating') return '✨';
     return '✓';
   };
 
   const getStatusText = (type, status) => {
     if (status === 'deploying') return `${type} deploying...`;
+    if (status === 'checking') return `${type} connection interrupted`;
     if (status === 'updating') return `${type} update ready`;
     return `${type} stable`;
+  };
+
+  const getHeaderTitle = () => {
+    if (isChecking) return 'Checking connection...';
+    if (backendStatus === 'updating' || frontendStatus === 'updating') return 'Update available';
+    return 'Deployment in progress';
   };
 
   const formatTime = (seconds) => {
@@ -198,12 +229,12 @@ function DeploymentIndicator() {
 
   return (
     <div
-      className={`deployment-indicator ${expanded ? 'expanded' : ''}`}
+      className={`deployment-indicator ${expanded ? 'expanded' : ''} ${isChecking ? 'checking' : ''}`}
       onClick={() => setExpanded(!expanded)}
     >
-      <div className="deployment-indicator-header">
+      <div className={`deployment-indicator-header ${isChecking ? 'checking' : ''}`}>
         <div className="deployment-indicator-spinner"></div>
-        <span className="deployment-indicator-title">Deployment in progress</span>
+        <span className="deployment-indicator-title">{getHeaderTitle()}</span>
         <span className="deployment-indicator-time">{formatTime(elapsedTime)}</span>
         <span className="deployment-indicator-expand">{expanded ? '▼' : '▲'}</span>
       </div>
