@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.0] - 2026-01-21
+
+### New Features
+- **State Coverage Heatmap**: Click any state in the Coverage Analysis to view a detailed heatmap
+  - Interactive modal with map zoomed to the selected state
+  - Heatmap visualization showing meeting density across the state
+  - Color gradient from purple (low) to red (high) density
+  - State statistics: total meetings, population, coverage per 100k, area count
+  - Informative message for states with no meetings
+  - State bounding boxes for all 50 states, DC, and Puerto Rico
+
+### UI/UX Improvements
+- Coverage table rows are now clickable with hover effects
+- "View Map" hint appears on hover over state rows
+- Priority states section is now clickable
+- "States Without Coverage" tags are now clickable
+- Responsive modal design for mobile devices
+
 ## [1.6.0] - 2026-01-21
 
 ### New Features
