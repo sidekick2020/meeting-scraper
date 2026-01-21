@@ -61,6 +61,7 @@ function AdminPanel({ onBackToPublic }) {
   const [shouldAbandonOld, setShouldAbandonOld] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
   const [feedSearchQuery, setFeedSearchQuery] = useState('');
+  const [expandedFeed, setExpandedFeed] = useState(null);
 
   // Directory state
   const [directoryMeetings, setDirectoryMeetings] = useState([]);
@@ -1227,7 +1228,7 @@ function AdminPanel({ onBackToPublic }) {
           <h2>Select Sources to Scrape</h2>
           <button
             className="sidebar-close-btn"
-            onClick={() => { setShowFeedSelector(false); setScrapeError(null); setShouldAbandonOld(false); setFeedSearchQuery(''); }}
+            onClick={() => { setShowFeedSelector(false); setScrapeError(null); setShouldAbandonOld(false); setFeedSearchQuery(''); setExpandedFeed(null); }}
             disabled={isStartingScrape}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1330,41 +1331,70 @@ function AdminPanel({ onBackToPublic }) {
                 const needsScrape = !feed.lastScraped ||
                   (new Date() - new Date(feed.lastScraped)) > (7 * 24 * 60 * 60 * 1000); // 7 days
 
+                const isExpanded = expandedFeed === feed.name;
+
                 return (
-                  <label key={feed.name} className={`feed-selector-item-enhanced ${isStartingScrape ? 'disabled' : ''} ${selectedFeeds.includes(feed.name) ? 'selected' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={selectedFeeds.includes(feed.name)}
-                      onChange={() => toggleFeedSelection(feed.name)}
-                      disabled={isStartingScrape}
-                    />
-                    <span className="feed-checkbox"></span>
-                    <div className="feed-item-content">
-                      <div className="feed-item-header">
-                        <span className="feed-item-name">{feed.name}</span>
-                        <span className="feed-item-state-badge">{feed.state}</span>
+                  <div key={feed.name} className={`feed-selector-item-subtle ${isStartingScrape ? 'disabled' : ''} ${selectedFeeds.includes(feed.name) ? 'selected' : ''} ${isExpanded ? 'expanded' : ''}`}>
+                    <div className="feed-item-row">
+                      <label className="feed-item-checkbox-area">
+                        <input
+                          type="checkbox"
+                          checked={selectedFeeds.includes(feed.name)}
+                          onChange={() => toggleFeedSelection(feed.name)}
+                          disabled={isStartingScrape}
+                        />
+                        <span className="feed-checkbox-subtle"></span>
+                      </label>
+                      <div className="feed-item-main" onClick={() => setExpandedFeed(isExpanded ? null : feed.name)}>
+                        <div className="feed-item-title">
+                          <span className="feed-item-name-subtle">{feed.name}</span>
+                          <span className="feed-item-state-tag">{feed.state}</span>
+                        </div>
+                        <div className="feed-item-stats">
+                          <span className="feed-stat-subtle">
+                            {feed.meetingCount > 0 ? `${feed.meetingCount.toLocaleString()} meetings` : 'No data'}
+                          </span>
+                          <span className="feed-stat-divider">·</span>
+                          <span className={`feed-stat-subtle ${needsScrape ? 'stale' : ''}`}>
+                            {formatLastScraped(feed.lastScraped)}
+                          </span>
+                        </div>
                       </div>
-                      <div className="feed-item-meta">
-                        <span className="feed-item-stat">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                            <circle cx="9" cy="7" r="4"/>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                          </svg>
-                          {feed.meetingCount > 0 ? `${feed.meetingCount.toLocaleString()} meetings` : 'No data'}
-                        </span>
-                        <span className={`feed-item-stat ${needsScrape ? 'needs-scrape' : ''}`}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <polyline points="12,6 12,12 16,14"/>
-                          </svg>
-                          {formatLastScraped(feed.lastScraped)}
-                          {needsScrape && <span className="scrape-indicator" title="Scrape recommended">*</span>}
-                        </span>
-                      </div>
+                      <button
+                        className="feed-expand-btn"
+                        onClick={() => setExpandedFeed(isExpanded ? null : feed.name)}
+                        disabled={isStartingScrape}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={isExpanded ? 'rotated' : ''}>
+                          <polyline points="6,9 12,15 18,9"/>
+                        </svg>
+                      </button>
                     </div>
-                  </label>
+                    {isExpanded && (
+                      <div className="feed-item-details">
+                        <div className="feed-detail-row">
+                          <span className="feed-detail-label">Type</span>
+                          <span className="feed-detail-value">{feed.type === 'tsml' ? 'AA Meeting Guide (TSML)' : feed.type === 'bmlt' ? 'NA (BMLT)' : feed.type}</span>
+                        </div>
+                        <div className="feed-detail-row">
+                          <span className="feed-detail-label">Meetings</span>
+                          <span className="feed-detail-value">{feed.meetingCount > 0 ? feed.meetingCount.toLocaleString() : 'Not yet scraped'}</span>
+                        </div>
+                        <div className="feed-detail-row">
+                          <span className="feed-detail-label">Last Scraped</span>
+                          <span className="feed-detail-value">
+                            {feed.lastScraped ? new Date(feed.lastScraped).toLocaleString() : 'Never'}
+                          </span>
+                        </div>
+                        <div className="feed-detail-row">
+                          <span className="feed-detail-label">Status</span>
+                          <span className={`feed-detail-value ${needsScrape ? 'status-stale' : 'status-fresh'}`}>
+                            {needsScrape ? 'Needs refresh' : 'Up to date'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 );
               });
             })()
@@ -1393,7 +1423,7 @@ function AdminPanel({ onBackToPublic }) {
       {showFeedSelector && (
         <div
           className="sidebar-overlay"
-          onClick={() => { setShowFeedSelector(false); setScrapeError(null); setShouldAbandonOld(false); setFeedSearchQuery(''); }}
+          onClick={() => { setShowFeedSelector(false); setScrapeError(null); setShouldAbandonOld(false); setFeedSearchQuery(''); setExpandedFeed(null); }}
         />
       )}
     </div>
