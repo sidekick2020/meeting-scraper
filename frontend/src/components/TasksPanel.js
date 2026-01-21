@@ -13,6 +13,20 @@ function TasksPanel({ feeds }) {
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
+  // Script generation state
+  const [showScriptModal, setShowScriptModal] = useState(false);
+  const [scriptModalData, setScriptModalData] = useState(null);
+  const [generatedScript, setGeneratedScript] = useState('');
+  const [scriptFeedConfig, setScriptFeedConfig] = useState(null);
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResults, setTestResults] = useState(null);
+  const [isAddingSource, setIsAddingSource] = useState(false);
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [sourceName, setSourceName] = useState('');
+  const [sourceState, setSourceState] = useState('');
+  const [feedType, setFeedType] = useState('auto');
+
   // Fetch tasks and dry spots
   const fetchTasks = useCallback(async () => {
     try {
@@ -193,6 +207,155 @@ function TasksPanel({ feeds }) {
         setResearchProgress('');
       }, 2000);
     }
+  };
+
+  // Generate script for a task
+  const generateScript = async (task) => {
+    // Pre-fill based on task data
+    const state = task.state || '';
+    const name = task.title?.replace(/^(Add |Research |Check )/, '') || '';
+
+    setShowScriptModal(true);
+    setScriptModalData(task);
+    setSourceName(name);
+    setSourceState(state);
+    setSourceUrl('');
+    setFeedType('auto');
+    setGeneratedScript('');
+    setTestResults(null);
+    setScriptFeedConfig(null);
+  };
+
+  // Request script generation from backend
+  const requestScriptGeneration = async () => {
+    if (!sourceUrl.trim()) return;
+
+    setIsGeneratingScript(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/tasks/generate-script`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: sourceUrl,
+          name: sourceName || 'New Meeting Source',
+          state: sourceState || 'XX',
+          feedType: feedType
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setGeneratedScript(data.script);
+        setScriptFeedConfig(data.feedConfig);
+        setFeedType(data.feedType);
+      } else {
+        const error = await response.json();
+        alert(`Error generating script: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error generating script:', error);
+      alert('Failed to generate script. Please try again.');
+    } finally {
+      setIsGeneratingScript(false);
+    }
+  };
+
+  // Test the source URL
+  const testSource = async () => {
+    if (!sourceUrl.trim()) return;
+
+    setIsTesting(true);
+    setTestResults(null);
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/tasks/test-script`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: sourceUrl,
+          feedType: feedType,
+          state: sourceState || 'XX'
+        })
+      });
+
+      const data = await response.json();
+      setTestResults(data);
+
+      // Update feed type if auto-detected
+      if (data.feedType) {
+        setFeedType(data.feedType);
+      }
+    } catch (error) {
+      console.error('Error testing source:', error);
+      setTestResults({
+        success: false,
+        error: 'Failed to test source. Please try again.'
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  // Add the source to feeds
+  const addToSources = async () => {
+    if (!sourceUrl.trim() || !sourceName.trim() || !sourceState.trim()) {
+      alert('Please fill in all fields (URL, Name, and State)');
+      return;
+    }
+
+    setIsAddingSource(true);
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/tasks/add-source`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: sourceUrl,
+          name: sourceName,
+          state: sourceState,
+          feedType: feedType === 'auto' ? 'tsml' : feedType
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`Success! "${sourceName}" has been added to the feeds.`);
+
+        // Mark the associated task as completed
+        if (scriptModalData?.id) {
+          await updateTaskStatus(scriptModalData.id, 'completed');
+        }
+
+        setShowScriptModal(false);
+        resetScriptModal();
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error adding source:', error);
+      alert('Failed to add source. Please try again.');
+    } finally {
+      setIsAddingSource(false);
+    }
+  };
+
+  // Reset script modal state
+  const resetScriptModal = () => {
+    setScriptModalData(null);
+    setGeneratedScript('');
+    setScriptFeedConfig(null);
+    setTestResults(null);
+    setSourceUrl('');
+    setSourceName('');
+    setSourceState('');
+    setFeedType('auto');
+  };
+
+  // Copy script to clipboard
+  const copyScript = () => {
+    navigator.clipboard.writeText(generatedScript);
+    alert('Script copied to clipboard!');
   };
 
   const filteredTasks = tasks.filter(task => {
@@ -391,6 +554,18 @@ function TasksPanel({ feeds }) {
                   </div>
                 </div>
                 <div className="task-actions">
+                  {task.status !== 'completed' && (task.type === 'research' || task.type === 'source_needed') && (
+                    <button
+                      className="btn btn-xs btn-primary"
+                      onClick={() => generateScript(task)}
+                      title="Generate scraping script"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="16,18 22,12 16,6"/>
+                        <polyline points="8,6 2,12 8,18"/>
+                      </svg>
+                    </button>
+                  )}
                   {task.status !== 'in_progress' && task.status !== 'completed' && (
                     <button
                       className="btn btn-xs btn-ghost"
@@ -454,6 +629,238 @@ function TasksPanel({ feeds }) {
               >
                 Add Task
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Script generation modal */}
+      {showScriptModal && (
+        <div className="modal-overlay">
+          <div className="modal script-modal">
+            <div className="script-modal-header">
+              <h2>Add Meeting Source</h2>
+              <button
+                className="btn btn-ghost btn-close"
+                onClick={() => { setShowScriptModal(false); resetScriptModal(); }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+
+            {scriptModalData && (
+              <div className="script-task-info">
+                <span className="task-tag">{scriptModalData.state}</span>
+                <span className="task-title-small">{scriptModalData.title}</span>
+              </div>
+            )}
+
+            {/* Step 1: Enter source details */}
+            <div className="script-section">
+              <h3>1. Enter Source Details</h3>
+              <div className="script-form">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Source Name</label>
+                    <input
+                      type="text"
+                      value={sourceName}
+                      onChange={(e) => setSourceName(e.target.value)}
+                      placeholder="e.g., Phoenix AA Intergroup"
+                    />
+                  </div>
+                  <div className="form-group form-group-small">
+                    <label>State</label>
+                    <input
+                      type="text"
+                      value={sourceState}
+                      onChange={(e) => setSourceState(e.target.value.toUpperCase())}
+                      placeholder="AZ"
+                      maxLength={2}
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Feed URL</label>
+                  <input
+                    type="text"
+                    value={sourceUrl}
+                    onChange={(e) => setSourceUrl(e.target.value)}
+                    placeholder="https://example.org/wp-admin/admin-ajax.php?action=meetings"
+                  />
+                  <span className="form-hint">
+                    TSML: /wp-admin/admin-ajax.php?action=meetings | BMLT: /main_server/client_interface/json/
+                  </span>
+                </div>
+                <div className="form-group form-group-small">
+                  <label>Feed Type</label>
+                  <select value={feedType} onChange={(e) => setFeedType(e.target.value)}>
+                    <option value="auto">Auto-detect</option>
+                    <option value="tsml">TSML (AA)</option>
+                    <option value="bmlt">BMLT (NA)</option>
+                    <option value="json">JSON</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2: Test the source */}
+            <div className="script-section">
+              <h3>2. Test the Source</h3>
+              <div className="script-actions">
+                <button
+                  className="btn btn-secondary"
+                  onClick={testSource}
+                  disabled={!sourceUrl.trim() || isTesting}
+                >
+                  {isTesting ? (
+                    <>
+                      <span className="btn-spinner"></span>
+                      Testing...
+                    </>
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                        <polyline points="22,4 12,14.01 9,11.01"/>
+                      </svg>
+                      Test Source
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {testResults && (
+                <div className={`test-results ${testResults.success ? 'success' : 'error'}`}>
+                  {testResults.success ? (
+                    <>
+                      <div className="test-results-header">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                          <polyline points="22,4 12,14.01 9,11.01"/>
+                        </svg>
+                        <span>Success! Found {testResults.totalMeetings} meetings</span>
+                      </div>
+                      <div className="test-details">
+                        <div className="test-detail">
+                          <strong>Feed Type:</strong> {testResults.feedType?.toUpperCase()}
+                        </div>
+                        {testResults.stateBreakdown && (
+                          <div className="test-detail">
+                            <strong>By State:</strong>{' '}
+                            {Object.entries(testResults.stateBreakdown).map(([st, count]) => (
+                              <span key={st} className="state-tag">{st}: {count}</span>
+                            ))}
+                          </div>
+                        )}
+                        {testResults.sampleMeetings && (
+                          <div className="test-sample">
+                            <strong>Sample Meetings:</strong>
+                            <ul>
+                              {testResults.sampleMeetings.map((m, i) => (
+                                <li key={i}>
+                                  {m.name} - {m.city}, {m.state}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="test-results-header error">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"/>
+                          <line x1="15" y1="9" x2="9" y2="15"/>
+                          <line x1="9" y1="9" x2="15" y2="15"/>
+                        </svg>
+                        <span>Test Failed</span>
+                      </div>
+                      <div className="test-error">
+                        <p>{testResults.error}</p>
+                        {testResults.hint && <p className="test-hint">{testResults.hint}</p>}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Step 3: Generate script (optional) */}
+            <div className="script-section">
+              <h3>3. Generate Script (Optional)</h3>
+              <div className="script-actions">
+                <button
+                  className="btn btn-ghost"
+                  onClick={requestScriptGeneration}
+                  disabled={!sourceUrl.trim() || isGeneratingScript}
+                >
+                  {isGeneratingScript ? (
+                    <>
+                      <span className="btn-spinner"></span>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="16,18 22,12 16,6"/>
+                        <polyline points="8,6 2,12 8,18"/>
+                      </svg>
+                      Generate Python Script
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {generatedScript && (
+                <div className="script-output">
+                  <div className="script-output-header">
+                    <span>Python Scraping Script</span>
+                    <button className="btn btn-xs btn-ghost" onClick={copyScript}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <pre className="script-code">{generatedScript}</pre>
+                </div>
+              )}
+            </div>
+
+            {/* Step 4: Add to sources */}
+            <div className="script-section">
+              <h3>4. Add to Sources</h3>
+              <div className="script-actions">
+                <button
+                  className="btn btn-primary"
+                  onClick={addToSources}
+                  disabled={!testResults?.success || isAddingSource}
+                >
+                  {isAddingSource ? (
+                    <>
+                      <span className="btn-spinner"></span>
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                      </svg>
+                      Add to Sources
+                    </>
+                  )}
+                </button>
+                {!testResults?.success && (
+                  <span className="form-hint">Test the source first to enable this button</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
