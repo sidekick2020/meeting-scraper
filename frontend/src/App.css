@@ -3170,7 +3170,6 @@ a.sidebar-nav-item {
 .directory-table-wrapper {
   flex: 1;
   overflow: auto;
-  border: 1px solid var(--border-light);
   border-radius: 0.75rem;
   background: var(--bg-tertiary);
 }
@@ -3193,14 +3192,12 @@ a.sidebar-nav-item {
   text-align: left;
   font-weight: 600;
   color: var(--text-muted);
-  border-bottom: 1px solid var(--border-light);
   white-space: nowrap;
 }
 
 .directory-table td {
   padding: 0.75rem 1rem;
   color: var(--text-primary);
-  border-bottom: 1px solid var(--border-light);
 }
 
 .directory-row {
@@ -3209,8 +3206,7 @@ a.sidebar-nav-item {
 }
 
 .directory-row:hover {
-  background: rgba(47, 93, 255, 0.15);
-  box-shadow: inset 3px 0 0 var(--accent-primary);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .meeting-name-cell {
@@ -8754,41 +8750,31 @@ a.sidebar-nav-item {
 /* Light Mode: Tables */
 [data-theme="light"] .directory-table {
   background: #ffffff;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  overflow: hidden;
 }
 
 [data-theme="light"] .directory-table-wrapper {
   background: #ffffff;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
 }
 
 [data-theme="light"] .directory-table th {
-  background: #e5e7eb;
-  color: #111827;
-  font-weight: 700;
-  border-bottom: 2px solid #9ca3af !important;
+  color: #6b7280;
+  font-weight: 600;
 }
 
 [data-theme="light"] .directory-table td {
   color: #1f2937;
-  border-bottom: 1px solid #d1d5db !important;
 }
 
 [data-theme="light"] .directory-row {
   background: #ffffff;
-  border-bottom: 1px solid #d1d5db;
 }
 
 [data-theme="light"] .directory-row:nth-child(even) {
-  background: #f3f4f6;
+  background: #fafafa;
 }
 
 [data-theme="light"] .directory-row:hover {
-  background: #dbeafe !important;
-  box-shadow: inset 3px 0 0 #2f5dff;
+  background: #f3f4f6 !important;
 }
 
 [data-theme="light"] .meeting-name {
@@ -8815,13 +8801,10 @@ a.sidebar-nav-item {
 /* Light Mode: Directory Section */
 [data-theme="light"] .directory-section {
   background: #ffffff;
-  border: 1px solid #d1d5db;
-  border-radius: 0.75rem;
 }
 
 [data-theme="light"] .directory-toolbar {
-  background: #f3f4f6;
-  border-bottom: 2px solid #d1d5db;
+  background: #fafafa;
 }
 
 [data-theme="light"] .directory-count {
