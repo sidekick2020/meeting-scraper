@@ -2,42 +2,71 @@
 
 This document provides guidance for Claude Code sessions working on this repository.
 
+## Changelog Fragments System
+
+To avoid merge conflicts, this project uses **changelog fragments** instead of directly editing `CHANGELOG.md`.
+
+### Adding a Changelog Entry
+
+After making significant code changes, create a fragment file:
+
+1. Create a `.md` file in the appropriate category:
+   - `changelog/unreleased/features/` - New features
+   - `changelog/unreleased/fixes/` - Bug fixes
+   - `changelog/unreleased/improvements/` - UI/UX improvements
+
+2. Name the file descriptively (e.g., `state-heatmap.md`)
+
+3. Write the entry:
+   ```markdown
+   **Feature Name**: Brief description
+   - Detail point 1
+   - Detail point 2
+   ```
+
+### Compiling at Release Time
+
+When ready to release, run:
+```bash
+python changelog/compile.py 1.8.0
+```
+
+This compiles all fragments into `CHANGELOG.md` and deletes the fragment files.
+
+## Post-Change Checklist
+
+After completing significant code changes, Claude should ask the user:
+
+1. **Generate a PR?** - Create a pull request with summary and test plan
+2. **Add changelog fragment?** - Create a fragment file for the changes
+3. **Provide git tag commands?** - Give copy-paste commands for version tagging
+
+Provide all commands without comments for easy copy-paste.
+
 ## Release Versioning Workflow
 
 When making changes that warrant a new version release, follow this process:
 
-### 1. Update the CHANGELOG
+### 1. Add Changelog Fragment
 
-Add a new version entry to `CHANGELOG.md` following the existing format:
+Create a fragment file instead of editing CHANGELOG.md directly:
 
-```markdown
-## [X.Y.Z] - YYYY-MM-DD
-
-### New Features
-- **Feature Name**: Description
-
-### Bug Fixes
-- **Fix Name**: Description
-
-### UI/UX Improvements
-- Description of improvement
+```bash
+echo '**Feature Name**: Description
+- Detail 1
+- Detail 2' > changelog/unreleased/features/my-feature.md
 ```
 
 ### 2. Create a Git Tag (Important Limitation)
 
 **Claude cannot push git tags** due to authentication restrictions. Claude's git credentials only allow pushing to branches matching `claude/*`.
 
-After updating the CHANGELOG, Claude should:
+After the PR is merged, Claude should provide tag commands:
 
-1. Create the tag locally:
-   ```bash
-   git tag -a vX.Y.Z <commit-hash> -m "Release vX.Y.Z - Summary"
-   ```
-
-2. Inform the user that the tag needs to be pushed manually:
-   ```bash
-   git push origin vX.Y.Z
-   ```
+```bash
+git tag -a vX.Y.Z <commit-hash> -m "Release vX.Y.Z - Summary"
+git push origin vX.Y.Z
+```
 
 ### 3. Why Tags Matter
 
