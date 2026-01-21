@@ -241,6 +241,35 @@ html, body {
   color: var(--text-muted);
 }
 
+.deployment-status-row.checking {
+  color: #3b82f6;
+}
+
+/* Checking state - more subtle blue styling */
+.deployment-indicator-header.checking {
+  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.deployment-indicator.checking .deployment-progress .progress-fill {
+  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.deployment-indicator.checking .deployment-progress .progress-text {
+  color: #3b82f6;
+}
+
+.deployment-indicator.checking .deployment-logs-link {
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.deployment-indicator.checking .deployment-logs-link:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #2563eb;
+}
+
 .deployment-indicator-note {
   font-size: 0.75rem;
   color: var(--text-muted);
