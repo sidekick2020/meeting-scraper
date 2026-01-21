@@ -6978,25 +6978,54 @@ a.sidebar-nav-item {
 
 [data-theme="light"] .sidebar-detail-body {
   background: #ffffff;
-  color: #1f2937;
+  color: #111827;
+}
+
+[data-theme="light"] .sidebar-detail-body .detail-section {
+  background: #f9fafb;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+[data-theme="light"] .sidebar-detail-body .detail-section:last-of-type {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  margin-bottom: 0;
 }
 
 [data-theme="light"] .sidebar-detail-body .detail-section h4 {
-  color: #4b5563;
+  color: #1f2937;
+  font-weight: 700;
+  font-size: 0.8rem;
+  margin-bottom: 0.875rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 [data-theme="light"] .sidebar-detail-body .detail-row {
-  color: #1f2937;
+  color: #111827;
+  font-weight: 500;
+}
+
+[data-theme="light"] .sidebar-detail-body .detail-icon {
+  color: #1a4fd8;
+}
+
+[data-theme="light"] .sidebar-detail-body .detail-icon svg {
+  stroke-width: 2.5 !important;
 }
 
 [data-theme="light"] .sidebar-detail-body .detail-notes {
-  color: #4b5563;
+  color: #374151;
+  font-weight: 400;
 }
 
 [data-theme="light"] .sidebar-detail-body .detail-notes-block {
   background: #f3f4f6;
   border-color: rgba(0, 0, 0, 0.1);
-  color: #374151;
+  color: #1f2937;
+  font-weight: 500;
 }
 
 [data-theme="light"] .sidebar-detail-body .detail-metadata {
@@ -7004,7 +7033,12 @@ a.sidebar-nav-item {
 }
 
 [data-theme="light"] .sidebar-detail-body .metadata-row {
-  color: #4b5563;
+  color: #374151;
+  font-weight: 500;
+}
+
+[data-theme="light"] .sidebar-detail-body .badge {
+  font-weight: 600;
 }
 
 /* Light Mode: Profile Section */
@@ -7018,6 +7052,111 @@ a.sidebar-nav-item {
 
 [data-theme="light"] .profile-avatar {
   border-color: rgba(0, 0, 0, 0.15);
+}
+
+/* Light Mode: Scrape History */
+[data-theme="light"] .scrape-history {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .history-header h3 {
+  color: #111827;
+  font-weight: 700;
+}
+
+[data-theme="light"] .history-entry {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .history-entry:not(:last-child) {
+  margin-bottom: 0.75rem;
+}
+
+[data-theme="light"] .history-entry:hover {
+  border-color: rgba(26, 79, 216, 0.4);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .history-entry.expanded {
+  border-color: #1a4fd8;
+  box-shadow: 0 2px 8px rgba(26, 79, 216, 0.15);
+}
+
+[data-theme="light"] .history-entry-header {
+  background: #f9fafb;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .history-date {
+  color: #374151;
+  font-weight: 500;
+}
+
+[data-theme="light"] .history-stat {
+  color: #4b5563;
+}
+
+[data-theme="light"] .history-stat strong {
+  color: #111827;
+  font-weight: 700;
+}
+
+[data-theme="light"] .history-status.status-completed {
+  background: rgba(34, 197, 94, 0.15);
+  color: #15803d;
+  font-weight: 700;
+}
+
+[data-theme="light"] .history-status.status-failed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  font-weight: 700;
+}
+
+[data-theme="light"] .history-status.status-stopped {
+  background: rgba(251, 191, 36, 0.2);
+  color: #b45309;
+  font-weight: 700;
+}
+
+[data-theme="light"] .history-status.status-in_progress {
+  background: rgba(59, 130, 246, 0.15);
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+[data-theme="light"] .history-expand-icon {
+  background: #e5e7eb;
+  color: #374151;
+  font-weight: 700;
+}
+
+[data-theme="light"] .history-entry-details {
+  background: #ffffff;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .detail-label {
+  color: #6b7280;
+  font-weight: 600;
+}
+
+[data-theme="light"] .history-detail-row span:not(.detail-label) {
+  color: #111827;
+  font-weight: 500;
+}
+
+[data-theme="light"] .state-tag {
+  background: rgba(26, 79, 216, 0.12);
+  color: #1a4fd8;
+  font-weight: 600;
+}
+
+[data-theme="light"] .history-errors {
+  color: #dc2626;
 }
 
 /* Light Mode: Section Headers and Labels */
