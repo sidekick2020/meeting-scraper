@@ -13,6 +13,4 @@
   <path d="M92,88 L78,58 Q72,70 82,80 Z" fill="#1f2937"/>
   <!-- Center circle with gradient -->
   <circle cx="50" cy="52" r="30" fill="url(#circleGradient)" stroke="#1f2937" stroke-width="2"/>
-  <!-- Number 1 -->
-  <text x="50" y="62" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#ffffff">1</text>
 </svg>
