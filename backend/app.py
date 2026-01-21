@@ -1678,6 +1678,35 @@ US_STATE_NAMES = {
     "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia", "PR": "Puerto Rico",
 }
 
+# State center coordinates for map display (approximate geographic centers)
+US_STATE_CENTERS = {
+    "AL": (32.806671, -86.791130), "AK": (61.370716, -152.404419), "AZ": (33.729759, -111.431221),
+    "AR": (34.969704, -92.373123), "CA": (36.116203, -119.681564), "CO": (39.059811, -105.311104),
+    "CT": (41.597782, -72.755371), "DE": (39.318523, -75.507141), "FL": (27.766279, -81.686783),
+    "GA": (33.040619, -83.643074), "HI": (21.094318, -157.498337), "ID": (44.240459, -114.478828),
+    "IL": (40.349457, -88.986137), "IN": (39.849426, -86.258278), "IA": (42.011539, -93.210526),
+    "KS": (38.526600, -96.726486), "KY": (37.668140, -84.670067), "LA": (31.169546, -91.867805),
+    "ME": (44.693947, -69.381927), "MD": (39.063946, -76.802101), "MA": (42.230171, -71.530106),
+    "MI": (43.326618, -84.536095), "MN": (45.694454, -93.900192), "MS": (32.741646, -89.678696),
+    "MO": (38.456085, -92.288368), "MT": (46.921925, -110.454353), "NE": (41.125370, -98.268082),
+    "NV": (38.313515, -117.055374), "NH": (43.452492, -71.563896), "NJ": (40.298904, -74.521011),
+    "NM": (34.840515, -106.248482), "NY": (42.165726, -74.948051), "NC": (35.630066, -79.806419),
+    "ND": (47.528912, -99.784012), "OH": (40.388783, -82.764915), "OK": (35.565342, -96.928917),
+    "OR": (44.572021, -122.070938), "PA": (40.590752, -77.209755), "RI": (41.680893, -71.511780),
+    "SC": (33.856892, -80.945007), "SD": (44.299782, -99.438828), "TN": (35.747845, -86.692345),
+    "TX": (31.054487, -97.563461), "UT": (40.150032, -111.862434), "VT": (44.045876, -72.710686),
+    "VA": (37.769337, -78.169968), "WA": (47.400902, -121.490494), "WV": (38.491226, -80.954453),
+    "WI": (44.268543, -89.616508), "WY": (42.755966, -107.302490), "DC": (38.897438, -77.026817),
+    "PR": (18.220833, -66.590149),
+}
+
+# Cached state meeting counts (refreshed periodically)
+state_meeting_counts_cache = {
+    "data": {},
+    "last_updated": None,
+    "ttl": 300  # 5 minutes cache
+}
+
 # Global state
 scraping_state = {
     "is_running": False,
@@ -3581,6 +3610,95 @@ if BACK4APP_APP_ID and BACK4APP_REST_KEY:
     start_thumbnail_worker(BACK4APP_APP_ID, BACK4APP_REST_KEY, num_workers=2)
 
 
+@app.route('/api/meetings/by-state', methods=['GET'])
+def get_meetings_by_state():
+    """Get meeting counts by state for efficient map overview display.
+
+    Returns cached aggregated counts with state center coordinates.
+    This is very fast and avoids fetching individual meetings.
+    """
+    import time
+
+    # Check cache
+    cache = state_meeting_counts_cache
+    current_time = time.time()
+
+    if cache["last_updated"] and (current_time - cache["last_updated"]) < cache["ttl"]:
+        # Return cached data
+        return jsonify(cache["data"])
+
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({"states": [], "total": 0})
+
+    headers = {
+        "X-Parse-Application-Id": BACK4APP_APP_ID,
+        "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+    }
+
+    try:
+        from collections import Counter
+
+        # Fetch all meetings with only state field (very efficient)
+        meetings_by_state = Counter()
+        total_meetings = 0
+        skip = 0
+        batch_size = 1000
+
+        while True:
+            url = f"{BACK4APP_URL}?keys=state&limit={batch_size}&skip={skip}"
+            response = requests.get(url, headers=headers, timeout=30)
+            if response.status_code != 200:
+                break
+
+            data = response.json()
+            results = data.get("results", [])
+            if not results:
+                break
+
+            for meeting in results:
+                state = meeting.get("state")
+                if state:
+                    meetings_by_state[state] += 1
+                total_meetings += 1
+
+            if len(results) < batch_size:
+                break
+
+            skip += batch_size
+
+        # Build state data with coordinates
+        states = []
+        for state_code, count in meetings_by_state.items():
+            if state_code in US_STATE_CENTERS:
+                lat, lng = US_STATE_CENTERS[state_code]
+                states.append({
+                    "state": state_code,
+                    "stateName": US_STATE_NAMES.get(state_code, state_code),
+                    "count": count,
+                    "lat": lat,
+                    "lng": lng
+                })
+
+        # Sort by count descending
+        states.sort(key=lambda x: x["count"], reverse=True)
+
+        result = {
+            "states": states,
+            "total": total_meetings,
+            "statesWithMeetings": len(states)
+        }
+
+        # Update cache
+        cache["data"] = result
+        cache["last_updated"] = current_time
+
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"Error fetching meetings by state: {e}")
+        return jsonify({"states": [], "total": 0, "error": str(e)}), 500
+
+
 @app.route('/api/thumbnail/<meeting_id>', methods=['GET'])
 def get_thumbnail(meeting_id):
     """Get or generate thumbnail for a meeting."""
@@ -4222,6 +4340,214 @@ def check_user_access():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# In-memory tasks storage (in production, this would be in the database)
+tasks_storage = []
+task_id_counter = 1
+
+@app.route('/api/tasks', methods=['GET'])
+def get_tasks():
+    """Get all research tasks"""
+    return jsonify({'tasks': tasks_storage})
+
+@app.route('/api/tasks', methods=['POST'])
+def create_task():
+    """Create a new task"""
+    global task_id_counter
+    data = request.json
+
+    task = {
+        'id': task_id_counter,
+        'title': data.get('title', ''),
+        'description': data.get('description', ''),
+        'type': data.get('type', 'manual'),
+        'status': data.get('status', 'pending'),
+        'url': data.get('url'),
+        'state': data.get('state'),
+        'source': data.get('source'),
+        'created_at': datetime.now().isoformat()
+    }
+    task_id_counter += 1
+    tasks_storage.insert(0, task)
+
+    return jsonify({'task': task, 'success': True})
+
+@app.route('/api/tasks/<int:task_id>', methods=['PUT'])
+def update_task(task_id):
+    """Update a task"""
+    data = request.json
+
+    for task in tasks_storage:
+        if task['id'] == task_id:
+            if 'status' in data:
+                task['status'] = data['status']
+            if 'title' in data:
+                task['title'] = data['title']
+            if 'description' in data:
+                task['description'] = data['description']
+            return jsonify({'task': task, 'success': True})
+
+    return jsonify({'error': 'Task not found'}), 404
+
+@app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
+def delete_task(task_id):
+    """Delete a task"""
+    global tasks_storage
+    tasks_storage = [t for t in tasks_storage if t['id'] != task_id]
+    return jsonify({'success': True})
+
+@app.route('/api/coverage/gaps', methods=['GET'])
+def get_coverage_gaps():
+    """Get states/regions with low meeting coverage (dry spots)"""
+    # Get existing feeds to identify covered states
+    all_feeds = get_all_feeds()
+    covered_states = set(feed['state'] for feed in all_feeds.values())
+
+    # Define US states with their populations (in thousands)
+    # States not in our feeds are considered gaps
+    gaps = []
+
+    for state_code, population in US_STATE_POPULATION.items():
+        meetings_count = 0
+
+        # If we have Back4App configured, try to get actual meeting counts
+        if BACK4APP_APP_ID and BACK4APP_REST_KEY:
+            try:
+                headers = {
+                    "X-Parse-Application-Id": BACK4APP_APP_ID,
+                    "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+                }
+                url = f"{BACK4APP_URL}?where={{\"state\":\"{state_code}\"}}&count=1&limit=0"
+                response = requests.get(url, headers=headers, timeout=5)
+                if response.status_code == 200:
+                    meetings_count = response.json().get('count', 0)
+            except:
+                pass
+
+        # Consider it a gap if:
+        # - No meetings at all, OR
+        # - Very low coverage (less than 1 meeting per 100k population)
+        coverage_ratio = (meetings_count / population * 100) if population > 0 else 0
+
+        if meetings_count == 0 or coverage_ratio < 1:
+            gaps.append({
+                'state': state_code,
+                'stateName': US_STATE_NAMES.get(state_code, state_code),
+                'population': population * 1000,
+                'meetingCount': meetings_count,
+                'coverageRatio': round(coverage_ratio, 2),
+                'hasFeed': state_code in covered_states
+            })
+
+    # Sort by population (highest first) to prioritize high-impact gaps
+    gaps.sort(key=lambda x: x['population'], reverse=True)
+
+    return jsonify({'gaps': gaps[:20]})  # Return top 20 gaps
+
+@app.route('/api/tasks/research', methods=['POST'])
+def research_intergroup():
+    """Research intergroup websites for a specific state/region"""
+    global task_id_counter
+    data = request.json
+    state = data.get('state', '')
+    region = data.get('region', '')
+
+    # This is a placeholder for AI-powered research
+    # In a real implementation, this would use web search APIs or AI to find intergroup sites
+
+    # For now, generate suggested tasks based on common intergroup naming patterns
+    suggestions = []
+    state_name = US_STATE_NAMES.get(state, state)
+
+    # Common intergroup website patterns
+    search_suggestions = [
+        {
+            'title': f'Research {state_name} AA Intergroup',
+            'description': f'Search for AA intergroup/central office websites in {state_name}. Look for sites with meeting directories that use TSML format.',
+            'type': 'research',
+            'state': state,
+            'source': 'auto-generated'
+        },
+        {
+            'title': f'Check AA Area {state} website',
+            'description': f'Look for the official AA Area website for {state_name} which may have links to district meeting lists.',
+            'type': 'research',
+            'state': state,
+            'source': 'auto-generated'
+        },
+        {
+            'title': f'Search for NA meetings in {state_name}',
+            'description': f'Check BMLT (Basic Meeting List Toolkit) for NA meetings in {state_name}.',
+            'type': 'research',
+            'state': state,
+            'source': 'auto-generated'
+        }
+    ]
+
+    for suggestion in search_suggestions:
+        task = {
+            'id': task_id_counter,
+            'title': suggestion['title'],
+            'description': suggestion['description'],
+            'type': suggestion['type'],
+            'status': 'pending',
+            'state': suggestion['state'],
+            'source': suggestion['source'],
+            'created_at': datetime.now().isoformat()
+        }
+        task_id_counter += 1
+        suggestions.append(task)
+        tasks_storage.insert(0, task)
+
+    return jsonify({
+        'success': True,
+        'suggestions': suggestions,
+        'message': f'Created {len(suggestions)} research tasks for {state_name}'
+    })
+
+@app.route('/api/tasks/research-all', methods=['POST'])
+def research_all_gaps():
+    """Research all coverage gaps and create tasks"""
+    global task_id_counter
+
+    # Get current coverage gaps
+    all_feeds = get_all_feeds()
+    covered_states = set(feed['state'] for feed in all_feeds.values())
+
+    suggestions_count = 0
+    new_tasks = []
+
+    # Find states without any feeds
+    for state_code, population in US_STATE_POPULATION.items():
+        if state_code not in covered_states and population > 1000:  # Only states with >1M population
+            state_name = US_STATE_NAMES.get(state_code, state_code)
+
+            # Check if we already have a task for this state
+            existing = any(t['state'] == state_code and t['status'] != 'completed' for t in tasks_storage)
+            if existing:
+                continue
+
+            task = {
+                'id': task_id_counter,
+                'title': f'Add meeting source for {state_name}',
+                'description': f'{state_name} has no meeting feeds configured. Search for intergroup websites with TSML-compatible meeting directories.',
+                'type': 'source_needed',
+                'status': 'pending',
+                'state': state_code,
+                'source': 'coverage-analysis',
+                'created_at': datetime.now().isoformat()
+            }
+            task_id_counter += 1
+            new_tasks.append(task)
+            tasks_storage.insert(0, task)
+            suggestions_count += 1
+
+    return jsonify({
+        'success': True,
+        'suggestionsCount': suggestions_count,
+        'tasks': new_tasks,
+        'message': f'Created {suggestions_count} tasks for uncovered states'
+    })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

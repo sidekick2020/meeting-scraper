@@ -4,7 +4,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
-const DETAIL_ZOOM_THRESHOLD = 13; // Zoom level at which to show individual meetings
+const STATE_ZOOM_THRESHOLD = 6;   // Below this, show state-level bubbles
+const DETAIL_ZOOM_THRESHOLD = 13; // Above this, show individual meetings
 
 // Fix for default marker icons in React-Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -43,6 +44,30 @@ const createClusterIcon = (count) => {
       height: ${size}px;
       font-size: ${fontSize}px;
     ">${count > 999 ? '999+' : count}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+};
+
+// State marker icon with count (larger, shows state abbreviation)
+const createStateIcon = (stateCode, count) => {
+  // Size based on count - larger states get bigger bubbles
+  const minSize = 40;
+  const maxSize = 70;
+  const scaleFactor = Math.min(Math.log10(count + 1) / 4, 1); // Log scale, capped at 1
+  const size = Math.round(minSize + (maxSize - minSize) * scaleFactor);
+  const fontSize = size > 55 ? 11 : 10;
+  const countFontSize = size > 55 ? 14 : 12;
+
+  return L.divIcon({
+    className: 'state-marker',
+    html: `<div class="state-marker-inner" style="
+      width: ${size}px;
+      height: ${size}px;
+    ">
+      <span class="state-code" style="font-size: ${fontSize}px;">${stateCode}</span>
+      <span class="state-count" style="font-size: ${countFontSize}px;">${count > 9999 ? Math.round(count / 1000) + 'k' : count}</span>
+    </div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
@@ -102,14 +127,36 @@ function HeatmapLayer({ clusters }) {
 }
 
 // Component to handle map movement events and fetch data
-function MapDataLoader({ onDataLoaded, onZoomChange }) {
+function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange }) {
   const map = useMap();
   const fetchTimeoutRef = useRef(null);
   const lastFetchRef = useRef(null);
+  const stateDataFetchedRef = useRef(false);
+
+  // Fetch state-level data (cached, very fast)
+  const fetchStateData = useCallback(async () => {
+    if (stateDataFetchedRef.current) return; // Only fetch once
+    stateDataFetchedRef.current = true;
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/meetings/by-state`);
+      if (response.ok) {
+        const data = await response.json();
+        onStateDataLoaded(data);
+      }
+    } catch (error) {
+      console.error('Error fetching state data:', error);
+    }
+  }, [onStateDataLoaded]);
 
   const fetchHeatmapData = useCallback(async () => {
     const bounds = map.getBounds();
     const zoom = map.getZoom();
+
+    // At very low zoom, we use pre-fetched state data, no need to fetch clusters
+    if (zoom < STATE_ZOOM_THRESHOLD) {
+      return;
+    }
 
     // Create a cache key to avoid duplicate fetches
     const cacheKey = `${zoom}-${bounds.getNorth().toFixed(2)}-${bounds.getSouth().toFixed(2)}-${bounds.getEast().toFixed(2)}-${bounds.getWest().toFixed(2)}`;
@@ -141,7 +188,10 @@ function MapDataLoader({ onDataLoaded, onZoomChange }) {
       fetchTimeoutRef.current = setTimeout(fetchHeatmapData, 300);
     };
 
-    // Initial fetch
+    // Fetch state data immediately (cached)
+    fetchStateData();
+
+    // Initial fetch for clusters/meetings
     fetchHeatmapData();
 
     map.on('moveend', handleMoveEnd);
@@ -154,9 +204,35 @@ function MapDataLoader({ onDataLoaded, onZoomChange }) {
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [map, fetchHeatmapData, onZoomChange]);
+  }, [map, fetchHeatmapData, fetchStateData, onZoomChange]);
 
   return null;
+}
+
+// State marker component
+function StateMarker({ stateData }) {
+  const map = useMap();
+
+  const handleClick = useCallback(() => {
+    // Zoom in to this state
+    map.setView([stateData.lat, stateData.lng], 7);
+  }, [map, stateData]);
+
+  return (
+    <Marker
+      position={[stateData.lat, stateData.lng]}
+      icon={createStateIcon(stateData.state, stateData.count)}
+      eventHandlers={{ click: handleClick }}
+    >
+      <Popup>
+        <div className="state-popup">
+          <strong>{stateData.stateName}</strong>
+          <div className="state-popup-count">{stateData.count.toLocaleString()} meetings</div>
+          <div className="cluster-popup-hint">Click to zoom in</div>
+        </div>
+      </Popup>
+    </Marker>
+  );
 }
 
 // Cluster marker component
@@ -191,6 +267,7 @@ const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 
 function MeetingMap({ onSelectMeeting, showHeatmap = true }) {
   const [mapData, setMapData] = useState({ clusters: [], meetings: [], total: 0, mode: 'clustered' });
+  const [stateData, setStateData] = useState({ states: [], total: 0 });
   const [currentZoom, setCurrentZoom] = useState(5);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -199,12 +276,18 @@ function MeetingMap({ onSelectMeeting, showHeatmap = true }) {
     setIsLoading(false);
   }, []);
 
+  const handleStateDataLoaded = useCallback((data) => {
+    setStateData(data);
+    setIsLoading(false);
+  }, []);
+
   const handleZoomChange = useCallback((zoom) => {
     setCurrentZoom(zoom);
   }, []);
 
-  // Determine what to display based on mode
-  const showClusters = mapData.mode === 'clustered' && mapData.clusters?.length > 0;
+  // Determine what to display based on zoom level
+  const showStateLevel = currentZoom < STATE_ZOOM_THRESHOLD && stateData.states?.length > 0;
+  const showClusters = !showStateLevel && mapData.mode === 'clustered' && mapData.clusters?.length > 0;
   const showIndividualMeetings = mapData.mode === 'individual' && mapData.meetings?.length > 0;
 
   // Filter meetings with valid coordinates
@@ -223,6 +306,8 @@ function MeetingMap({ onSelectMeeting, showHeatmap = true }) {
             'Loading...'
           ) : showIndividualMeetings ? (
             `${validMeetings.length} meetings in view`
+          ) : showStateLevel ? (
+            `${stateData.total?.toLocaleString() || 0} meetings across ${stateData.statesWithMeetings || 0} states`
           ) : (
             `${mapData.total} meetings • ${mapData.clusters?.length || 0} clusters`
           )}
@@ -243,15 +328,24 @@ function MeetingMap({ onSelectMeeting, showHeatmap = true }) {
 
         <MapDataLoader
           onDataLoaded={handleDataLoaded}
+          onStateDataLoaded={handleStateDataLoaded}
           onZoomChange={handleZoomChange}
         />
 
-        {/* Show heatmap at lower zoom levels */}
+        {/* Show state-level bubbles at very low zoom */}
+        {showStateLevel && stateData.states.map((state) => (
+          <StateMarker
+            key={`state-${state.state}`}
+            stateData={state}
+          />
+        ))}
+
+        {/* Show heatmap at medium zoom levels */}
         {showHeatmap && showClusters && currentZoom < DETAIL_ZOOM_THRESHOLD && (
           <HeatmapLayer clusters={mapData.clusters} />
         )}
 
-        {/* Show cluster markers at lower zoom levels */}
+        {/* Show cluster markers at medium zoom levels */}
         {showClusters && currentZoom < DETAIL_ZOOM_THRESHOLD && mapData.clusters.map((cluster, index) => (
           <ClusterMarker
             key={`cluster-${index}`}
@@ -311,8 +405,10 @@ function MeetingMap({ onSelectMeeting, showHeatmap = true }) {
           </div>
         )}
         <div className="legend-zoom-hint">
-          {currentZoom < DETAIL_ZOOM_THRESHOLD ? (
-            <span>Zoom in to see individual meetings</span>
+          {currentZoom < STATE_ZOOM_THRESHOLD ? (
+            <span>Showing by state • Zoom in for details</span>
+          ) : currentZoom < DETAIL_ZOOM_THRESHOLD ? (
+            <span>Showing clusters • Zoom in for meetings</span>
           ) : (
             <span>Showing individual meetings</span>
           )}

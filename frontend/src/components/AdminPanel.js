@@ -11,6 +11,7 @@ import ScrapeHistory from './ScrapeHistory';
 import CoverageAnalysis from './CoverageAnalysis';
 import DevDocs from './DevDocs';
 import FeedDetailPanel from './FeedDetailPanel';
+import TasksPanel from './TasksPanel';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -66,8 +67,12 @@ function AdminPanel({ onBackToPublic }) {
   const [directoryLoadingMore, setDirectoryLoadingMore] = useState(false);
   const [directorySearch, setDirectorySearch] = useState('');
   const [directoryState, setDirectoryState] = useState('');
+  const [directoryDay, setDirectoryDay] = useState('');
+  const [directoryType, setDirectoryType] = useState('');
+  const [directoryOnline, setDirectoryOnline] = useState('');
   const [directoryTotal, setDirectoryTotal] = useState(0);
   const [directoryHasMore, setDirectoryHasMore] = useState(true);
+  const [availableStates, setAvailableStates] = useState([]);
   const DIRECTORY_PAGE_SIZE = 25;
 
   const isRunningRef = useRef(false);
@@ -156,8 +161,22 @@ function AdminPanel({ onBackToPublic }) {
     }
   }, []);
 
+  // Fetch available states for directory filter
+  const fetchAvailableStates = useCallback(async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/meetings/by-state`);
+      if (response.ok) {
+        const data = await response.json();
+        const states = (data.states || []).map(s => s.state).filter(Boolean).sort();
+        setAvailableStates(states);
+      }
+    } catch (error) {
+      console.error('Error fetching available states:', error);
+    }
+  }, []);
+
   // Fetch directory meetings (initial load or filter change)
-  const fetchDirectoryMeetings = useCallback(async (search = '', state = '') => {
+  const fetchDirectoryMeetings = useCallback(async (search = '', state = '', day = '', type = '', online = '') => {
     setDirectoryLoading(true);
     setDirectoryMeetings([]);
     const controller = new AbortController();
@@ -167,6 +186,11 @@ function AdminPanel({ onBackToPublic }) {
       let url = `${BACKEND_URL}/api/meetings?limit=${DIRECTORY_PAGE_SIZE}&skip=0`;
       if (search) url += `&search=${encodeURIComponent(search)}`;
       if (state) url += `&state=${encodeURIComponent(state)}`;
+      if (day !== '') url += `&day=${encodeURIComponent(day)}`;
+      if (type) url += `&meetingType=${encodeURIComponent(type)}`;
+      if (online === 'online') url += `&isOnline=true`;
+      if (online === 'hybrid') url += `&isHybrid=true`;
+      if (online === 'in-person') url += `&isOnline=false`;
 
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -201,6 +225,11 @@ function AdminPanel({ onBackToPublic }) {
       let url = `${BACKEND_URL}/api/meetings?limit=${DIRECTORY_PAGE_SIZE}&skip=${skip}`;
       if (directorySearch) url += `&search=${encodeURIComponent(directorySearch)}`;
       if (directoryState) url += `&state=${encodeURIComponent(directoryState)}`;
+      if (directoryDay !== '') url += `&day=${encodeURIComponent(directoryDay)}`;
+      if (directoryType) url += `&meetingType=${encodeURIComponent(directoryType)}`;
+      if (directoryOnline === 'online') url += `&isOnline=true`;
+      if (directoryOnline === 'hybrid') url += `&isHybrid=true`;
+      if (directoryOnline === 'in-person') url += `&isOnline=false`;
 
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -220,7 +249,7 @@ function AdminPanel({ onBackToPublic }) {
     } finally {
       setDirectoryLoadingMore(false);
     }
-  }, [directoryMeetings.length, directorySearch, directoryState, directoryLoadingMore, directoryHasMore, DIRECTORY_PAGE_SIZE]);
+  }, [directoryMeetings.length, directorySearch, directoryState, directoryDay, directoryType, directoryOnline, directoryLoadingMore, directoryHasMore, DIRECTORY_PAGE_SIZE]);
 
   const checkConnection = useCallback(async () => {
     try {
@@ -288,12 +317,17 @@ function AdminPanel({ onBackToPublic }) {
     };
   }, [scrapingState.is_running, checkConnection]);
 
+  // Fetch available states on mount
+  useEffect(() => {
+    fetchAvailableStates();
+  }, [fetchAvailableStates]);
+
   // Fetch directory meetings when section is active or filters change
   useEffect(() => {
     if (activeSection === 'directory') {
-      fetchDirectoryMeetings(directorySearch, directoryState);
+      fetchDirectoryMeetings(directorySearch, directoryState, directoryDay, directoryType, directoryOnline);
     }
-  }, [activeSection, directorySearch, directoryState, fetchDirectoryMeetings]);
+  }, [activeSection, directorySearch, directoryState, directoryDay, directoryType, directoryOnline, fetchDirectoryMeetings]);
 
   const handleStartClick = () => {
     // If scraper is currently running OR there's an unfinished scrape, show choice modal
@@ -491,6 +525,12 @@ function AdminPanel({ onBackToPublic }) {
         <path d="M9 12l2 2 4-4"/>
       </svg>
     )},
+    { id: 'tasks', label: 'Tasks', icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M9 11l3 3L22 4"/>
+        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+      </svg>
+    )},
     { id: 'history', label: 'History', icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="12" cy="12" r="10"/>
@@ -647,6 +687,9 @@ function AdminPanel({ onBackToPublic }) {
           </>
         );
 
+      case 'tasks':
+        return <TasksPanel feeds={feeds} />;
+
       case 'history':
         return <ScrapeHistory />;
 
@@ -749,6 +792,18 @@ function AdminPanel({ onBackToPublic }) {
           }
         };
 
+        // Check if any filters are active
+        const hasActiveFilters = directorySearch || directoryState || directoryDay !== '' || directoryType || directoryOnline;
+
+        // Clear all filters
+        const clearAllFilters = () => {
+          setDirectorySearch('');
+          setDirectoryState('');
+          setDirectoryDay('');
+          setDirectoryType('');
+          setDirectoryOnline('');
+        };
+
         return (
           <div className="directory-section">
             <div className="directory-toolbar">
@@ -770,9 +825,51 @@ function AdminPanel({ onBackToPublic }) {
                 onChange={(e) => setDirectoryState(e.target.value)}
               >
                 <option value="">All States</option>
-                <option value="AZ">Arizona</option>
-                <option value="CA">California</option>
+                {availableStates.map(state => (
+                  <option key={state} value={state}>{state}</option>
+                ))}
               </select>
+              <select
+                className="directory-filter"
+                value={directoryDay}
+                onChange={(e) => setDirectoryDay(e.target.value)}
+              >
+                <option value="">All Days</option>
+                <option value="0">Sunday</option>
+                <option value="1">Monday</option>
+                <option value="2">Tuesday</option>
+                <option value="3">Wednesday</option>
+                <option value="4">Thursday</option>
+                <option value="5">Friday</option>
+                <option value="6">Saturday</option>
+              </select>
+              <select
+                className="directory-filter"
+                value={directoryType}
+                onChange={(e) => setDirectoryType(e.target.value)}
+              >
+                <option value="">All Types</option>
+                <option value="AA">AA</option>
+                <option value="NA">NA</option>
+                <option value="Al-Anon">Al-Anon</option>
+              </select>
+              <select
+                className="directory-filter"
+                value={directoryOnline}
+                onChange={(e) => setDirectoryOnline(e.target.value)}
+              >
+                <option value="">All Formats</option>
+                <option value="in-person">In-Person</option>
+                <option value="online">Online</option>
+                <option value="hybrid">Hybrid</option>
+              </select>
+              {hasActiveFilters && (
+                <button className="btn btn-ghost btn-sm" onClick={clearAllFilters}>
+                  Clear Filters
+                </button>
+              )}
+            </div>
+            <div className="directory-count-row">
               <div className="directory-count">
                 {directoryMeetings.length} of {directoryTotal} meeting{directoryTotal !== 1 ? 's' : ''}
               </div>

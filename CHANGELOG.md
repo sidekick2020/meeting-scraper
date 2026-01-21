@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.2] - 2026-01-21
+
+### New Features
+- **Admin Directory Filters**: Added comprehensive filtering options to meeting directory
+  - Day of week filter (Sunday-Saturday)
+  - Meeting type filter (AA, NA, Al-Anon)
+  - Format filter (In-Person, Online, Hybrid)
+  - Dynamic state dropdown populated from actual meeting data
+  - "Clear Filters" button to reset all filters at once
+  - Filters automatically trigger new search when changed
+
+### UI/UX Improvements
+- Reorganized directory toolbar layout with multiple filter dropdowns
+- Added border separator between filters and results count
+
+## [1.5.1] - 2026-01-21
+
+### UI/UX Improvements
+- **Meeting Sidebar Light Mode**: Improved text legibility in meeting detail sidebar
+  - Added section backgrounds with subtle borders for visual separation
+  - Section headers now have bottom borders and bolder font weight
+  - Icon stroke width increased for better visibility
+  - Text colors darkened for improved contrast
+  - Notes blocks and metadata sections have clearer styling
+- **Scrape History Light Mode**: Enhanced row visibility in scrape history list
+  - Added subtle row backgrounds with clear borders
+  - Status badges now have better color contrast (green/red/yellow/blue)
+  - Row hover states with accent color highlight
+  - Expanded row details have clearer section dividers
+  - State tags use accent color scheme for consistency
+
 ## [1.5.0] - 2026-01-21
 
 ### New Features

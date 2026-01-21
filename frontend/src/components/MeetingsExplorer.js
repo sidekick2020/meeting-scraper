@@ -19,15 +19,18 @@ function MeetingsExplorer({ onAdminClick }) {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedState, setSelectedState] = useState('');
+  const [selectedStates, setSelectedStates] = useState([]);
   const [selectedCity, setSelectedCity] = useState('');
   const [selectedDay, setSelectedDay] = useState('');
   const [selectedType, setSelectedType] = useState('');
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+  const [showTodayOnly, setShowTodayOnly] = useState(false);
   const [showHybridOnly, setShowHybridOnly] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState('');
   const [selectedAccessibility, setSelectedAccessibility] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [showStatesDropdown, setShowStatesDropdown] = useState(false);
+  const statesDropdownRef = useRef(null);
 
   // Pagination
   const [totalMeetings, setTotalMeetings] = useState(0);
@@ -302,8 +305,8 @@ function MeetingsExplorer({ onAdminClick }) {
       );
     }
 
-    if (selectedState) {
-      filtered = filtered.filter(m => m.state === selectedState);
+    if (selectedStates.length > 0) {
+      filtered = filtered.filter(m => selectedStates.includes(m.state));
     }
 
     if (selectedCity) {
@@ -322,6 +325,11 @@ function MeetingsExplorer({ onAdminClick }) {
       filtered = filtered.filter(m => m.isOnline);
     }
 
+    if (showTodayOnly) {
+      const today = new Date().getDay();
+      filtered = filtered.filter(m => m.day === today);
+    }
+
     if (showHybridOnly) {
       filtered = filtered.filter(m => m.isHybrid);
     }
@@ -337,32 +345,33 @@ function MeetingsExplorer({ onAdminClick }) {
     }
 
     setFilteredMeetings(filtered);
-  }, [meetings, searchQuery, selectedState, selectedCity, selectedDay, selectedType, showOnlineOnly, showHybridOnly, selectedFormat, selectedAccessibility]);
+  }, [meetings, searchQuery, selectedStates, selectedCity, selectedDay, selectedType, showOnlineOnly, showTodayOnly, showHybridOnly, selectedFormat, selectedAccessibility]);
 
-  // Update available cities when state changes
+  // Update available cities when states change
   useEffect(() => {
-    if (selectedState) {
-      const citiesInState = [...new Set(
+    if (selectedStates.length > 0) {
+      const citiesInStates = [...new Set(
         meetings
-          .filter(m => m.state === selectedState)
+          .filter(m => selectedStates.includes(m.state))
           .map(m => m.city)
           .filter(Boolean)
       )].sort();
-      setAvailableCities(citiesInState);
+      setAvailableCities(citiesInStates);
     } else {
       const allCities = [...new Set(meetings.map(m => m.city).filter(Boolean))].sort();
       setAvailableCities(allCities);
     }
     setSelectedCity('');
-  }, [selectedState, meetings]);
+  }, [selectedStates, meetings]);
 
   const clearFilters = () => {
     setSearchQuery('');
-    setSelectedState('');
+    setSelectedStates([]);
     setSelectedCity('');
     setSelectedDay('');
     setSelectedType('');
     setShowOnlineOnly(false);
+    setShowTodayOnly(false);
     setShowHybridOnly(false);
     setSelectedFormat('');
     setSelectedAccessibility([]);
@@ -376,7 +385,26 @@ function MeetingsExplorer({ onAdminClick }) {
     );
   };
 
-  const hasActiveFilters = searchQuery || selectedState || selectedCity || selectedDay || selectedType || showOnlineOnly || showHybridOnly || selectedFormat || selectedAccessibility.length > 0;
+  const toggleState = (state) => {
+    setSelectedStates(prev =>
+      prev.includes(state)
+        ? prev.filter(s => s !== state)
+        : [...prev, state]
+    );
+  };
+
+  const hasActiveFilters = searchQuery || selectedStates.length > 0 || selectedCity || selectedDay || selectedType || showOnlineOnly || showTodayOnly || showHybridOnly || selectedFormat || selectedAccessibility.length > 0;
+
+  // Close states dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (statesDropdownRef.current && !statesDropdownRef.current.contains(e.target)) {
+        setShowStatesDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Compute autocomplete suggestions
   const computeSuggestions = useCallback((query) => {
@@ -440,7 +468,7 @@ function MeetingsExplorer({ onAdminClick }) {
 
     // If it's a state, also set the state filter
     if (suggestion.type === 'state') {
-      setSelectedState(suggestion.value);
+      setSelectedStates([suggestion.value]);
     }
   };
 
@@ -592,18 +620,51 @@ function MeetingsExplorer({ onAdminClick }) {
       {/* Secondary Filter Bar */}
       <div className="airbnb-filters">
         <div className="filter-chips">
-          <select
-            value={selectedState}
-            onChange={(e) => setSelectedState(e.target.value)}
-            className="filter-chip-select"
-          >
-            <option value="">All States</option>
-            {availableStates.map(state => (
-              <option key={state} value={state}>{state}</option>
-            ))}
-          </select>
+          {/* Multi-select States Dropdown */}
+          <div className="multi-select-dropdown" ref={statesDropdownRef}>
+            <button
+              className={`filter-chip-select multi-select-trigger ${selectedStates.length > 0 ? 'has-selection' : ''}`}
+              onClick={() => setShowStatesDropdown(!showStatesDropdown)}
+            >
+              <span className="multi-select-label">
+                {selectedStates.length === 0
+                  ? 'All States'
+                  : selectedStates.length === 1
+                    ? selectedStates[0]
+                    : `${selectedStates.length} states`}
+              </span>
+              <svg className={`dropdown-chevron ${showStatesDropdown ? 'open' : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            {showStatesDropdown && (
+              <div className="multi-select-menu">
+                <div className="multi-select-header">
+                  <span>Select States</span>
+                  {selectedStates.length > 0 && (
+                    <button className="multi-select-clear" onClick={() => setSelectedStates([])}>
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="multi-select-options">
+                  {availableStates.map(state => (
+                    <label key={state} className="multi-select-option">
+                      <input
+                        type="checkbox"
+                        checked={selectedStates.includes(state)}
+                        onChange={() => toggleState(state)}
+                      />
+                      <span className="checkbox-custom"></span>
+                      <span className="option-label">{state}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
-          {selectedState && (
+          {selectedStates.length > 0 && (
             <select
               value={selectedCity}
               onChange={(e) => setSelectedCity(e.target.value)}
@@ -626,6 +687,20 @@ function MeetingsExplorer({ onAdminClick }) {
               <path d="M12 17v4"/>
             </svg>
             Online
+          </button>
+
+          <button
+            className={`filter-chip ${showTodayOnly ? 'active' : ''}`}
+            onClick={() => setShowTodayOnly(!showTodayOnly)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+              <circle cx="12" cy="15" r="2" fill="currentColor"/>
+            </svg>
+            Today
           </button>
 
           <button
@@ -746,7 +821,7 @@ function MeetingsExplorer({ onAdminClick }) {
           ) : (
             <>
               <div className="list-header">
-                <h2>Meetings in {selectedState || selectedCity || 'all areas'}</h2>
+                <h2>Meetings in {selectedStates.length > 0 ? selectedStates.join(', ') : selectedCity || 'all areas'}</h2>
                 <p>{filteredMeetings.length} meeting{filteredMeetings.length !== 1 ? 's' : ''} available</p>
               </div>
               <div className="meeting-cards-grid">
@@ -941,17 +1016,20 @@ function MeetingsExplorer({ onAdminClick }) {
               <div className="filter-section">
                 <h3>Location</h3>
                 <div className="filter-location-selects">
-                  <select
-                    value={selectedState}
-                    onChange={(e) => setSelectedState(e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="">All States</option>
+                  <div className="filter-states-grid">
                     {availableStates.map(state => (
-                      <option key={state} value={state}>{state}</option>
+                      <label key={state} className="filter-state-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={selectedStates.includes(state)}
+                          onChange={() => toggleState(state)}
+                        />
+                        <span className="checkbox-custom"></span>
+                        <span>{state}</span>
+                      </label>
                     ))}
-                  </select>
-                  {selectedState && (
+                  </div>
+                  {selectedStates.length > 0 && (
                     <select
                       value={selectedCity}
                       onChange={(e) => setSelectedCity(e.target.value)}
