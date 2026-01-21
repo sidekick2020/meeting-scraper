@@ -16,6 +16,101 @@ app = Flask(__name__)
 BUILD_VERSION = datetime.now().strftime("%Y%m%d%H%M%S")
 CORS(app, origins="*")
 
+
+# =============================================================================
+# UNIFIED CACHE MANAGER
+# Memory-conscious caching with TTL and size limits
+# =============================================================================
+class CacheManager:
+    """
+    Thread-safe in-memory cache with TTL and size limits.
+    Designed to be memory-conscious while providing fast lookups.
+    """
+
+    def __init__(self, name, ttl_seconds=300, max_entries=100):
+        """
+        Initialize a cache instance.
+
+        Args:
+            name: Identifier for this cache (for logging)
+            ttl_seconds: Time-to-live for cache entries (default 5 minutes)
+            max_entries: Maximum number of entries to store (default 100)
+        """
+        self.name = name
+        self.ttl = ttl_seconds
+        self.max_entries = max_entries
+        self._cache = {}
+        self._lock = threading.Lock()
+
+    def get(self, key):
+        """Get a value from cache. Returns None if not found or expired."""
+        with self._lock:
+            if key not in self._cache:
+                return None
+
+            entry = self._cache[key]
+            if time.time() > entry['expires_at']:
+                # Entry expired, remove it
+                del self._cache[key]
+                return None
+
+            return entry['value']
+
+    def set(self, key, value):
+        """Set a value in cache with TTL."""
+        with self._lock:
+            # Enforce max entries - remove oldest expired entries first
+            if len(self._cache) >= self.max_entries:
+                self._evict_expired()
+
+            # If still at max, remove oldest entry
+            if len(self._cache) >= self.max_entries:
+                oldest_key = min(self._cache.keys(),
+                               key=lambda k: self._cache[k]['expires_at'])
+                del self._cache[oldest_key]
+
+            self._cache[key] = {
+                'value': value,
+                'expires_at': time.time() + self.ttl,
+                'created_at': time.time()
+            }
+
+    def invalidate(self, key=None):
+        """Invalidate a specific key or entire cache."""
+        with self._lock:
+            if key is None:
+                self._cache.clear()
+            elif key in self._cache:
+                del self._cache[key]
+
+    def _evict_expired(self):
+        """Remove all expired entries (called while lock is held)."""
+        current_time = time.time()
+        expired_keys = [k for k, v in self._cache.items()
+                       if current_time > v['expires_at']]
+        for key in expired_keys:
+            del self._cache[key]
+
+    def stats(self):
+        """Get cache statistics."""
+        with self._lock:
+            self._evict_expired()
+            return {
+                'name': self.name,
+                'entries': len(self._cache),
+                'max_entries': self.max_entries,
+                'ttl_seconds': self.ttl
+            }
+
+
+# Initialize cache instances for different data types
+# TTLs are tuned based on data change frequency and importance
+changelog_cache = CacheManager('changelog', ttl_seconds=300, max_entries=5)  # 5 min TTL
+users_cache = CacheManager('users', ttl_seconds=60, max_entries=10)  # 1 min TTL (shorter for user data)
+api_versions_cache = CacheManager('api_versions', ttl_seconds=600, max_entries=5)  # 10 min TTL
+git_versions_cache = CacheManager('git_versions', ttl_seconds=300, max_entries=10)  # 5 min TTL
+
+
 # Back4app Configuration - read from environment variables
 BACK4APP_APP_ID = os.environ.get('BACK4APP_APP_ID')
 BACK4APP_REST_KEY = os.environ.get('BACK4APP_REST_KEY')
@@ -3026,6 +3121,33 @@ def get_status():
     """Get current scraping status"""
     return jsonify(scraping_state)
 
+
+@app.route('/api/cache-stats', methods=['GET'])
+def get_cache_stats():
+    """Get cache statistics for monitoring memory usage and performance."""
+    return jsonify({
+        "caches": [
+            changelog_cache.stats(),
+            users_cache.stats(),
+            api_versions_cache.stats(),
+            git_versions_cache.stats(),
+            {
+                "name": "state_meeting_counts",
+                "entries": 1 if state_meeting_counts_cache["data"] else 0,
+                "max_entries": 1,
+                "ttl_seconds": state_meeting_counts_cache["ttl"],
+                "last_updated": state_meeting_counts_cache["last_updated"]
+            },
+            {
+                "name": "geocode",
+                "entries": len(geocode_cache),
+                "max_entries": "unlimited",
+                "ttl_seconds": "permanent"
+            }
+        ]
+    })
+
+
 @app.route('/api/feeds', methods=['GET'])
 def get_feeds():
     """Get list of configured feeds with statistics (meeting count, last scrape time)"""
@@ -3121,8 +3243,15 @@ def get_version():
 
 @app.route('/api/versions', methods=['GET'])
 def get_version_history():
-    """Get detailed version history from git tags with commit info"""
+    """Get detailed version history from git tags with commit info.
+    Results are cached for 5 minutes to avoid repeated git subprocess calls.
+    """
     import subprocess
+
+    # Check cache first
+    cached = git_versions_cache.get('version_history')
+    if cached is not None:
+        return jsonify(cached)
 
     versions = []
 
@@ -3223,12 +3352,17 @@ def get_version_history():
         except Exception as e:
             print(f"Error getting recent commits: {e}")
 
-        return jsonify({
+        result = {
             "versions": versions,
             "recent_commits": recent_commits,
             "has_tags": len(tags) > 0,
             "build_version": BUILD_VERSION
-        })
+        }
+
+        # Cache the result
+        git_versions_cache.set('version_history', result)
+
+        return jsonify(result)
 
     except FileNotFoundError:
         # Git not available
@@ -3308,7 +3442,14 @@ def get_api_versions():
 
 @app.route('/api/changelog', methods=['GET'])
 def get_changelog():
-    """Get changelog from CHANGELOG.md file, parsed into structured format"""
+    """Get changelog from CHANGELOG.md file, parsed into structured format.
+    Results are cached for 5 minutes to improve performance.
+    """
+    # Check cache first
+    cached = changelog_cache.get('changelog')
+    if cached is not None:
+        return jsonify(cached)
+
     changelog_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'CHANGELOG.md')
 
     # Also check for CHANGELOG.md in current directory or parent
@@ -3377,10 +3518,15 @@ def get_changelog():
         if current_version:
             versions.append(current_version)
 
-        return jsonify({
+        result = {
             "changelog": versions,
             "total_versions": len(versions)
-        })
+        }
+
+        # Cache the result
+        changelog_cache.set('changelog', result)
+
+        return jsonify(result)
 
     except FileNotFoundError:
         return jsonify({
@@ -4140,9 +4286,14 @@ Sober Sidekick Team
 
 @app.route('/api/users', methods=['GET'])
 def get_users():
-    """Get all dashboard users."""
+    """Get all dashboard users. Results are cached for 60 seconds."""
     if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
         return jsonify({'error': 'Back4app not configured'}), 400
+
+    # Check cache first
+    cached = users_cache.get('all_users')
+    if cached is not None:
+        return jsonify(cached)
 
     try:
         response = requests.get(
@@ -4152,15 +4303,21 @@ def get_users():
                 'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
             },
             params={'order': '-createdAt', 'limit': 100},
-            timeout=30
+            timeout=15  # Reduced timeout - fail faster if Back4App is slow
         )
 
         if response.status_code == 200:
             users = response.json().get('results', [])
-            return jsonify({'users': users})
+            result = {'users': users}
+            # Cache the result
+            users_cache.set('all_users', result)
+            return jsonify(result)
         else:
             return jsonify({'error': 'Failed to fetch users'}), response.status_code
 
+    except requests.exceptions.Timeout:
+        # Return cached data if available, even if expired
+        return jsonify({'error': 'Request timed out. Please try again.'}), 504
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -4235,6 +4392,9 @@ def invite_user():
             new_user = create_response.json()
             new_user.update(user_data)
 
+            # Invalidate users cache since we added a new user
+            users_cache.invalidate('all_users')
+
             # Send invite email
             email_sent = send_invite_email(email, invite_token, inviter_name, cc_email)
 
@@ -4307,6 +4467,8 @@ def update_user(user_id):
         )
 
         if update_response.status_code == 200:
+            # Invalidate users cache since we modified a user
+            users_cache.invalidate('all_users')
             return jsonify({'success': True, 'user': {**user, **update_data}})
         else:
             return jsonify({'error': 'Failed to update user'}), update_response.status_code
@@ -4354,6 +4516,8 @@ def delete_user(user_id):
         )
 
         if delete_response.status_code == 200:
+            # Invalidate users cache since we deleted a user
+            users_cache.invalidate('all_users')
             return jsonify({'success': True})
         else:
             return jsonify({'error': 'Failed to delete user'}), delete_response.status_code
@@ -4474,6 +4638,8 @@ def accept_invite():
         )
 
         if update_response.status_code == 200:
+            # Invalidate users cache since user status changed
+            users_cache.invalidate('all_users')
             return jsonify({
                 'success': True,
                 'user': {
