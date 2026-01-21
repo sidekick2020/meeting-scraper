@@ -1678,6 +1678,35 @@ US_STATE_NAMES = {
     "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia", "PR": "Puerto Rico",
 }
 
+# State center coordinates for map display (approximate geographic centers)
+US_STATE_CENTERS = {
+    "AL": (32.806671, -86.791130), "AK": (61.370716, -152.404419), "AZ": (33.729759, -111.431221),
+    "AR": (34.969704, -92.373123), "CA": (36.116203, -119.681564), "CO": (39.059811, -105.311104),
+    "CT": (41.597782, -72.755371), "DE": (39.318523, -75.507141), "FL": (27.766279, -81.686783),
+    "GA": (33.040619, -83.643074), "HI": (21.094318, -157.498337), "ID": (44.240459, -114.478828),
+    "IL": (40.349457, -88.986137), "IN": (39.849426, -86.258278), "IA": (42.011539, -93.210526),
+    "KS": (38.526600, -96.726486), "KY": (37.668140, -84.670067), "LA": (31.169546, -91.867805),
+    "ME": (44.693947, -69.381927), "MD": (39.063946, -76.802101), "MA": (42.230171, -71.530106),
+    "MI": (43.326618, -84.536095), "MN": (45.694454, -93.900192), "MS": (32.741646, -89.678696),
+    "MO": (38.456085, -92.288368), "MT": (46.921925, -110.454353), "NE": (41.125370, -98.268082),
+    "NV": (38.313515, -117.055374), "NH": (43.452492, -71.563896), "NJ": (40.298904, -74.521011),
+    "NM": (34.840515, -106.248482), "NY": (42.165726, -74.948051), "NC": (35.630066, -79.806419),
+    "ND": (47.528912, -99.784012), "OH": (40.388783, -82.764915), "OK": (35.565342, -96.928917),
+    "OR": (44.572021, -122.070938), "PA": (40.590752, -77.209755), "RI": (41.680893, -71.511780),
+    "SC": (33.856892, -80.945007), "SD": (44.299782, -99.438828), "TN": (35.747845, -86.692345),
+    "TX": (31.054487, -97.563461), "UT": (40.150032, -111.862434), "VT": (44.045876, -72.710686),
+    "VA": (37.769337, -78.169968), "WA": (47.400902, -121.490494), "WV": (38.491226, -80.954453),
+    "WI": (44.268543, -89.616508), "WY": (42.755966, -107.302490), "DC": (38.897438, -77.026817),
+    "PR": (18.220833, -66.590149),
+}
+
+# Cached state meeting counts (refreshed periodically)
+state_meeting_counts_cache = {
+    "data": {},
+    "last_updated": None,
+    "ttl": 300  # 5 minutes cache
+}
+
 # Global state
 scraping_state = {
     "is_running": False,
@@ -3442,6 +3471,95 @@ from thumbnail_service import (
 # Start thumbnail workers if API keys are configured
 if BACK4APP_APP_ID and BACK4APP_REST_KEY:
     start_thumbnail_worker(BACK4APP_APP_ID, BACK4APP_REST_KEY, num_workers=2)
+
+
+@app.route('/api/meetings/by-state', methods=['GET'])
+def get_meetings_by_state():
+    """Get meeting counts by state for efficient map overview display.
+
+    Returns cached aggregated counts with state center coordinates.
+    This is very fast and avoids fetching individual meetings.
+    """
+    import time
+
+    # Check cache
+    cache = state_meeting_counts_cache
+    current_time = time.time()
+
+    if cache["last_updated"] and (current_time - cache["last_updated"]) < cache["ttl"]:
+        # Return cached data
+        return jsonify(cache["data"])
+
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({"states": [], "total": 0})
+
+    headers = {
+        "X-Parse-Application-Id": BACK4APP_APP_ID,
+        "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+    }
+
+    try:
+        from collections import Counter
+
+        # Fetch all meetings with only state field (very efficient)
+        meetings_by_state = Counter()
+        total_meetings = 0
+        skip = 0
+        batch_size = 1000
+
+        while True:
+            url = f"{BACK4APP_URL}?keys=state&limit={batch_size}&skip={skip}"
+            response = requests.get(url, headers=headers, timeout=30)
+            if response.status_code != 200:
+                break
+
+            data = response.json()
+            results = data.get("results", [])
+            if not results:
+                break
+
+            for meeting in results:
+                state = meeting.get("state")
+                if state:
+                    meetings_by_state[state] += 1
+                total_meetings += 1
+
+            if len(results) < batch_size:
+                break
+
+            skip += batch_size
+
+        # Build state data with coordinates
+        states = []
+        for state_code, count in meetings_by_state.items():
+            if state_code in US_STATE_CENTERS:
+                lat, lng = US_STATE_CENTERS[state_code]
+                states.append({
+                    "state": state_code,
+                    "stateName": US_STATE_NAMES.get(state_code, state_code),
+                    "count": count,
+                    "lat": lat,
+                    "lng": lng
+                })
+
+        # Sort by count descending
+        states.sort(key=lambda x: x["count"], reverse=True)
+
+        result = {
+            "states": states,
+            "total": total_meetings,
+            "statesWithMeetings": len(states)
+        }
+
+        # Update cache
+        cache["data"] = result
+        cache["last_updated"] = current_time
+
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"Error fetching meetings by state: {e}")
+        return jsonify({"states": [], "total": 0, "error": str(e)}), 500
 
 
 @app.route('/api/thumbnail/<meeting_id>', methods=['GET'])

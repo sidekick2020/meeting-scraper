@@ -1564,6 +1564,63 @@
   margin-top: 0.25rem;
 }
 
+/* State-level markers for zoomed out view */
+.state-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.state-marker-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4), 0 2px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  padding: 4px;
+}
+
+.state-marker-inner:hover {
+  transform: scale(1.15);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5), 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.state-marker-inner .state-code {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+.state-marker-inner .state-count {
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* State popup */
+.state-popup {
+  text-align: center;
+  min-width: 140px;
+}
+
+.state-popup strong {
+  display: block;
+  color: #1f2937;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.state-popup-count {
+  font-size: 0.9rem;
+  color: #3b82f6;
+  font-weight: 600;
+}
+
 /* Legend Zoom Hint */
 .legend-zoom-hint {
   font-size: 0.75rem;
