@@ -62,6 +62,7 @@ function AdminPanel({ onBackToPublic }) {
   const [selectedSource, setSelectedSource] = useState(null);
   const [feedSearchQuery, setFeedSearchQuery] = useState('');
   const [expandedFeed, setExpandedFeed] = useState(null);
+  const [appVersion, setAppVersion] = useState(null);
 
   // Directory state
   const [directoryMeetings, setDirectoryMeetings] = useState([]);
@@ -126,6 +127,22 @@ function AdminPanel({ onBackToPublic }) {
       }
     } catch (error) {
       console.error('Error checking config:', error);
+    }
+  }, []);
+
+  // Fetch current app version from git tags
+  const fetchAppVersion = useCallback(async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/versions`);
+      if (response.ok) {
+        const data = await response.json();
+        const currentVersion = data.versions?.find(v => v.is_current);
+        if (currentVersion) {
+          setAppVersion(currentVersion.tag);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching version:', error);
     }
   }, []);
 
@@ -304,11 +321,12 @@ function AdminPanel({ onBackToPublic }) {
     checkBackendConfig();
     checkUnfinishedScrape();
     fetchFeeds();
+    fetchAppVersion();
     pollIntervalRef.current = setInterval(checkConnection, POLL_INTERVAL_IDLE);
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [checkConnection, checkBackendConfig, checkUnfinishedScrape, fetchFeeds]);
+  }, [checkConnection, checkBackendConfig, checkUnfinishedScrape, fetchFeeds, fetchAppVersion]);
 
   useEffect(() => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -1027,6 +1045,12 @@ function AdminPanel({ onBackToPublic }) {
             </svg>
             <span>Docs</span>
           </button>
+
+          {appVersion && (
+            <div className="sidebar-version" onClick={() => setShowConfig(true)}>
+              {appVersion}
+            </div>
+          )}
 
           <div className="sidebar-divider"></div>
 

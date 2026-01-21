@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.2] - 2026-01-21
+
+### UI/UX Improvements
+- **Version Indicator**: Display current app version in sidebar footer
+  - Shows version tag (e.g., v1.6.2) at bottom of sidebar
+  - Clickable to open Settings for full version history
+  - Fetches version from git tags via API
+
 ## [1.6.0] - 2026-01-21
 
 ### New Features
