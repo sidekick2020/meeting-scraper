@@ -5541,11 +5541,12 @@ a.sidebar-nav-item {
 }
 
 .search-section input {
-  background: none;
+  background: var(--bg-tertiary);
   border: none;
+  border-radius: 1.5rem;
   color: var(--text-primary);
   font-size: 0.875rem;
-  padding: 0;
+  padding: 0.5rem 1rem;
   outline: none;
   width: 100%;
 }
