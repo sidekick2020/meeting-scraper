@@ -62,6 +62,12 @@ function AdminPanel({ onBackToPublic }) {
   const [selectedSource, setSelectedSource] = useState(null);
   const [feedSearchQuery, setFeedSearchQuery] = useState('');
   const [expandedFeed, setExpandedFeed] = useState(null);
+  const [savedConfigs, setSavedConfigs] = useState(() => {
+    const saved = localStorage.getItem('scrape_configurations');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [showSaveConfigInput, setShowSaveConfigInput] = useState(false);
+  const [newConfigName, setNewConfigName] = useState('');
 
   // Directory state
   const [directoryMeetings, setDirectoryMeetings] = useState([]);
@@ -155,8 +161,17 @@ function AdminPanel({ onBackToPublic }) {
         const data = await response.json();
         const feedList = data.feeds || [];
         setFeeds(feedList);
-        // Initialize all feeds as selected
-        setSelectedFeeds(feedList.map(f => f.name));
+        // Default to feeds that need scraping (never scraped or > 7 days old)
+        const needsScrapeFeeds = feedList.filter(f => {
+          if (!f.lastScraped) return true;
+          const daysSinceLastScrape = (new Date() - new Date(f.lastScraped)) / (1000 * 60 * 60 * 24);
+          return daysSinceLastScrape > 7;
+        });
+        // If all feeds are up to date, select all; otherwise select only those needing scrape
+        setSelectedFeeds(needsScrapeFeeds.length > 0
+          ? needsScrapeFeeds.map(f => f.name)
+          : feedList.map(f => f.name)
+        );
       }
     } catch (error) {
       console.error('Error fetching feeds:', error);
@@ -355,6 +370,42 @@ function AdminPanel({ onBackToPublic }) {
 
   const selectNoFeeds = () => {
     setSelectedFeeds([]);
+  };
+
+  const selectNeedsScrape = () => {
+    const needsScrapeFeeds = feeds.filter(f => {
+      if (!f.lastScraped) return true;
+      const daysSinceLastScrape = (new Date() - new Date(f.lastScraped)) / (1000 * 60 * 60 * 24);
+      return daysSinceLastScrape > 7;
+    });
+    setSelectedFeeds(needsScrapeFeeds.map(f => f.name));
+  };
+
+  const saveConfiguration = (name) => {
+    if (!name.trim()) return;
+    const newConfig = {
+      id: Date.now(),
+      name: name.trim(),
+      feeds: selectedFeeds,
+      createdAt: new Date().toISOString()
+    };
+    const updated = [...savedConfigs.filter(c => c.name !== name.trim()), newConfig];
+    setSavedConfigs(updated);
+    localStorage.setItem('scrape_configurations', JSON.stringify(updated));
+    setShowSaveConfigInput(false);
+    setNewConfigName('');
+  };
+
+  const loadConfiguration = (config) => {
+    // Only select feeds that still exist
+    const validFeeds = config.feeds.filter(f => feeds.some(feed => feed.name === f));
+    setSelectedFeeds(validFeeds);
+  };
+
+  const deleteConfiguration = (configId) => {
+    const updated = savedConfigs.filter(c => c.id !== configId);
+    setSavedConfigs(updated);
+    localStorage.setItem('scrape_configurations', JSON.stringify(updated));
   };
 
   const startScraping = async () => {
@@ -603,7 +654,7 @@ function AdminPanel({ onBackToPublic }) {
                     className="btn btn-primary btn-large"
                     disabled={!isConnected}
                   >
-                    Select Sources & Start
+                    Start Scrape
                   </button>
                 ) : (
                   <>
@@ -1277,15 +1328,106 @@ function AdminPanel({ onBackToPublic }) {
         </div>
 
         <div className="feed-selector-actions">
+          <button onClick={selectNeedsScrape} className="btn btn-ghost btn-sm" disabled={isStartingScrape} title="Select sources that need to be scraped">
+            Needs Scrape
+          </button>
           <button onClick={selectAllFeeds} className="btn btn-ghost btn-sm" disabled={isStartingScrape}>
-            Select All
+            All
           </button>
           <button onClick={selectNoFeeds} className="btn btn-ghost btn-sm" disabled={isStartingScrape}>
-            Select None
+            None
           </button>
           <span className="selected-count-inline">
-            {selectedFeeds.length} of {feeds.length} selected
+            {selectedFeeds.length} of {feeds.length}
           </span>
+        </div>
+
+        {/* Saved Configurations */}
+        <div className="feed-config-section">
+          {savedConfigs.length > 0 && (
+            <div className="saved-configs-dropdown">
+              <select
+                className="config-select"
+                onChange={(e) => {
+                  const config = savedConfigs.find(c => c.id === parseInt(e.target.value));
+                  if (config) loadConfiguration(config);
+                  e.target.value = '';
+                }}
+                disabled={isStartingScrape}
+                defaultValue=""
+              >
+                <option value="" disabled>Load saved config...</option>
+                {savedConfigs.map(config => (
+                  <option key={config.id} value={config.id}>
+                    {config.name} ({config.feeds.length} sources)
+                  </option>
+                ))}
+              </select>
+              {savedConfigs.length > 0 && (
+                <button
+                  className="btn btn-ghost btn-sm config-delete-btn"
+                  onClick={() => {
+                    const configToDelete = savedConfigs[savedConfigs.length - 1];
+                    if (window.confirm(`Delete "${configToDelete.name}"?`)) {
+                      deleteConfiguration(configToDelete.id);
+                    }
+                  }}
+                  disabled={isStartingScrape}
+                  title="Delete most recent config"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="3,6 5,6 21,6"/>
+                    <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
+
+          {showSaveConfigInput ? (
+            <div className="save-config-input-row">
+              <input
+                type="text"
+                placeholder="Config name..."
+                value={newConfigName}
+                onChange={(e) => setNewConfigName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveConfiguration(newConfigName);
+                  if (e.key === 'Escape') { setShowSaveConfigInput(false); setNewConfigName(''); }
+                }}
+                className="config-name-input"
+                autoFocus
+                disabled={isStartingScrape}
+              />
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => saveConfiguration(newConfigName)}
+                disabled={!newConfigName.trim() || isStartingScrape}
+              >
+                Save
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => { setShowSaveConfigInput(false); setNewConfigName(''); }}
+                disabled={isStartingScrape}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              className="btn btn-ghost btn-sm save-config-btn"
+              onClick={() => setShowSaveConfigInput(true)}
+              disabled={selectedFeeds.length === 0 || isStartingScrape}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+                <polyline points="17,21 17,13 7,13 7,21"/>
+                <polyline points="7,3 7,8 15,8"/>
+              </svg>
+              Save Selection
+            </button>
+          )}
         </div>
 
         <div className="feed-selector-list">
