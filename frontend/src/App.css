@@ -291,6 +291,32 @@
   font-variant-numeric: tabular-nums;
 }
 
+.deployment-logs-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: #f59e0b;
+  text-decoration: none;
+  padding: 8px 12px;
+  margin-top: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.1);
+  transition: all 0.2s ease;
+}
+
+.deployment-logs-link:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #d97706;
+}
+
+.deployment-logs-link svg {
+  flex-shrink: 0;
+}
+
 /* Header */
 .App-header {
   background: var(--panel-bg);
