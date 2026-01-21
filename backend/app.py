@@ -4412,6 +4412,490 @@ def research_all_gaps():
         'message': f'Created {suggestions_count} tasks for uncovered states'
     })
 
+
+@app.route('/api/tasks/generate-script', methods=['POST'])
+def generate_scraping_script():
+    """Generate a Python scraping script based on existing patterns"""
+    data = request.json
+    url = data.get('url', '')
+    name = data.get('name', 'New Meeting Source')
+    state = data.get('state', 'XX')
+    feed_type = data.get('feedType', 'auto')  # 'tsml', 'bmlt', or 'auto'
+
+    state_name = US_STATE_NAMES.get(state, state)
+
+    # Auto-detect feed type based on URL patterns
+    if feed_type == 'auto':
+        if 'admin-ajax.php' in url or 'action=meetings' in url:
+            feed_type = 'tsml'
+        elif 'main_server' in url or 'client_interface' in url or 'switcher=' in url:
+            feed_type = 'bmlt'
+        elif 'sheets.code4recovery.org' in url or '.json' in url:
+            feed_type = 'json'
+        else:
+            feed_type = 'tsml'  # Default to TSML
+
+    # Generate appropriate script based on feed type
+    if feed_type == 'bmlt':
+        script = f'''#!/usr/bin/env python3
+"""
+Scraping script for: {name}
+State: {state_name} ({state})
+Feed Type: BMLT (Basic Meeting List Toolkit)
+Generated: {datetime.now().isoformat()}
+
+This script fetches NA meetings from a BMLT server and transforms them
+to the standard TSML format used by the meeting scraper.
+"""
+
+import requests
+import json
+
+# Configuration
+FEED_URL = "{url}"
+FEED_NAME = "{name}"
+STATE = "{state}"
+
+# Request headers
+HEADERS = {{
+    'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0)',
+    'Accept': 'application/json'
+}}
+
+def transform_bmlt_meeting(meeting):
+    """Transform BMLT meeting format to TSML-compatible format"""
+    # BMLT weekday is 1-7 (Sunday=1), TSML uses 0-6 (Sunday=0)
+    weekday = int(meeting.get('weekday_tinyint', 1)) - 1
+
+    # Convert time from "HH:MM:SS" to "HH:MM"
+    start_time = meeting.get('start_time', '')
+    if start_time and len(start_time) > 5:
+        start_time = start_time[:5]
+
+    # Build formatted address
+    street = meeting.get('location_street', '')
+    city = meeting.get('location_municipality', '')
+    state = meeting.get('location_province', '')
+    postal = meeting.get('location_postal_code_1', '')
+
+    # Determine venue type
+    venue_type = meeting.get('venue_type', '1')
+    is_online = venue_type == '2'
+    is_hybrid = venue_type == '3'
+
+    return {{
+        'name': meeting.get('meeting_name', 'NA Meeting'),
+        'day': weekday,
+        'time': start_time,
+        'location': meeting.get('location_text', '') or meeting.get('location_info', ''),
+        'address': street,
+        'city': city,
+        'state': state,
+        'postal_code': postal,
+        'latitude': meeting.get('latitude'),
+        'longitude': meeting.get('longitude'),
+        'types': meeting.get('formats', '').split(',') if meeting.get('formats') else [],
+        'meeting_type': 'NA',
+        'notes': meeting.get('comments', ''),
+        'conference_url': meeting.get('virtual_meeting_link', ''),
+        'attendance_option': 'online' if is_online else ('hybrid' if is_hybrid else 'in_person'),
+    }}
+
+def fetch_meetings():
+    """Fetch and transform meetings from BMLT source"""
+    try:
+        response = requests.get(FEED_URL, headers=HEADERS, timeout=30)
+        response.raise_for_status()
+
+        bmlt_meetings = response.json()
+
+        if not isinstance(bmlt_meetings, list):
+            print(f"Error: Expected list, got {{type(bmlt_meetings)}}")
+            return []
+
+        meetings = [transform_bmlt_meeting(m) for m in bmlt_meetings]
+
+        # Filter out meetings with no name
+        meetings = [m for m in meetings if m.get('name')]
+
+        return meetings
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching meetings: {{e}}")
+        return []
+    except json.JSONDecodeError as e:
+        print(f"Error parsing JSON: {{e}}")
+        return []
+
+if __name__ == '__main__':
+    print(f"Fetching meetings from {{FEED_NAME}}...")
+    meetings = fetch_meetings()
+    print(f"Found {{len(meetings)}} meetings")
+
+    # Print first 3 as sample
+    for i, meeting in enumerate(meetings[:3]):
+        print(f"\\n--- Meeting {{i+1}} ---")
+        print(f"Name: {{meeting.get('name')}}")
+        print(f"Day: {{meeting.get('day')}} Time: {{meeting.get('time')}}")
+        print(f"Location: {{meeting.get('city')}}, {{meeting.get('state')}}")
+'''
+    elif feed_type == 'json':
+        script = f'''#!/usr/bin/env python3
+"""
+Scraping script for: {name}
+State: {state_name} ({state})
+Feed Type: JSON (Direct/Google Sheets)
+Generated: {datetime.now().isoformat()}
+
+This script fetches meetings from a JSON endpoint (often Google Sheets
+published through code4recovery).
+"""
+
+import requests
+import json
+
+# Configuration
+FEED_URL = "{url}"
+FEED_NAME = "{name}"
+STATE = "{state}"
+
+# Request headers
+HEADERS = {{
+    'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0)',
+    'Accept': 'application/json'
+}}
+
+def fetch_meetings():
+    """Fetch meetings from JSON source"""
+    try:
+        response = requests.get(FEED_URL, headers=HEADERS, timeout=30)
+        response.raise_for_status()
+
+        meetings = response.json()
+
+        if not isinstance(meetings, list):
+            print(f"Error: Expected list, got {{type(meetings)}}")
+            return []
+
+        # Ensure state is set
+        for meeting in meetings:
+            if not meeting.get('state'):
+                meeting['state'] = STATE
+            if not meeting.get('meeting_type'):
+                meeting['meeting_type'] = 'AA'
+
+        return meetings
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching meetings: {{e}}")
+        return []
+    except json.JSONDecodeError as e:
+        print(f"Error parsing JSON: {{e}}")
+        return []
+
+if __name__ == '__main__':
+    print(f"Fetching meetings from {{FEED_NAME}}...")
+    meetings = fetch_meetings()
+    print(f"Found {{len(meetings)}} meetings")
+
+    # Print first 3 as sample
+    for i, meeting in enumerate(meetings[:3]):
+        print(f"\\n--- Meeting {{i+1}} ---")
+        print(f"Name: {{meeting.get('name')}}")
+        print(f"Day: {{meeting.get('day')}} Time: {{meeting.get('time')}}")
+        print(f"Location: {{meeting.get('city')}}, {{meeting.get('state')}}")
+'''
+    else:  # TSML format (default)
+        script = f'''#!/usr/bin/env python3
+"""
+Scraping script for: {name}
+State: {state_name} ({state})
+Feed Type: TSML (12 Step Meeting List)
+Generated: {datetime.now().isoformat()}
+
+This script fetches AA meetings from a WordPress site using the
+TSML (12 Step Meeting List) plugin API.
+"""
+
+import requests
+import json
+
+# Configuration
+FEED_URL = "{url}"
+FEED_NAME = "{name}"
+STATE = "{state}"
+
+# Request headers
+HEADERS = {{
+    'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0)',
+    'Accept': 'application/json'
+}}
+
+def fetch_meetings():
+    """Fetch meetings from TSML source"""
+    try:
+        response = requests.get(FEED_URL, headers=HEADERS, timeout=30)
+        response.raise_for_status()
+
+        meetings = response.json()
+
+        if not isinstance(meetings, list):
+            print(f"Error: Expected list, got {{type(meetings)}}")
+            return []
+
+        # Add state if not present and meeting_type
+        for meeting in meetings:
+            if not meeting.get('state'):
+                meeting['state'] = STATE
+            # TSML feeds are typically AA meetings
+            if not meeting.get('meeting_type'):
+                meeting['meeting_type'] = 'AA'
+
+        # Filter out meetings with no name
+        meetings = [m for m in meetings if m.get('name')]
+
+        return meetings
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching meetings: {{e}}")
+        return []
+    except json.JSONDecodeError as e:
+        print(f"Error parsing JSON: {{e}}")
+        return []
+
+if __name__ == '__main__':
+    print(f"Fetching meetings from {{FEED_NAME}}...")
+    meetings = fetch_meetings()
+    print(f"Found {{len(meetings)}} meetings")
+
+    # Print first 3 as sample
+    for i, meeting in enumerate(meetings[:3]):
+        print(f"\\n--- Meeting {{i+1}} ---")
+        print(f"Name: {{meeting.get('name')}}")
+        print(f"Day: {{meeting.get('day')}} Time: {{meeting.get('time')}}")
+        print(f"Location: {{meeting.get('city')}}, {{meeting.get('state')}}")
+'''
+
+    return jsonify({
+        'success': True,
+        'script': script,
+        'feedType': feed_type,
+        'feedConfig': {
+            'name': name,
+            'url': url,
+            'state': state,
+            'type': feed_type if feed_type == 'bmlt' else 'tsml'
+        }
+    })
+
+
+@app.route('/api/tasks/test-script', methods=['POST'])
+def test_scraping_script():
+    """Test a scraping URL to verify it returns valid meeting data"""
+    data = request.json
+    url = data.get('url', '')
+    feed_type = data.get('feedType', 'auto')
+    state = data.get('state', 'XX')
+
+    if not url:
+        return jsonify({'success': False, 'error': 'URL is required'}), 400
+
+    # Auto-detect feed type
+    if feed_type == 'auto':
+        if 'admin-ajax.php' in url or 'action=meetings' in url:
+            feed_type = 'tsml'
+        elif 'main_server' in url or 'client_interface' in url or 'switcher=' in url:
+            feed_type = 'bmlt'
+        elif 'sheets.code4recovery.org' in url or '.json' in url:
+            feed_type = 'json'
+        else:
+            feed_type = 'tsml'
+
+    try:
+        response = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
+        response.raise_for_status()
+
+        raw_data = response.json()
+
+        if not isinstance(raw_data, list):
+            return jsonify({
+                'success': False,
+                'error': f'Expected JSON array, got {type(raw_data).__name__}',
+                'hint': 'The URL should return a JSON array of meetings'
+            })
+
+        if len(raw_data) == 0:
+            return jsonify({
+                'success': False,
+                'error': 'No meetings found in response',
+                'hint': 'The feed returned an empty array'
+            })
+
+        # Transform if BMLT
+        if feed_type == 'bmlt':
+            meetings = [transform_bmlt_to_tsml(m) for m in raw_data]
+        else:
+            meetings = raw_data
+            # Add state if missing
+            for m in meetings:
+                if not m.get('state'):
+                    m['state'] = state
+                if not m.get('meeting_type'):
+                    m['meeting_type'] = 'AA'
+
+        # Validate meeting structure
+        sample_meeting = meetings[0]
+        required_fields = ['name']
+        missing_fields = [f for f in required_fields if not sample_meeting.get(f)]
+
+        if missing_fields:
+            return jsonify({
+                'success': False,
+                'error': f'Missing required fields: {", ".join(missing_fields)}',
+                'sampleData': sample_meeting
+            })
+
+        # Count meetings by state
+        state_counts = {}
+        for m in meetings:
+            s = m.get('state', 'Unknown')
+            state_counts[s] = state_counts.get(s, 0) + 1
+
+        # Get sample meetings (first 5)
+        sample_meetings = []
+        for m in meetings[:5]:
+            sample_meetings.append({
+                'name': m.get('name', 'Unknown'),
+                'day': m.get('day'),
+                'time': m.get('time', ''),
+                'city': m.get('city', ''),
+                'state': m.get('state', ''),
+                'meeting_type': m.get('meeting_type', 'AA')
+            })
+
+        return jsonify({
+            'success': True,
+            'totalMeetings': len(meetings),
+            'feedType': feed_type,
+            'stateBreakdown': state_counts,
+            'sampleMeetings': sample_meetings,
+            'fieldsFound': list(sample_meeting.keys())[:15]  # First 15 fields
+        })
+
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'success': False,
+            'error': 'Request timed out after 30 seconds',
+            'hint': 'The server may be slow or the URL may be incorrect'
+        })
+    except requests.exceptions.HTTPError as e:
+        return jsonify({
+            'success': False,
+            'error': f'HTTP error: {e.response.status_code}',
+            'hint': f'The server returned an error. Status: {e.response.status_code}'
+        })
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'success': False,
+            'error': f'Request failed: {str(e)}',
+            'hint': 'Check if the URL is correct and accessible'
+        })
+    except json.JSONDecodeError as e:
+        return jsonify({
+            'success': False,
+            'error': 'Invalid JSON response',
+            'hint': 'The URL did not return valid JSON data'
+        })
+
+
+@app.route('/api/tasks/add-source', methods=['POST'])
+def add_meeting_source():
+    """Add a new meeting source to the feeds configuration.
+    Note: This adds to the in-memory configuration. In production,
+    this would persist to a config file or database."""
+    global AA_FEEDS, NA_FEEDS
+
+    data = request.json
+    name = data.get('name', '')
+    url = data.get('url', '')
+    state = data.get('state', '')
+    feed_type = data.get('feedType', 'tsml')
+
+    if not name or not url or not state:
+        return jsonify({
+            'success': False,
+            'error': 'Name, URL, and state are required'
+        }), 400
+
+    # Check if source already exists
+    all_feeds = get_all_feeds()
+    if name in all_feeds:
+        return jsonify({
+            'success': False,
+            'error': f'A source named "{name}" already exists'
+        }), 400
+
+    # Check for duplicate URL
+    for existing_name, config in all_feeds.items():
+        if config.get('url') == url:
+            return jsonify({
+                'success': False,
+                'error': f'This URL is already configured as "{existing_name}"'
+            }), 400
+
+    # Add to appropriate feed dictionary
+    if feed_type == 'bmlt':
+        NA_FEEDS[name] = {
+            'url': url,
+            'state': state,
+            'type': 'bmlt'
+        }
+    else:
+        AA_FEEDS[name] = {
+            'url': url,
+            'state': state
+        }
+
+    return jsonify({
+        'success': True,
+        'message': f'Added "{name}" to {feed_type.upper()} feeds',
+        'totalFeeds': len(AA_FEEDS) + len(NA_FEEDS),
+        'feedConfig': {
+            'name': name,
+            'url': url,
+            'state': state,
+            'type': feed_type
+        }
+    })
+
+
+@app.route('/api/feeds', methods=['GET'])
+def list_all_feeds():
+    """List all configured meeting feeds"""
+    all_feeds = get_all_feeds()
+
+    feeds_list = []
+    for name, config in all_feeds.items():
+        feeds_list.append({
+            'name': name,
+            'url': config.get('url'),
+            'state': config.get('state'),
+            'type': config.get('type', 'tsml')
+        })
+
+    # Sort by state then name
+    feeds_list.sort(key=lambda x: (x['state'], x['name']))
+
+    return jsonify({
+        'feeds': feeds_list,
+        'totalFeeds': len(feeds_list),
+        'byType': {
+            'tsml': len([f for f in feeds_list if f['type'] == 'tsml']),
+            'bmlt': len([f for f in feeds_list if f['type'] == 'bmlt'])
+        }
+    })
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') != 'production'

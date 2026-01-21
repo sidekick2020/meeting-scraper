@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.4] - 2026-01-21
+
+### New Features
+- **Script Generation for Tasks**: Research tasks now have a "Generate Script" button
+  - Generates Python scraping scripts based on TSML, BMLT, or JSON feed patterns
+  - Auto-detects feed type from URL structure
+  - Scripts include all transformation logic for consistent data format
+- **Source Testing**: Test feed URLs before adding them to sources
+  - Validates JSON response format
+  - Shows total meeting count and state breakdown
+  - Displays sample meetings for verification
+- **Add to Sources**: One-click button to add tested sources to the scraper
+  - Adds to AA_FEEDS (TSML) or NA_FEEDS (BMLT) based on type
+  - Auto-marks associated task as completed
+- **Feed Listing API**: New `/api/feeds` endpoint to list all configured meeting sources
+
+### UI/UX Improvements
+- Step-by-step workflow modal for adding new sources
+- Python script syntax display with copy-to-clipboard
+- Success/error indicators for source testing
+- Form validation with helpful hints
+
 ## [1.5.3] - 2026-01-21
 
 ### New Features

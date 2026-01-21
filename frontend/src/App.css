@@ -5184,6 +5184,254 @@ a.sidebar-nav-item {
   margin-top: 1.5rem;
 }
 
+/* Script Generation Modal */
+.script-modal {
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.script-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.script-modal-header h2 {
+  margin: 0;
+}
+
+.script-modal-header .btn-close {
+  padding: 0.25rem;
+}
+
+.script-task-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary);
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.task-title-small {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.script-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.script-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.script-section h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+}
+
+.script-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.script-form .form-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.script-form .form-group {
+  flex: 1;
+}
+
+.script-form .form-group-small {
+  flex: 0 0 100px;
+}
+
+.script-form label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 0.4rem;
+  color: var(--text-secondary);
+}
+
+.script-form input,
+.script-form select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 0.5rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.script-form input:focus,
+.script-form select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.form-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.4rem;
+}
+
+.script-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Test Results */
+.test-results {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background: var(--bg-secondary);
+}
+
+.test-results.success {
+  border-left: 4px solid #22c55e;
+}
+
+.test-results.error {
+  border-left: 4px solid #ef4444;
+}
+
+.test-results-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.test-results-header svg {
+  stroke: #22c55e;
+}
+
+.test-results-header.error svg {
+  stroke: #ef4444;
+}
+
+.test-details {
+  font-size: 0.9rem;
+}
+
+.test-detail {
+  margin-bottom: 0.5rem;
+}
+
+.test-detail .state-tag {
+  margin-left: 0.25rem;
+}
+
+.test-sample {
+  margin-top: 0.75rem;
+}
+
+.test-sample ul {
+  margin: 0.5rem 0 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.test-sample li {
+  margin-bottom: 0.25rem;
+}
+
+.test-error {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.test-hint {
+  font-style: italic;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
+
+/* Script Output */
+.script-output {
+  margin-top: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.script-output-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.script-code {
+  margin: 0;
+  padding: 1rem;
+  max-height: 300px;
+  overflow: auto;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre;
+  color: var(--text-secondary);
+}
+
+/* Light mode styles for script modal */
+[data-theme="light"] .script-modal {
+  background: #ffffff;
+}
+
+[data-theme="light"] .script-task-info {
+  background: #f3f4f6;
+}
+
+[data-theme="light"] .script-form input,
+[data-theme="light"] .script-form select {
+  background: #ffffff;
+  border-color: #d1d5db;
+}
+
+[data-theme="light"] .test-results {
+  background: #f9fafb;
+}
+
+[data-theme="light"] .script-output {
+  background: #1e293b;
+}
+
+[data-theme="light"] .script-output-header {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+[data-theme="light"] .script-code {
+  color: #e2e8f0;
+}
+
 .tasks-loading {
   display: flex;
   flex-direction: column;
