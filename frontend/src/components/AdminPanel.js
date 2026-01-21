@@ -971,7 +971,7 @@ function AdminPanel({ onBackToPublic }) {
         <div className="sidebar-header">
           <div className="sidebar-logo">
             <img
-              src={currentTheme === 'dark' ? '/logo-dark.svg' : '/logo-light.svg'}
+              src="/logo.png"
               alt="Sober Sidekick"
               className="sidebar-logo-icon"
             />

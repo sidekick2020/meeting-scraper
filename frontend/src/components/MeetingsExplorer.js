@@ -802,7 +802,7 @@ function MeetingsExplorer({ onAdminClick }) {
       <header className="airbnb-header">
         <div className="airbnb-logo" onClick={() => window.location.reload()}>
           <img
-            src={currentTheme === 'dark' ? '/logo-dark.svg' : '/logo-light.svg'}
+            src="/logo.png"
             alt="Sober Sidekick"
             className="logo-icon"
           />
