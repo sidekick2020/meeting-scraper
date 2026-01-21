@@ -10,6 +10,7 @@ import MeetingDetail from './MeetingDetail';
 import ScrapeHistory from './ScrapeHistory';
 import CoverageAnalysis from './CoverageAnalysis';
 import DevDocs from './DevDocs';
+import FeedDetailPanel from './FeedDetailPanel';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -57,6 +58,7 @@ function AdminPanel({ onBackToPublic }) {
   const [isStartingScrape, setIsStartingScrape] = useState(false);
   const [scrapeError, setScrapeError] = useState(null);
   const [shouldAbandonOld, setShouldAbandonOld] = useState(false);
+  const [selectedSource, setSelectedSource] = useState(null);
 
   // Directory state
   const [directoryMeetings, setDirectoryMeetings] = useState([]);
@@ -664,7 +666,7 @@ function AdminPanel({ onBackToPublic }) {
           <div className="sources-section">
             <div className="sources-header">
               <h2>Configured Data Sources</h2>
-              <p>These are the meeting feeds currently configured for scraping.</p>
+              <p>These are the meeting feeds currently configured for scraping. Click on a source to see more details.</p>
             </div>
             <div className="sources-list">
               {feeds.length === 0 ? (
@@ -678,7 +680,14 @@ function AdminPanel({ onBackToPublic }) {
                 </div>
               ) : (
                 feeds.map((feed, index) => (
-                  <div key={index} className="source-card">
+                  <div
+                    key={index}
+                    className="source-card source-card-clickable"
+                    onClick={() => setSelectedSource(feed)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && setSelectedSource(feed)}
+                  >
                     <div className="source-icon">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="12" cy="12" r="10"/>
@@ -692,6 +701,11 @@ function AdminPanel({ onBackToPublic }) {
                     </div>
                     <div className="source-status">
                       <span className="status-badge status-active">Active</span>
+                    </div>
+                    <div className="source-arrow">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="9,18 15,12 9,6"/>
+                      </svg>
                     </div>
                   </div>
                 ))
@@ -1027,6 +1041,14 @@ function AdminPanel({ onBackToPublic }) {
           meeting={selectedMeeting}
           onClose={() => setSelectedMeeting(null)}
           isSidebar={true}
+        />
+      )}
+
+      {selectedSource && (
+        <FeedDetailPanel
+          feed={selectedSource}
+          isOpen={!!selectedSource}
+          onClose={() => setSelectedSource(null)}
         />
       )}
 
