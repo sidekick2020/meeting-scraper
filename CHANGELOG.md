@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.1] - 2026-01-21
+
+### UI/UX Improvements
+- **Map Loading Indicator**: Subtle loading overlay when map is populating data
+  - Shows spinner with realtime meeting count while loading
+  - Displays at bottom center of map with backdrop blur
+  - Properly tracks concurrent data fetches (state data + heatmap)
+
 ## [1.6.0] - 2026-01-21
 
 ### New Features
