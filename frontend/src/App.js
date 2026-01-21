@@ -85,9 +85,14 @@ function AppContent() {
     }
   }, [isAuthenticated, showSignIn]);
 
-  // Show loading overlay while connecting to backend
-  if (!isBackendReady || isLoading) {
-    return <LoadingOverlay onReady={handleBackendReady} />;
+  // Show simple loading screen only for auth state check
+  if (isLoading) {
+    return (
+      <div className="App loading-screen">
+        <div className="loading-spinner"></div>
+        <p>Loading...</p>
+      </div>
+    );
   }
 
   return (
@@ -97,7 +102,10 @@ function AppContent() {
       {currentView === 'public' ? (
         <MeetingsExplorer onAdminClick={handleAdminClick} />
       ) : (
-        <AdminPanel onBackToPublic={handleBackToPublic} />
+        <>
+          {!isBackendReady && <LoadingOverlay onReady={handleBackendReady} />}
+          <AdminPanel onBackToPublic={handleBackToPublic} />
+        </>
       )}
 
       {showSignIn && (
