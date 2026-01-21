@@ -11,6 +11,7 @@ import ScrapeHistory from './ScrapeHistory';
 import CoverageAnalysis from './CoverageAnalysis';
 import DevDocs from './DevDocs';
 import FeedDetailPanel from './FeedDetailPanel';
+import TasksPanel from './TasksPanel';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -491,6 +492,12 @@ function AdminPanel({ onBackToPublic }) {
         <path d="M9 12l2 2 4-4"/>
       </svg>
     )},
+    { id: 'tasks', label: 'Tasks', icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M9 11l3 3L22 4"/>
+        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+      </svg>
+    )},
     { id: 'history', label: 'History', icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="12" cy="12" r="10"/>
@@ -646,6 +653,9 @@ function AdminPanel({ onBackToPublic }) {
             )}
           </>
         );
+
+      case 'tasks':
+        return <TasksPanel feeds={feeds} />;
 
       case 'history':
         return <ScrapeHistory />;

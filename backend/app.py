@@ -4086,6 +4086,214 @@ def check_user_access():
         return jsonify({'error': str(e)}), 500
 
 
+# In-memory tasks storage (in production, this would be in the database)
+tasks_storage = []
+task_id_counter = 1
+
+@app.route('/api/tasks', methods=['GET'])
+def get_tasks():
+    """Get all research tasks"""
+    return jsonify({'tasks': tasks_storage})
+
+@app.route('/api/tasks', methods=['POST'])
+def create_task():
+    """Create a new task"""
+    global task_id_counter
+    data = request.json
+
+    task = {
+        'id': task_id_counter,
+        'title': data.get('title', ''),
+        'description': data.get('description', ''),
+        'type': data.get('type', 'manual'),
+        'status': data.get('status', 'pending'),
+        'url': data.get('url'),
+        'state': data.get('state'),
+        'source': data.get('source'),
+        'created_at': datetime.now().isoformat()
+    }
+    task_id_counter += 1
+    tasks_storage.insert(0, task)
+
+    return jsonify({'task': task, 'success': True})
+
+@app.route('/api/tasks/<int:task_id>', methods=['PUT'])
+def update_task(task_id):
+    """Update a task"""
+    data = request.json
+
+    for task in tasks_storage:
+        if task['id'] == task_id:
+            if 'status' in data:
+                task['status'] = data['status']
+            if 'title' in data:
+                task['title'] = data['title']
+            if 'description' in data:
+                task['description'] = data['description']
+            return jsonify({'task': task, 'success': True})
+
+    return jsonify({'error': 'Task not found'}), 404
+
+@app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
+def delete_task(task_id):
+    """Delete a task"""
+    global tasks_storage
+    tasks_storage = [t for t in tasks_storage if t['id'] != task_id]
+    return jsonify({'success': True})
+
+@app.route('/api/coverage/gaps', methods=['GET'])
+def get_coverage_gaps():
+    """Get states/regions with low meeting coverage (dry spots)"""
+    # Get existing feeds to identify covered states
+    all_feeds = get_all_feeds()
+    covered_states = set(feed['state'] for feed in all_feeds.values())
+
+    # Define US states with their populations (in thousands)
+    # States not in our feeds are considered gaps
+    gaps = []
+
+    for state_code, population in US_STATE_POPULATION.items():
+        meetings_count = 0
+
+        # If we have Back4App configured, try to get actual meeting counts
+        if BACK4APP_APP_ID and BACK4APP_REST_KEY:
+            try:
+                headers = {
+                    "X-Parse-Application-Id": BACK4APP_APP_ID,
+                    "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+                }
+                url = f"{BACK4APP_URL}?where={{\"state\":\"{state_code}\"}}&count=1&limit=0"
+                response = requests.get(url, headers=headers, timeout=5)
+                if response.status_code == 200:
+                    meetings_count = response.json().get('count', 0)
+            except:
+                pass
+
+        # Consider it a gap if:
+        # - No meetings at all, OR
+        # - Very low coverage (less than 1 meeting per 100k population)
+        coverage_ratio = (meetings_count / population * 100) if population > 0 else 0
+
+        if meetings_count == 0 or coverage_ratio < 1:
+            gaps.append({
+                'state': state_code,
+                'stateName': US_STATE_NAMES.get(state_code, state_code),
+                'population': population * 1000,
+                'meetingCount': meetings_count,
+                'coverageRatio': round(coverage_ratio, 2),
+                'hasFeed': state_code in covered_states
+            })
+
+    # Sort by population (highest first) to prioritize high-impact gaps
+    gaps.sort(key=lambda x: x['population'], reverse=True)
+
+    return jsonify({'gaps': gaps[:20]})  # Return top 20 gaps
+
+@app.route('/api/tasks/research', methods=['POST'])
+def research_intergroup():
+    """Research intergroup websites for a specific state/region"""
+    global task_id_counter
+    data = request.json
+    state = data.get('state', '')
+    region = data.get('region', '')
+
+    # This is a placeholder for AI-powered research
+    # In a real implementation, this would use web search APIs or AI to find intergroup sites
+
+    # For now, generate suggested tasks based on common intergroup naming patterns
+    suggestions = []
+    state_name = US_STATE_NAMES.get(state, state)
+
+    # Common intergroup website patterns
+    search_suggestions = [
+        {
+            'title': f'Research {state_name} AA Intergroup',
+            'description': f'Search for AA intergroup/central office websites in {state_name}. Look for sites with meeting directories that use TSML format.',
+            'type': 'research',
+            'state': state,
+            'source': 'auto-generated'
+        },
+        {
+            'title': f'Check AA Area {state} website',
+            'description': f'Look for the official AA Area website for {state_name} which may have links to district meeting lists.',
+            'type': 'research',
+            'state': state,
+            'source': 'auto-generated'
+        },
+        {
+            'title': f'Search for NA meetings in {state_name}',
+            'description': f'Check BMLT (Basic Meeting List Toolkit) for NA meetings in {state_name}.',
+            'type': 'research',
+            'state': state,
+            'source': 'auto-generated'
+        }
+    ]
+
+    for suggestion in search_suggestions:
+        task = {
+            'id': task_id_counter,
+            'title': suggestion['title'],
+            'description': suggestion['description'],
+            'type': suggestion['type'],
+            'status': 'pending',
+            'state': suggestion['state'],
+            'source': suggestion['source'],
+            'created_at': datetime.now().isoformat()
+        }
+        task_id_counter += 1
+        suggestions.append(task)
+        tasks_storage.insert(0, task)
+
+    return jsonify({
+        'success': True,
+        'suggestions': suggestions,
+        'message': f'Created {len(suggestions)} research tasks for {state_name}'
+    })
+
+@app.route('/api/tasks/research-all', methods=['POST'])
+def research_all_gaps():
+    """Research all coverage gaps and create tasks"""
+    global task_id_counter
+
+    # Get current coverage gaps
+    all_feeds = get_all_feeds()
+    covered_states = set(feed['state'] for feed in all_feeds.values())
+
+    suggestions_count = 0
+    new_tasks = []
+
+    # Find states without any feeds
+    for state_code, population in US_STATE_POPULATION.items():
+        if state_code not in covered_states and population > 1000:  # Only states with >1M population
+            state_name = US_STATE_NAMES.get(state_code, state_code)
+
+            # Check if we already have a task for this state
+            existing = any(t['state'] == state_code and t['status'] != 'completed' for t in tasks_storage)
+            if existing:
+                continue
+
+            task = {
+                'id': task_id_counter,
+                'title': f'Add meeting source for {state_name}',
+                'description': f'{state_name} has no meeting feeds configured. Search for intergroup websites with TSML-compatible meeting directories.',
+                'type': 'source_needed',
+                'status': 'pending',
+                'state': state_code,
+                'source': 'coverage-analysis',
+                'created_at': datetime.now().isoformat()
+            }
+            task_id_counter += 1
+            new_tasks.append(task)
+            tasks_storage.insert(0, task)
+            suggestions_count += 1
+
+    return jsonify({
+        'success': True,
+        'suggestionsCount': suggestions_count,
+        'tasks': new_tasks,
+        'message': f'Created {suggestions_count} tasks for uncovered states'
+    })
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') != 'production'
