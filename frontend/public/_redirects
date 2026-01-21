@@ -1,1 +1,5 @@
-/*    /index.html   200
+# Render.com static site SPA routing
+# Handle all routes by serving index.html
+/docs    /index.html   200
+/docs/*  /index.html   200
+/*       /index.html   200
