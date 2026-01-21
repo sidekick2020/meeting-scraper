@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+const DETAIL_ZOOM_THRESHOLD = 13; // Zoom level at which to show individual meetings
 
 // Fix for default marker icons in React-Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -11,7 +14,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Custom marker icon
+// Custom marker icon for individual meetings
 const createCustomIcon = (color = '#667eea') => {
   return L.divIcon({
     className: 'custom-marker',
@@ -28,31 +31,60 @@ const createCustomIcon = (color = '#667eea') => {
   });
 };
 
-// Heatmap layer component
-function HeatmapLayer({ meetings }) {
+// Cluster marker icon with count
+const createClusterIcon = (count) => {
+  const size = count > 100 ? 50 : count > 50 ? 44 : count > 20 ? 38 : count > 10 ? 32 : 26;
+  const fontSize = count > 100 ? 14 : count > 50 ? 13 : 12;
+
+  return L.divIcon({
+    className: 'cluster-marker',
+    html: `<div class="cluster-marker-inner" style="
+      width: ${size}px;
+      height: ${size}px;
+      font-size: ${fontSize}px;
+    ">${count > 999 ? '999+' : count}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+};
+
+// Heatmap layer component using cluster data
+function HeatmapLayer({ clusters }) {
   const map = useMap();
   const heatLayerRef = useRef(null);
 
   useEffect(() => {
+    if (!clusters || clusters.length === 0) {
+      if (heatLayerRef.current) {
+        map.removeLayer(heatLayerRef.current);
+        heatLayerRef.current = null;
+      }
+      return;
+    }
+
     // Dynamically import leaflet.heat
     import('leaflet.heat').then(() => {
       if (heatLayerRef.current) {
         map.removeLayer(heatLayerRef.current);
       }
 
-      const points = meetings
-        .filter(m => m.latitude && m.longitude)
-        .map(m => [m.latitude, m.longitude, 0.5]); // [lat, lng, intensity]
+      // Convert clusters to heatmap points with intensity based on count
+      const maxCount = Math.max(...clusters.map(c => c.count), 1);
+      const points = clusters.map(c => [
+        c.lat,
+        c.lng,
+        Math.min(c.count / maxCount, 1) // Normalized intensity
+      ]);
 
       if (points.length > 0) {
         heatLayerRef.current = L.heatLayer(points, {
-          radius: 25,
-          blur: 15,
+          radius: 30,
+          blur: 20,
           maxZoom: 12,
           gradient: {
             0.0: '#667eea',
-            0.5: '#764ba2',
-            0.7: '#f59e0b',
+            0.3: '#764ba2',
+            0.6: '#f59e0b',
             1.0: '#ef4444'
           }
         }).addTo(map);
@@ -64,121 +96,141 @@ function HeatmapLayer({ meetings }) {
         map.removeLayer(heatLayerRef.current);
       }
     };
-  }, [map, meetings]);
+  }, [map, clusters]);
 
   return null;
 }
 
-// Component to fit map bounds to markers
-function FitBounds({ meetings, initialFitDone, onInitialFit }) {
+// Component to handle map movement events and fetch data
+function MapDataLoader({ onDataLoaded, onZoomChange }) {
   const map = useMap();
+  const fetchTimeoutRef = useRef(null);
+  const lastFetchRef = useRef(null);
 
-  useEffect(() => {
-    // Only auto-fit on initial load, not on subsequent meeting updates
-    if (initialFitDone) return;
+  const fetchHeatmapData = useCallback(async () => {
+    const bounds = map.getBounds();
+    const zoom = map.getZoom();
 
-    const validMeetings = meetings.filter(m => m.latitude && m.longitude);
-    if (validMeetings.length > 0) {
-      const bounds = L.latLngBounds(
-        validMeetings.map(m => [m.latitude, m.longitude])
-      );
-      map.fitBounds(bounds, { padding: [20, 20], maxZoom: 10 });
-      if (onInitialFit) onInitialFit();
+    // Create a cache key to avoid duplicate fetches
+    const cacheKey = `${zoom}-${bounds.getNorth().toFixed(2)}-${bounds.getSouth().toFixed(2)}-${bounds.getEast().toFixed(2)}-${bounds.getWest().toFixed(2)}`;
+    if (lastFetchRef.current === cacheKey) return;
+    lastFetchRef.current = cacheKey;
+
+    try {
+      const url = `${BACKEND_URL}/api/meetings/heatmap?zoom=${zoom}&north=${bounds.getNorth()}&south=${bounds.getSouth()}&east=${bounds.getEast()}&west=${bounds.getWest()}`;
+      const response = await fetch(url);
+
+      if (response.ok) {
+        const data = await response.json();
+        onDataLoaded(data);
+      }
+    } catch (error) {
+      console.error('Error fetching heatmap data:', error);
     }
-  }, [map, meetings, initialFitDone, onInitialFit]);
-
-  return null;
-}
-
-// Component to handle map movement events
-function MapEventHandler({ onBoundsChange }) {
-  const map = useMap();
+  }, [map, onDataLoaded]);
 
   useEffect(() => {
-    if (!onBoundsChange) return;
-
     const handleMoveEnd = () => {
-      const bounds = map.getBounds();
-      onBoundsChange({
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-        zoom: map.getZoom()
-      });
+      const zoom = map.getZoom();
+      onZoomChange(zoom);
+
+      // Debounce the fetch
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+      fetchTimeoutRef.current = setTimeout(fetchHeatmapData, 300);
     };
+
+    // Initial fetch
+    fetchHeatmapData();
 
     map.on('moveend', handleMoveEnd);
     map.on('zoomend', handleMoveEnd);
 
-    // Emit initial bounds
-    handleMoveEnd();
-
     return () => {
       map.off('moveend', handleMoveEnd);
       map.off('zoomend', handleMoveEnd);
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
     };
-  }, [map, onBoundsChange]);
+  }, [map, fetchHeatmapData, onZoomChange]);
 
   return null;
+}
+
+// Cluster marker component
+function ClusterMarker({ cluster, onClusterClick }) {
+  const map = useMap();
+
+  const handleClick = useCallback(() => {
+    // Zoom in to this cluster location
+    const targetZoom = Math.min(map.getZoom() + 3, 15);
+    map.setView([cluster.lat, cluster.lng], targetZoom);
+    if (onClusterClick) onClusterClick(cluster);
+  }, [map, cluster, onClusterClick]);
+
+  return (
+    <Marker
+      position={[cluster.lat, cluster.lng]}
+      icon={createClusterIcon(cluster.count)}
+      eventHandlers={{ click: handleClick }}
+    >
+      <Popup>
+        <div className="cluster-popup">
+          <strong>{cluster.count} meetings</strong>
+          <div className="cluster-popup-hint">Click to zoom in</div>
+        </div>
+      </Popup>
+    </Marker>
+  );
 }
 
 // Format day number to day name
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function MeetingMap({ meetings, onSelectMeeting, showHeatmap = true, onBoundsChange }) {
-  const [initialFitDone, setInitialFitDone] = useState(false);
+function MeetingMap({ onSelectMeeting, showHeatmap = true }) {
+  const [mapData, setMapData] = useState({ clusters: [], meetings: [], total: 0, mode: 'clustered' });
+  const [currentZoom, setCurrentZoom] = useState(5);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleInitialFit = useCallback(() => {
-    setInitialFitDone(true);
+  const handleDataLoaded = useCallback((data) => {
+    setMapData(data);
+    setIsLoading(false);
   }, []);
+
+  const handleZoomChange = useCallback((zoom) => {
+    setCurrentZoom(zoom);
+  }, []);
+
+  // Determine what to display based on mode
+  const showClusters = mapData.mode === 'clustered' && mapData.clusters?.length > 0;
+  const showIndividualMeetings = mapData.mode === 'individual' && mapData.meetings?.length > 0;
 
   // Filter meetings with valid coordinates
   const validMeetings = useMemo(() =>
-    meetings.filter(m => m.latitude && m.longitude &&
+    (mapData.meetings || []).filter(m => m.latitude && m.longitude &&
       !isNaN(m.latitude) && !isNaN(m.longitude)),
-    [meetings]
+    [mapData.meetings]
   );
-
-  // Calculate center from meetings or default to US center
-  const center = useMemo(() => {
-    if (validMeetings.length === 0) {
-      return [39.8283, -98.5795]; // Center of US
-    }
-    const avgLat = validMeetings.reduce((sum, m) => sum + m.latitude, 0) / validMeetings.length;
-    const avgLng = validMeetings.reduce((sum, m) => sum + m.longitude, 0) / validMeetings.length;
-    return [avgLat, avgLng];
-  }, [validMeetings]);
-
-  if (meetings.length === 0) {
-    return (
-      <div className="meeting-map-empty">
-        <p>No meetings to display on map.</p>
-        <p>Run the scraper to load meeting data with coordinates.</p>
-      </div>
-    );
-  }
-
-  if (validMeetings.length === 0) {
-    return (
-      <div className="meeting-map-empty">
-        <p>No meetings with location data available.</p>
-        <p>{meetings.length} meetings found, but none have coordinates.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="meeting-map-container">
       <div className="map-header">
         <h3>Meeting Locations</h3>
         <span className="map-stats">
-          {validMeetings.length} meetings with locations
+          {isLoading ? (
+            'Loading...'
+          ) : showIndividualMeetings ? (
+            `${validMeetings.length} meetings in view`
+          ) : (
+            `${mapData.total} meetings • ${mapData.clusters?.length || 0} clusters`
+          )}
         </span>
       </div>
 
       <MapContainer
-        center={center}
+        center={[39.8283, -98.5795]} // Center of US
         zoom={5}
         className="meeting-map"
         scrollWheelZoom={true}
@@ -189,22 +241,30 @@ function MeetingMap({ meetings, onSelectMeeting, showHeatmap = true, onBoundsCha
           className="map-tiles"
         />
 
-        <FitBounds
-          meetings={validMeetings}
-          initialFitDone={initialFitDone}
-          onInitialFit={handleInitialFit}
+        <MapDataLoader
+          onDataLoaded={handleDataLoaded}
+          onZoomChange={handleZoomChange}
         />
-        {onBoundsChange && <MapEventHandler onBoundsChange={onBoundsChange} />}
 
-        {showHeatmap && validMeetings.length > 10 && (
-          <HeatmapLayer meetings={validMeetings} />
+        {/* Show heatmap at lower zoom levels */}
+        {showHeatmap && showClusters && currentZoom < DETAIL_ZOOM_THRESHOLD && (
+          <HeatmapLayer clusters={mapData.clusters} />
         )}
 
-        {validMeetings.map((meeting, index) => (
+        {/* Show cluster markers at lower zoom levels */}
+        {showClusters && currentZoom < DETAIL_ZOOM_THRESHOLD && mapData.clusters.map((cluster, index) => (
+          <ClusterMarker
+            key={`cluster-${index}`}
+            cluster={cluster}
+          />
+        ))}
+
+        {/* Show individual meeting markers at higher zoom levels */}
+        {showIndividualMeetings && validMeetings.map((meeting, index) => (
           <Marker
             key={meeting.objectId || index}
             position={[meeting.latitude, meeting.longitude]}
-            icon={createCustomIcon(meeting.isOnline ? '#22c55e' : '#667eea')}
+            icon={createCustomIcon(meeting.isOnline || meeting.isHybrid ? '#22c55e' : '#667eea')}
             eventHandlers={{
               click: () => onSelectMeeting && onSelectMeeting(meeting),
             }}
@@ -244,12 +304,19 @@ function MeetingMap({ meetings, onSelectMeeting, showHeatmap = true, onBoundsCha
           <span className="legend-dot" style={{ background: '#22c55e' }}></span>
           <span>Online/Hybrid</span>
         </div>
-        {showHeatmap && validMeetings.length > 10 && (
+        {showHeatmap && showClusters && (
           <div className="legend-item">
             <span className="legend-gradient"></span>
             <span>Meeting Density</span>
           </div>
         )}
+        <div className="legend-zoom-hint">
+          {currentZoom < DETAIL_ZOOM_THRESHOLD ? (
+            <span>Zoom in to see individual meetings</span>
+          ) : (
+            <span>Showing individual meetings</span>
+          )}
+        </div>
       </div>
     </div>
   );

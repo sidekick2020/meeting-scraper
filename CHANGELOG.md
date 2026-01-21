@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2026-01-21
+
+### New Features
+- **Efficient Heatmap View**: Replaced slow map loading with progressive heatmap approach
+  - Shows clustered heatmap data at lower zoom levels instead of loading thousands of markers
+  - Cluster markers display meeting counts and zoom in on click
+  - Individual meetings only load when zoomed in (level 13+)
+  - New `/api/meetings/heatmap` endpoint with server-side aggregation
+  - Grid-based clustering with adaptive cell sizes (5km-500km based on zoom)
+- **Build Logs Link**: Added link to Render dashboard in deployment indicator
+  - Opens Render dashboard in new tab when deployment is in progress
+  - Configurable via `REACT_APP_RENDER_DASHBOARD_URL` environment variable
+
+### Bug Fixes
+- **API Version Selection**: Fixed version switching failing due to non-existent versioned endpoints
+  - Changed validation to use base `/api/meetings` endpoint
+  - Version preference now saves correctly to localStorage
+
+### Performance Improvements
+- **Map Load Time**: Dramatically reduced initial map load
+  - Initial load now fetches ~20-50 cluster points instead of 1000+ meetings
+  - Reduced data transfer by only fetching lat/lng for clustering
+  - 300ms debounce on viewport changes to avoid excessive API calls
+
 ## [1.4.0] - 2026-01-20
 
 ### New Features
