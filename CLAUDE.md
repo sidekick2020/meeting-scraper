@@ -26,12 +26,18 @@ After making significant code changes, create a fragment file:
 
 ### Compiling at Release Time
 
-When ready to release, run:
+**Automatic (Recommended)**: When you create a GitHub Release, the changelog is compiled automatically via GitHub Actions. The workflow extracts the version from the release tag (e.g., `v1.8.0` → `1.8.0`), runs the compile script, and commits the updated `CHANGELOG.md`.
+
+**Manual**: If needed, you can also run manually:
 ```bash
 python changelog/compile.py 1.8.0
 ```
 
 This compiles all fragments into `CHANGELOG.md` and deletes the fragment files.
+
+### Important: Never Edit CHANGELOG.md Directly
+
+Always use changelog fragments. Direct edits to `CHANGELOG.md` will cause merge conflicts when multiple PRs are open.
 
 ## Post-Change Checklist
 
