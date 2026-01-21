@@ -3393,6 +3393,25 @@ def get_version_history():
 
 # API Versions with changelog support
 API_VERSIONS = {
+    "v1.8": {
+        "version": "v1.8",
+        "label": "v1.8 (Latest)",
+        "description": "Enhanced search, loading overlay, navigation buttons, and state heatmaps",
+        "status": "stable",
+        "released_at": "2026-01-21",
+        "features": [
+            "Enhanced search bar with multi-day/type selection",
+            "Loading overlay with real-time status logs",
+            "Navigate and Join Meeting buttons",
+            "State coverage heatmap visualization",
+            "Smart scrape defaults and saved configs"
+        ],
+        "endpoints": [
+            "/api/meetings",
+            "/api/meetings/heatmap",
+            "/api/meetings/by-state"
+        ]
+    },
     "v1": {
         "version": "v1",
         "label": "v1 (Stable)",
@@ -3438,7 +3457,7 @@ def get_api_versions():
     """Get available API versions with their details"""
     return jsonify({
         "versions": list(API_VERSIONS.values()),
-        "current_default": "v1"
+        "current_default": "v1.8"
     })
 
 @app.route('/api/changelog', methods=['GET'])

@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0] - 2026-01-21
+
+### New Features
+- **Enhanced Search Bar**: Completely redesigned search experience
+  - Multi-day selection with visual day chips and quick presets (Weekdays, Weekends, Every day)
+  - Multi-type selection supporting 13 meeting types with distinct SVG icons
+  - Recent searches auto-saved (last 5) with localStorage persistence
+  - Enhanced autocomplete grouped by category with 1-character trigger
+  - Leading icons for each section (location, calendar, users)
+  - Clear buttons appear on hover for active filters
+  - Green badge indicator when filters are active
+  - Mobile responsive layout
+
+- **Loading Overlay**: Enhanced connection screen with real-time status
+  - Darkened backdrop with blur effect when connecting to backend
+  - Real-time timestamped status logs showing connection progress
+  - Auto-retry on connection failure with 3-second delay
+
+- **Navigation and Join Meeting Buttons**: Quick-access action buttons in meeting details
+  - "Navigate" button opens Google Maps directions for physical meetings
+  - "Join Meeting" button opens conference call link for online meetings
+  - Prominently displayed after meeting badges for easy access
+
+- **State Coverage Heatmap**: Interactive state-level meeting visualization
+  - Click any state in Coverage Analysis to view detailed heatmap modal
+  - Color gradient from purple (low) to red (high) density
+  - State statistics: total meetings, population, coverage per 100k
+  - State bounding boxes for all 50 states, DC, and Puerto Rico
+
+### UI/UX Improvements
+- **Directory Table Cleanup**: More subtle, modern styling for meeting directory
+- **Release Notes Readability**: Improved changelog display formatting
+- **Scrape Workflow**: Smart defaults and saved configurations for faster scraping
+- Coverage table rows now clickable with hover effects and "View Map" hints
+- Priority states and "States Without Coverage" tags are clickable
+
 ## [1.7.0] - 2026-01-21
 
 ### New Features
