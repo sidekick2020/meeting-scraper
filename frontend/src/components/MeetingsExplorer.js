@@ -6,6 +6,131 @@ import ThemeToggle from './ThemeToggle';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const dayAbbrev = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Meeting type definitions with icons and full names
+const MEETING_TYPES = {
+  'AA': { name: 'Alcoholics Anonymous', shortName: 'Alcohol', icon: 'bottle' },
+  'NA': { name: 'Narcotics Anonymous', shortName: 'Narcotics', icon: 'pill' },
+  'CA': { name: 'Cocaine Anonymous', shortName: 'Cocaine', icon: 'snowflake' },
+  'MA': { name: 'Marijuana Anonymous', shortName: 'Marijuana', icon: 'leaf' },
+  'OA': { name: 'Overeaters Anonymous', shortName: 'Overeating', icon: 'utensils' },
+  'GA': { name: 'Gamblers Anonymous', shortName: 'Gambling', icon: 'dice' },
+  'Al-Anon': { name: 'Al-Anon Family Groups', shortName: 'Family Support', icon: 'family' },
+  'SLAA': { name: 'Sex & Love Addicts Anonymous', shortName: 'Sex & Love', icon: 'heart' },
+  'HA': { name: 'Heroin Anonymous', shortName: 'Heroin', icon: 'syringe' },
+  'SA': { name: 'Sexaholics Anonymous', shortName: 'Sex Addiction', icon: 'link' },
+  'CMA': { name: 'Crystal Meth Anonymous', shortName: 'Meth', icon: 'crystal' },
+  'ACA': { name: 'Adult Children of Alcoholics', shortName: 'Adult Children', icon: 'users' },
+  'Other': { name: 'Other Programs', shortName: 'Other', icon: 'circle' },
+};
+
+// SVG icon paths for meeting types
+const MeetingTypeIcon = ({ type, size = 16 }) => {
+  const iconMap = {
+    bottle: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 11h1a3 3 0 0 1 0 6h-1"/>
+        <path d="M9 12v6"/>
+        <path d="M13 12v6"/>
+        <path d="M14 7.5c-1 0-1.44.5-3 .5s-2-.5-3-.5-1.72.5-2.5.5a2.5 2.5 0 0 1 0-5c.78 0 1.57.5 2.5.5S9.44 2 11 2s2 1 3 1 1.5-.5 2.5-.5a2.5 2.5 0 0 1 0 5c-1 0-1.5-.5-2.5-.5z"/>
+        <path d="M5 8v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8"/>
+      </svg>
+    ),
+    pill: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/>
+        <path d="m8.5 8.5 7 7"/>
+      </svg>
+    ),
+    snowflake: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="2" x2="22" y1="12" y2="12"/>
+        <line x1="12" x2="12" y1="2" y2="22"/>
+        <path d="m20 16-4-4 4-4"/>
+        <path d="m4 8 4 4-4 4"/>
+        <path d="m16 4-4 4-4-4"/>
+        <path d="m8 20 4-4 4 4"/>
+      </svg>
+    ),
+    leaf: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+        <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+      </svg>
+    ),
+    utensils: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/>
+        <path d="M7 2v20"/>
+        <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+      </svg>
+    ),
+    dice: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect width="12" height="12" x="2" y="10" rx="2" ry="2"/>
+        <path d="m17.92 14 3.5-3.5a2.24 2.24 0 0 0 0-3l-5-4.92a2.24 2.24 0 0 0-3 0L10 6"/>
+        <path d="M6 18h.01"/>
+        <path d="M10 14h.01"/>
+        <path d="M15 6h.01"/>
+        <path d="M18 9h.01"/>
+      </svg>
+    ),
+    family: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+    ),
+    heart: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+      </svg>
+    ),
+    syringe: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m18 2 4 4"/>
+        <path d="m17 7 3-3"/>
+        <path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"/>
+        <path d="m9 11 4 4"/>
+        <path d="m5 19-3 3"/>
+        <path d="m14 4 6 6"/>
+      </svg>
+    ),
+    link: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+      </svg>
+    ),
+    crystal: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 3h12l4 6-10 13L2 9Z"/>
+        <path d="M11 3 8 9l4 13 4-13-3-6"/>
+        <path d="M2 9h20"/>
+      </svg>
+    ),
+    users: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+    ),
+    circle: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+      </svg>
+    ),
+  };
+
+  const typeInfo = MEETING_TYPES[type];
+  const iconKey = typeInfo?.icon || 'circle';
+  return iconMap[iconKey] || iconMap.circle;
+};
 
 function MeetingsExplorer({ onAdminClick }) {
   const [meetings, setMeetings] = useState([]);
@@ -21,8 +146,8 @@ function MeetingsExplorer({ onAdminClick }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStates, setSelectedStates] = useState([]);
   const [selectedCity, setSelectedCity] = useState('');
-  const [selectedDay, setSelectedDay] = useState('');
-  const [selectedType, setSelectedType] = useState('');
+  const [selectedDays, setSelectedDays] = useState([]); // Changed to array for multi-select
+  const [selectedTypes, setSelectedTypes] = useState([]); // Changed to array for multi-select
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
   const [showTodayOnly, setShowTodayOnly] = useState(false);
   const [showHybridOnly, setShowHybridOnly] = useState(false);
@@ -30,7 +155,19 @@ function MeetingsExplorer({ onAdminClick }) {
   const [selectedAccessibility, setSelectedAccessibility] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [showStatesDropdown, setShowStatesDropdown] = useState(false);
+  const [showDaysDropdown, setShowDaysDropdown] = useState(false);
+  const [showTypesDropdown, setShowTypesDropdown] = useState(false);
+  const [recentSearches, setRecentSearches] = useState(() => {
+    try {
+      const saved = localStorage.getItem('recentMeetingSearches');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const statesDropdownRef = useRef(null);
+  const daysDropdownRef = useRef(null);
+  const typesDropdownRef = useRef(null);
 
   // Pagination
   const [totalMeetings, setTotalMeetings] = useState(0);
@@ -343,12 +480,12 @@ function MeetingsExplorer({ onAdminClick }) {
       filtered = filtered.filter(m => m.city === selectedCity);
     }
 
-    if (selectedDay !== '') {
-      filtered = filtered.filter(m => m.day === parseInt(selectedDay));
+    if (selectedDays.length > 0) {
+      filtered = filtered.filter(m => selectedDays.includes(m.day));
     }
 
-    if (selectedType) {
-      filtered = filtered.filter(m => m.meetingType === selectedType);
+    if (selectedTypes.length > 0) {
+      filtered = filtered.filter(m => selectedTypes.includes(m.meetingType));
     }
 
     if (showOnlineOnly) {
@@ -375,7 +512,7 @@ function MeetingsExplorer({ onAdminClick }) {
     }
 
     setFilteredMeetings(filtered);
-  }, [meetings, searchQuery, selectedStates, selectedCity, selectedDay, selectedType, showOnlineOnly, showTodayOnly, showHybridOnly, selectedFormat, selectedAccessibility]);
+  }, [meetings, searchQuery, selectedStates, selectedCity, selectedDays, selectedTypes, showOnlineOnly, showTodayOnly, showHybridOnly, selectedFormat, selectedAccessibility]);
 
   // Update available cities when states change
   useEffect(() => {
@@ -398,13 +535,51 @@ function MeetingsExplorer({ onAdminClick }) {
     setSearchQuery('');
     setSelectedStates([]);
     setSelectedCity('');
-    setSelectedDay('');
-    setSelectedType('');
+    setSelectedDays([]);
+    setSelectedTypes([]);
     setShowOnlineOnly(false);
     setShowTodayOnly(false);
     setShowHybridOnly(false);
     setSelectedFormat('');
     setSelectedAccessibility([]);
+  };
+
+  // Toggle functions for multi-select
+  const toggleDay = (day) => {
+    setSelectedDays(prev =>
+      prev.includes(day)
+        ? prev.filter(d => d !== day)
+        : [...prev, day]
+    );
+  };
+
+  const toggleType = (type) => {
+    setSelectedTypes(prev =>
+      prev.includes(type)
+        ? prev.filter(t => t !== type)
+        : [...prev, type]
+    );
+  };
+
+  // Save recent search
+  const saveRecentSearch = (query) => {
+    if (!query || query.length < 2) return;
+    const updated = [query, ...recentSearches.filter(s => s !== query)].slice(0, 5);
+    setRecentSearches(updated);
+    try {
+      localStorage.setItem('recentMeetingSearches', JSON.stringify(updated));
+    } catch (e) {
+      // Ignore storage errors
+    }
+  };
+
+  const clearRecentSearches = () => {
+    setRecentSearches([]);
+    try {
+      localStorage.removeItem('recentMeetingSearches');
+    } catch (e) {
+      // Ignore storage errors
+    }
   };
 
   const toggleAccessibility = (key) => {
@@ -423,83 +598,167 @@ function MeetingsExplorer({ onAdminClick }) {
     );
   };
 
-  const hasActiveFilters = searchQuery || selectedStates.length > 0 || selectedCity || selectedDay || selectedType || showOnlineOnly || showTodayOnly || showHybridOnly || selectedFormat || selectedAccessibility.length > 0;
+  const hasActiveFilters = searchQuery || selectedStates.length > 0 || selectedCity || selectedDays.length > 0 || selectedTypes.length > 0 || showOnlineOnly || showTodayOnly || showHybridOnly || selectedFormat || selectedAccessibility.length > 0;
 
-  // Close states dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (statesDropdownRef.current && !statesDropdownRef.current.contains(e.target)) {
         setShowStatesDropdown(false);
+      }
+      if (daysDropdownRef.current && !daysDropdownRef.current.contains(e.target)) {
+        setShowDaysDropdown(false);
+      }
+      if (typesDropdownRef.current && !typesDropdownRef.current.contains(e.target)) {
+        setShowTypesDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Compute autocomplete suggestions
-  const computeSuggestions = useCallback((query) => {
-    if (!query || query.length < 2) {
+  // Compute autocomplete suggestions with grouping
+  const computeSuggestions = useCallback((query, showRecent = false) => {
+    const results = [];
+    const seen = new Set();
+
+    // If no query but showing suggestions (focus), show recent searches
+    if ((!query || query.length === 0) && showRecent && recentSearches.length > 0) {
+      recentSearches.forEach(recent => {
+        results.push({ type: 'recent', value: recent, label: recent, group: 'recent' });
+      });
+      setSuggestions(results);
+      return;
+    }
+
+    if (!query || query.length < 1) {
       setSuggestions([]);
       return;
     }
 
     const lowerQuery = query.toLowerCase();
-    const results = [];
-    const seen = new Set();
+
+    // Helper to highlight matching text
+    const highlightMatch = (text) => {
+      const index = text.toLowerCase().indexOf(lowerQuery);
+      if (index === -1) return { before: text, match: '', after: '' };
+      return {
+        before: text.slice(0, index),
+        match: text.slice(index, index + query.length),
+        after: text.slice(index + query.length)
+      };
+    };
+
+    // Add matching recent searches first
+    recentSearches.forEach(recent => {
+      if (recent.toLowerCase().includes(lowerQuery) && !seen.has(recent.toLowerCase())) {
+        seen.add(recent.toLowerCase());
+        results.push({
+          type: 'recent',
+          value: recent,
+          label: recent,
+          group: 'recent',
+          highlight: highlightMatch(recent)
+        });
+      }
+    });
 
     // Add matching cities
+    const cityResults = [];
     availableCities.forEach(city => {
       if (city && city.toLowerCase().includes(lowerQuery) && !seen.has(city.toLowerCase())) {
         seen.add(city.toLowerCase());
-        results.push({ type: 'city', value: city, label: city });
+        // Find the state for this city
+        const meetingWithCity = meetings.find(m => m.city === city);
+        cityResults.push({
+          type: 'city',
+          value: city,
+          label: city,
+          subLabel: meetingWithCity?.state || '',
+          group: 'cities',
+          highlight: highlightMatch(city)
+        });
       }
     });
+    results.push(...cityResults.slice(0, 4));
 
     // Add matching states
+    const stateResults = [];
     availableStates.forEach(state => {
       if (state && state.toLowerCase().includes(lowerQuery) && !seen.has(state.toLowerCase())) {
         seen.add(state.toLowerCase());
-        results.push({ type: 'state', value: state, label: state });
+        stateResults.push({
+          type: 'state',
+          value: state,
+          label: state,
+          group: 'states',
+          highlight: highlightMatch(state)
+        });
       }
     });
+    results.push(...stateResults.slice(0, 3));
 
     // Add matching location names from meetings
+    const locationResults = [];
     meetings.forEach(m => {
       if (m.locationName && m.locationName.toLowerCase().includes(lowerQuery)) {
         const key = m.locationName.toLowerCase();
         if (!seen.has(key)) {
           seen.add(key);
-          results.push({
+          locationResults.push({
             type: 'location',
             value: m.locationName,
             label: m.locationName,
-            subLabel: m.city ? `${m.city}, ${m.state}` : m.state
+            subLabel: m.city ? `${m.city}, ${m.state}` : m.state,
+            group: 'locations',
+            highlight: highlightMatch(m.locationName)
           });
         }
       }
     });
+    results.push(...locationResults.slice(0, 4));
 
-    // Limit to top 8 suggestions
-    setSuggestions(results.slice(0, 8));
-  }, [availableCities, availableStates, meetings]);
+    // Limit to top 10 suggestions
+    setSuggestions(results.slice(0, 10));
+  }, [availableCities, availableStates, meetings, recentSearches]);
 
   // Handle search input change
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setSearchQuery(value);
-    computeSuggestions(value);
-    setShowSuggestions(value.length >= 2);
+    computeSuggestions(value, false);
+    setShowSuggestions(value.length >= 1 || recentSearches.length > 0);
+  };
+
+  // Handle search input focus
+  const handleSearchFocus = () => {
+    if (searchQuery.length >= 1) {
+      computeSuggestions(searchQuery, false);
+      setShowSuggestions(true);
+    } else if (recentSearches.length > 0) {
+      computeSuggestions('', true);
+      setShowSuggestions(true);
+    }
   };
 
   // Handle suggestion click
   const handleSuggestionClick = (suggestion) => {
     setSearchQuery(suggestion.value);
     setShowSuggestions(false);
+    saveRecentSearch(suggestion.value);
 
     // If it's a state, also set the state filter
     if (suggestion.type === 'state') {
       setSelectedStates([suggestion.value]);
     }
+  };
+
+  // Handle search submit (pressing enter or clicking search button)
+  const handleSearchSubmit = () => {
+    if (searchQuery) {
+      saveRecentSearch(searchQuery);
+    }
+    setShowSuggestions(false);
   };
 
   // Close suggestions when clicking outside
@@ -553,89 +812,335 @@ function MeetingsExplorer({ onAdminClick }) {
           </div>
         </div>
 
-        {/* Search Bar */}
+        {/* Search Bar - Clean Design */}
         <div className="airbnb-search-bar">
+          {/* Location Section */}
           <div className="search-section search-location" ref={searchInputRef}>
-            <label>Where</label>
-            <input
-              type="text"
-              placeholder="Search locations..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              onFocus={() => searchQuery.length >= 2 && setShowSuggestions(true)}
-            />
+            <div className="search-section-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+            </div>
+            <div className="search-section-content">
+              <label>Where</label>
+              <input
+                type="text"
+                placeholder="Search locations..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                onFocus={handleSearchFocus}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
+              />
+              {searchQuery && (
+                <button
+                  className="search-clear-btn"
+                  onClick={() => { setSearchQuery(''); setSuggestions([]); setShowSuggestions(false); }}
+                  aria-label="Clear search"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              )}
+            </div>
             {showSuggestions && suggestions.length > 0 && (
               <div className="search-suggestions">
-                {suggestions.map((suggestion, index) => (
-                  <button
-                    key={`${suggestion.type}-${suggestion.value}-${index}`}
-                    className="suggestion-item"
-                    onClick={() => handleSuggestionClick(suggestion)}
-                  >
-                    <span className={`suggestion-icon suggestion-${suggestion.type}`}>
-                      {suggestion.type === 'city' && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                          <circle cx="12" cy="10" r="3"/>
-                        </svg>
-                      )}
-                      {suggestion.type === 'state' && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <rect x="3" y="3" width="18" height="18" rx="2"/>
-                          <path d="M3 9h18"/>
-                          <path d="M9 21V9"/>
-                        </svg>
-                      )}
-                      {suggestion.type === 'location' && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                          <polyline points="9,22 9,12 15,12 15,22"/>
-                        </svg>
-                      )}
-                    </span>
-                    <span className="suggestion-text">
-                      <span className="suggestion-label">{suggestion.label}</span>
-                      {suggestion.subLabel && (
-                        <span className="suggestion-sublabel">{suggestion.subLabel}</span>
-                      )}
-                    </span>
-                    <span className="suggestion-type-badge">{suggestion.type}</span>
-                  </button>
-                ))}
+                {/* Group: Recent Searches */}
+                {suggestions.some(s => s.group === 'recent') && (
+                  <div className="suggestion-group">
+                    <div className="suggestion-group-header">
+                      <span>Recent</span>
+                      <button className="suggestion-clear-recent" onClick={(e) => { e.stopPropagation(); clearRecentSearches(); setShowSuggestions(false); }}>
+                        Clear
+                      </button>
+                    </div>
+                    {suggestions.filter(s => s.group === 'recent').map((suggestion, index) => (
+                      <button
+                        key={`recent-${suggestion.value}-${index}`}
+                        className="suggestion-item"
+                        onClick={() => handleSuggestionClick(suggestion)}
+                      >
+                        <span className="suggestion-icon suggestion-recent">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                          </svg>
+                        </span>
+                        <span className="suggestion-text">
+                          <span className="suggestion-label">
+                            {suggestion.highlight ? (
+                              <>{suggestion.highlight.before}<strong>{suggestion.highlight.match}</strong>{suggestion.highlight.after}</>
+                            ) : suggestion.label}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Group: Cities */}
+                {suggestions.some(s => s.group === 'cities') && (
+                  <div className="suggestion-group">
+                    <div className="suggestion-group-header">Cities</div>
+                    {suggestions.filter(s => s.group === 'cities').map((suggestion, index) => (
+                      <button
+                        key={`city-${suggestion.value}-${index}`}
+                        className="suggestion-item"
+                        onClick={() => handleSuggestionClick(suggestion)}
+                      >
+                        <span className="suggestion-icon suggestion-city">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                          </svg>
+                        </span>
+                        <span className="suggestion-text">
+                          <span className="suggestion-label">
+                            {suggestion.highlight ? (
+                              <>{suggestion.highlight.before}<strong>{suggestion.highlight.match}</strong>{suggestion.highlight.after}</>
+                            ) : suggestion.label}
+                          </span>
+                          {suggestion.subLabel && (
+                            <span className="suggestion-sublabel">{suggestion.subLabel}</span>
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Group: States */}
+                {suggestions.some(s => s.group === 'states') && (
+                  <div className="suggestion-group">
+                    <div className="suggestion-group-header">States</div>
+                    {suggestions.filter(s => s.group === 'states').map((suggestion, index) => (
+                      <button
+                        key={`state-${suggestion.value}-${index}`}
+                        className="suggestion-item"
+                        onClick={() => handleSuggestionClick(suggestion)}
+                      >
+                        <span className="suggestion-icon suggestion-state">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <path d="M3 9h18"/>
+                            <path d="M9 21V9"/>
+                          </svg>
+                        </span>
+                        <span className="suggestion-text">
+                          <span className="suggestion-label">
+                            {suggestion.highlight ? (
+                              <>{suggestion.highlight.before}<strong>{suggestion.highlight.match}</strong>{suggestion.highlight.after}</>
+                            ) : suggestion.label}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Group: Locations */}
+                {suggestions.some(s => s.group === 'locations') && (
+                  <div className="suggestion-group">
+                    <div className="suggestion-group-header">Locations</div>
+                    {suggestions.filter(s => s.group === 'locations').map((suggestion, index) => (
+                      <button
+                        key={`location-${suggestion.value}-${index}`}
+                        className="suggestion-item"
+                        onClick={() => handleSuggestionClick(suggestion)}
+                      >
+                        <span className="suggestion-icon suggestion-location">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                            <polyline points="9,22 9,12 15,12 15,22"/>
+                          </svg>
+                        </span>
+                        <span className="suggestion-text">
+                          <span className="suggestion-label">
+                            {suggestion.highlight ? (
+                              <>{suggestion.highlight.before}<strong>{suggestion.highlight.match}</strong>{suggestion.highlight.after}</>
+                            ) : suggestion.label}
+                          </span>
+                          {suggestion.subLabel && (
+                            <span className="suggestion-sublabel">{suggestion.subLabel}</span>
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
-          <div className="search-divider" />
-          <div className="search-section search-when">
-            <label>When</label>
-            <select
-              value={selectedDay}
-              onChange={(e) => setSelectedDay(e.target.value)}
+
+          {/* Days Section - Multi-select */}
+          <div className="search-section search-when" ref={daysDropdownRef}>
+            <div className="search-section-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+            </div>
+            <div
+              className={`search-section-content search-section-clickable ${showDaysDropdown ? 'active' : ''}`}
+              onClick={() => setShowDaysDropdown(!showDaysDropdown)}
             >
-              <option value="">Any day</option>
-              {dayNames.map((day, index) => (
-                <option key={day} value={index}>{day}</option>
-              ))}
-            </select>
+              <label>When</label>
+              <div className="search-section-value">
+                {selectedDays.length === 0
+                  ? 'Any day'
+                  : selectedDays.length === 7
+                    ? 'Every day'
+                    : selectedDays.map(d => dayAbbrev[d]).join(', ')}
+                <svg className={`dropdown-chevron ${showDaysDropdown ? 'open' : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </div>
+            </div>
+            {selectedDays.length > 0 && (
+              <button
+                className="search-clear-btn"
+                onClick={(e) => { e.stopPropagation(); setSelectedDays([]); }}
+                aria-label="Clear days"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            )}
+            {showDaysDropdown && (
+              <div className="days-dropdown">
+                <div className="days-dropdown-header">
+                  <span>Select Days</span>
+                  {selectedDays.length > 0 && (
+                    <button className="days-clear-btn" onClick={() => setSelectedDays([])}>Clear</button>
+                  )}
+                </div>
+                <div className="days-grid">
+                  {dayAbbrev.map((day, index) => (
+                    <button
+                      key={day}
+                      className={`day-chip ${selectedDays.includes(index) ? 'selected' : ''}`}
+                      onClick={() => toggleDay(index)}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+                <div className="days-presets">
+                  <button
+                    className={`days-preset ${selectedDays.length === 5 && [1,2,3,4,5].every(d => selectedDays.includes(d)) ? 'active' : ''}`}
+                    onClick={() => setSelectedDays([1, 2, 3, 4, 5])}
+                  >
+                    Weekdays
+                  </button>
+                  <button
+                    className={`days-preset ${selectedDays.length === 2 && selectedDays.includes(0) && selectedDays.includes(6) ? 'active' : ''}`}
+                    onClick={() => setSelectedDays([0, 6])}
+                  >
+                    Weekends
+                  </button>
+                  <button
+                    className={`days-preset ${selectedDays.length === 7 ? 'active' : ''}`}
+                    onClick={() => setSelectedDays([0, 1, 2, 3, 4, 5, 6])}
+                  >
+                    Every day
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-          <div className="search-divider" />
-          <div className="search-section search-type">
-            <label>Type</label>
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
+
+          {/* Type Section - Multi-select with icons */}
+          <div className="search-section search-type" ref={typesDropdownRef}>
+            <div className="search-section-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <div
+              className={`search-section-content search-section-clickable ${showTypesDropdown ? 'active' : ''}`}
+              onClick={() => setShowTypesDropdown(!showTypesDropdown)}
             >
-              <option value="">Any type</option>
-              {availableTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
+              <label>Type</label>
+              <div className="search-section-value">
+                {selectedTypes.length === 0
+                  ? 'Any type'
+                  : selectedTypes.length === 1
+                    ? selectedTypes[0]
+                    : `${selectedTypes.length} types`}
+                <svg className={`dropdown-chevron ${showTypesDropdown ? 'open' : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </div>
+            </div>
+            {selectedTypes.length > 0 && (
+              <button
+                className="search-clear-btn"
+                onClick={(e) => { e.stopPropagation(); setSelectedTypes([]); }}
+                aria-label="Clear types"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            )}
+            {showTypesDropdown && (
+              <div className="types-dropdown">
+                <div className="types-dropdown-header">
+                  <span>Select Meeting Types</span>
+                  {selectedTypes.length > 0 && (
+                    <button className="types-clear-btn" onClick={() => setSelectedTypes([])}>Clear</button>
+                  )}
+                </div>
+                <div className="types-grid">
+                  {availableTypes.map(type => {
+                    const typeInfo = MEETING_TYPES[type] || MEETING_TYPES['Other'];
+                    return (
+                      <button
+                        key={type}
+                        className={`type-chip ${selectedTypes.includes(type) ? 'selected' : ''}`}
+                        onClick={() => toggleType(type)}
+                        title={typeInfo.name}
+                      >
+                        <span className={`type-chip-icon type-icon-${type.toLowerCase().replace('-', '')}`}>
+                          <MeetingTypeIcon type={type} size={18} />
+                        </span>
+                        <span className="type-chip-label">{type}</span>
+                        {selectedTypes.includes(type) && (
+                          <span className="type-chip-check">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                              <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="types-legend">
+                  {selectedTypes.length > 0 && (
+                    <div className="types-selected-info">
+                      {selectedTypes.map(type => MEETING_TYPES[type]?.name || type).join(', ')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-          <button className="search-button">
+
+          {/* Search Button */}
+          <button
+            className={`search-button ${hasActiveFilters ? 'has-filters' : ''}`}
+            onClick={handleSearchSubmit}
+          >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8"/>
               <path d="M21 21l-4.35-4.35"/>
             </svg>
+            {hasActiveFilters && <span className="search-button-badge" />}
           </button>
         </div>
 
@@ -992,14 +1497,12 @@ function MeetingsExplorer({ onAdminClick }) {
                   {availableTypes.slice(0, 4).map(type => (
                     <button
                       key={type}
-                      className={`filter-quick-btn ${selectedType === type ? 'active' : ''}`}
-                      onClick={() => setSelectedType(selectedType === type ? '' : type)}
+                      className={`filter-quick-btn ${selectedTypes.includes(type) ? 'active' : ''}`}
+                      onClick={() => toggleType(type)}
                     >
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <path d="M12 8v8"/>
-                        <path d="M8 12h8"/>
-                      </svg>
+                      <span className={`filter-quick-icon type-icon-${type.toLowerCase().replace('-', '')}`}>
+                        <MeetingTypeIcon type={type} size={20} />
+                      </span>
                       <span>{type}</span>
                     </button>
                   ))}
@@ -1009,23 +1512,36 @@ function MeetingsExplorer({ onAdminClick }) {
               {/* Meeting Type */}
               <div className="filter-section">
                 <h3>Meeting type</h3>
-                <div className="filter-segment-control">
-                  <button
-                    className={`filter-segment-btn ${selectedType === '' ? 'active' : ''}`}
-                    onClick={() => setSelectedType('')}
-                  >
-                    Any type
-                  </button>
-                  {availableTypes.map(type => (
-                    <button
-                      key={type}
-                      className={`filter-segment-btn ${selectedType === type ? 'active' : ''}`}
-                      onClick={() => setSelectedType(type)}
-                    >
-                      {type}
-                    </button>
-                  ))}
+                <div className="filter-type-grid">
+                  {availableTypes.map(type => {
+                    const typeInfo = MEETING_TYPES[type] || MEETING_TYPES['Other'];
+                    return (
+                      <button
+                        key={type}
+                        className={`filter-type-btn ${selectedTypes.includes(type) ? 'active' : ''}`}
+                        onClick={() => toggleType(type)}
+                        title={typeInfo.name}
+                      >
+                        <span className={`filter-type-icon type-icon-${type.toLowerCase().replace('-', '')}`}>
+                          <MeetingTypeIcon type={type} size={20} />
+                        </span>
+                        <span className="filter-type-label">{type}</span>
+                        {selectedTypes.includes(type) && (
+                          <span className="filter-type-check">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                              <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
+                {selectedTypes.length > 0 && (
+                  <button className="filter-clear-selection" onClick={() => setSelectedTypes([])}>
+                    Clear selection
+                  </button>
+                )}
               </div>
 
               {/* Day of Week */}
@@ -1033,20 +1549,34 @@ function MeetingsExplorer({ onAdminClick }) {
                 <h3>Day of week</h3>
                 <div className="filter-day-grid">
                   <button
-                    className={`filter-day-btn ${selectedDay === '' ? 'active' : ''}`}
-                    onClick={() => setSelectedDay('')}
+                    className={`filter-day-btn ${selectedDays.length === 0 ? 'active' : ''}`}
+                    onClick={() => setSelectedDays([])}
                   >
                     Any
                   </button>
                   {dayNames.map((day, index) => (
                     <button
                       key={day}
-                      className={`filter-day-btn ${selectedDay === String(index) ? 'active' : ''}`}
-                      onClick={() => setSelectedDay(selectedDay === String(index) ? '' : String(index))}
+                      className={`filter-day-btn ${selectedDays.includes(index) ? 'active' : ''}`}
+                      onClick={() => toggleDay(index)}
                     >
                       {day.slice(0, 3)}
                     </button>
                   ))}
+                </div>
+                <div className="filter-day-presets">
+                  <button
+                    className={`filter-preset-btn ${selectedDays.length === 5 && [1,2,3,4,5].every(d => selectedDays.includes(d)) ? 'active' : ''}`}
+                    onClick={() => setSelectedDays([1, 2, 3, 4, 5])}
+                  >
+                    Weekdays
+                  </button>
+                  <button
+                    className={`filter-preset-btn ${selectedDays.length === 2 && selectedDays.includes(0) && selectedDays.includes(6) ? 'active' : ''}`}
+                    onClick={() => setSelectedDays([0, 6])}
+                  >
+                    Weekends
+                  </button>
                 </div>
               </div>
 
