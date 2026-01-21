@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.2] - 2026-01-21
+
+### UI/UX Improvements
+- **Faster Deployment Indicator**: Improved deployment detection responsiveness
+  - Shows "Checking connection..." state after first connection failure (~3s)
+  - Reduced check interval from 5s to 3s for faster initial detection
+  - Uses faster 1.5s checks when connection becomes unstable
+  - Reduced failure threshold from 3 to 2 for quicker escalation
+  - Blue styling for "checking" state vs orange for confirmed "deploying"
+  - Dynamic header title reflects current connection state
+
 ## [1.7.1] - 2026-01-21
 
 ### UI/UX Improvements
