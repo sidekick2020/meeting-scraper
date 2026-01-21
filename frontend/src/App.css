@@ -1521,6 +1521,58 @@
   background: var(--accent-hover);
 }
 
+/* Cluster Markers */
+.cluster-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.cluster-marker-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 600;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4), 0 1px 3px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cluster-marker-inner:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5), 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+/* Cluster Popup */
+.cluster-popup {
+  text-align: center;
+  min-width: 120px;
+}
+
+.cluster-popup strong {
+  display: block;
+  color: #1f2937;
+  font-size: 0.95rem;
+}
+
+.cluster-popup-hint {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+/* Legend Zoom Hint */
+.legend-zoom-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+  padding-left: 1rem;
+  border-left: 1px solid var(--border-light);
+}
+
 /* Meeting Detail Modal */
 .meeting-detail-modal {
   background: var(--bg-primary);

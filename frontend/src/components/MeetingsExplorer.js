@@ -684,11 +684,8 @@ function MeetingsExplorer({ onAdminClick }) {
             ) : (
               <>
                 <MeetingMap
-                  meetings={filteredMeetings}
                   onSelectMeeting={handleMapMarkerClick}
-                  hoveredMeeting={hoveredMeeting}
-                  showHeatmap={filteredMeetings.length > 50}
-                  onBoundsChange={handleBoundsChange}
+                  showHeatmap={true}
                 />
                 {isLoadingMore && (
                   <div className="map-loading-overlay">

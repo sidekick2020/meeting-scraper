@@ -1805,6 +1805,144 @@ def get_meetings():
         print(f"Error fetching meetings: {e}")
         return jsonify({"meetings": [], "total": 0, "error": str(e)}), 500
 
+
+@app.route('/api/meetings/heatmap', methods=['GET'])
+def get_meetings_heatmap():
+    """Get aggregated heatmap data for efficient map display.
+
+    Returns clustered meeting data based on zoom level, avoiding the need
+    to load thousands of individual meetings at once.
+    """
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({"clusters": [], "total": 0})
+
+    headers = {
+        "X-Parse-Application-Id": BACK4APP_APP_ID,
+        "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+    }
+
+    try:
+        # Get query parameters
+        zoom = request.args.get('zoom', 5, type=int)
+        north = request.args.get('north', type=float)
+        south = request.args.get('south', type=float)
+        east = request.args.get('east', type=float)
+        west = request.args.get('west', type=float)
+
+        # Determine grid size based on zoom level
+        # Lower zoom = larger grid cells = fewer clusters
+        if zoom <= 4:
+            grid_size = 5.0  # ~500km cells
+        elif zoom <= 6:
+            grid_size = 2.0  # ~200km cells
+        elif zoom <= 8:
+            grid_size = 1.0  # ~100km cells
+        elif zoom <= 10:
+            grid_size = 0.5  # ~50km cells
+        elif zoom <= 12:
+            grid_size = 0.2  # ~20km cells
+        else:
+            grid_size = 0.1  # ~10km cells - at this zoom, fetch individual meetings
+
+        # Build where clause for bounds
+        where = {
+            'latitude': {"$exists": True},
+            'longitude': {"$exists": True}
+        }
+        if all(v is not None for v in [north, south, east, west]):
+            where['latitude'] = {"$gte": south, "$lte": north}
+            where['longitude'] = {"$gte": west, "$lte": east}
+
+        import urllib.parse
+
+        # For high zoom levels (13+), return individual meetings
+        if zoom >= 13:
+            params = {
+                'limit': 200,
+                'keys': 'latitude,longitude,name,locationName,day,time,city,state,isOnline,isHybrid',
+                'where': json.dumps(where)
+            }
+            query_string = urllib.parse.urlencode(params)
+            url = f"{BACK4APP_URL}?{query_string}"
+            response = requests.get(url, headers=headers, timeout=15)
+
+            if response.status_code == 200:
+                data = response.json()
+                meetings = data.get("results", [])
+                return jsonify({
+                    "clusters": [],
+                    "meetings": meetings,
+                    "total": len(meetings),
+                    "mode": "individual"
+                })
+            return jsonify({"clusters": [], "meetings": [], "total": 0, "mode": "individual"})
+
+        # For lower zoom levels, fetch and aggregate into clusters
+        params = {
+            'limit': 1000,
+            'keys': 'latitude,longitude',
+            'where': json.dumps(where)
+        }
+        query_string = urllib.parse.urlencode(params)
+        url = f"{BACK4APP_URL}?{query_string}"
+        response = requests.get(url, headers=headers, timeout=15)
+
+        if response.status_code != 200:
+            return jsonify({"clusters": [], "total": 0, "mode": "clustered"})
+
+        data = response.json()
+        results = data.get("results", [])
+
+        # Aggregate meetings into grid cells
+        clusters = {}
+        for meeting in results:
+            lat = meeting.get('latitude')
+            lng = meeting.get('longitude')
+            if lat is None or lng is None:
+                continue
+
+            # Calculate grid cell
+            cell_lat = round(lat / grid_size) * grid_size
+            cell_lng = round(lng / grid_size) * grid_size
+            cell_key = f"{cell_lat},{cell_lng}"
+
+            if cell_key not in clusters:
+                clusters[cell_key] = {
+                    'lat': cell_lat,
+                    'lng': cell_lng,
+                    'count': 0,
+                    'sum_lat': 0,
+                    'sum_lng': 0
+                }
+            clusters[cell_key]['count'] += 1
+            clusters[cell_key]['sum_lat'] += lat
+            clusters[cell_key]['sum_lng'] += lng
+
+        # Convert to list and calculate centroid for each cluster
+        cluster_list = []
+        for cluster in clusters.values():
+            if cluster['count'] > 0:
+                cluster_list.append({
+                    'lat': cluster['sum_lat'] / cluster['count'],  # Centroid
+                    'lng': cluster['sum_lng'] / cluster['count'],
+                    'count': cluster['count']
+                })
+
+        # Sort by count descending
+        cluster_list.sort(key=lambda x: x['count'], reverse=True)
+
+        return jsonify({
+            "clusters": cluster_list,
+            "total": len(results),
+            "mode": "clustered",
+            "gridSize": grid_size
+        })
+
+    except Exception as e:
+        print(f"Error fetching heatmap data: {e}")
+        return jsonify({"clusters": [], "total": 0, "error": str(e)}), 500
+
+
 # ==================== Thumbnail Generation ====================
 from thumbnail_service import (
     request_thumbnail,
