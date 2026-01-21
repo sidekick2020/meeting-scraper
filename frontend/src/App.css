@@ -6977,6 +6977,25 @@ a.sidebar-nav-item {
   background: rgba(0, 0, 0, 0.1);
 }
 
+/* Light Mode: Admin Content Area */
+[data-theme="light"] .admin-content {
+  background: #f8fafc;
+}
+
+[data-theme="light"] .admin-content-header {
+  background: #ffffff;
+  border-bottom: 1px solid #d1d5db;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .admin-content-header h1 {
+  color: #111827;
+}
+
+[data-theme="light"] .admin-content-body {
+  background: #f8fafc;
+}
+
 /* Light Mode: Dev Docs Sidebar */
 [data-theme="light"] .dev-docs-sidebar {
   background: #ffffff;
@@ -7203,19 +7222,85 @@ a.sidebar-nav-item {
 }
 
 /* Light Mode: Tables */
+[data-theme="light"] .directory-table {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+[data-theme="light"] .directory-table-wrapper {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+}
+
 [data-theme="light"] .directory-table th {
-  background: #f3f4f6;
+  background: #e5e7eb;
   color: #111827;
   font-weight: 700;
+  border-bottom: 2px solid #9ca3af !important;
 }
 
 [data-theme="light"] .directory-table td {
-  color: #374151;
+  color: #1f2937;
+  border-bottom: 1px solid #d1d5db !important;
+}
+
+[data-theme="light"] .directory-row {
+  background: #ffffff;
+  border-bottom: 1px solid #d1d5db;
+}
+
+[data-theme="light"] .directory-row:nth-child(even) {
+  background: #f3f4f6;
 }
 
 [data-theme="light"] .directory-row:hover {
-  background: rgba(47, 93, 255, 0.08);
+  background: #dbeafe !important;
   box-shadow: inset 3px 0 0 #2f5dff;
+}
+
+[data-theme="light"] .meeting-name {
+  color: #111827;
+  font-weight: 600;
+}
+
+[data-theme="light"] .location-cell {
+  color: #374151;
+}
+
+[data-theme="light"] .type-badge {
+  background: #dbeafe;
+  color: #1e40af;
+  font-weight: 600;
+}
+
+[data-theme="light"] .online-badge {
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 600;
+}
+
+/* Light Mode: Directory Section */
+[data-theme="light"] .directory-section {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem;
+}
+
+[data-theme="light"] .directory-toolbar {
+  background: #f3f4f6;
+  border-bottom: 2px solid #d1d5db;
+}
+
+[data-theme="light"] .directory-count {
+  color: #374151;
+  font-weight: 600;
+}
+
+[data-theme="light"] .directory-count-row {
+  border-bottom: 1px solid #d1d5db;
 }
 
 /* Light Mode: Detail Sidebar */
