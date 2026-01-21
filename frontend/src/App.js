@@ -7,6 +7,7 @@ import MeetingsExplorer from './components/MeetingsExplorer';
 import AdminPanel from './components/AdminPanel';
 import DeploymentIndicator from './components/DeploymentIndicator';
 import DevDocs from './components/DevDocs';
+import LoadingOverlay from './components/LoadingOverlay';
 
 function SignInModal({ onClose }) {
   const { signIn, authError, clearError, allowedDomains } = useAuth();
@@ -58,6 +59,7 @@ function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
   const [currentView, setCurrentView] = useState('public'); // 'public' or 'admin'
   const [showSignIn, setShowSignIn] = useState(false);
+  const [isBackendReady, setIsBackendReady] = useState(false);
 
   const handleAdminClick = () => {
     if (isAuthenticated) {
@@ -71,6 +73,10 @@ function AppContent() {
     setCurrentView('public');
   };
 
+  const handleBackendReady = () => {
+    setIsBackendReady(true);
+  };
+
   // Check if user just signed in
   React.useEffect(() => {
     if (isAuthenticated && showSignIn) {
@@ -79,13 +85,9 @@ function AppContent() {
     }
   }, [isAuthenticated, showSignIn]);
 
-  if (isLoading) {
-    return (
-      <div className="App loading-screen">
-        <div className="loading-spinner"></div>
-        <p>Loading...</p>
-      </div>
-    );
+  // Show loading overlay while connecting to backend
+  if (!isBackendReady || isLoading) {
+    return <LoadingOverlay onReady={handleBackendReady} />;
   }
 
   return (

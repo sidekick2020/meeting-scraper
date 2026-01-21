@@ -2651,6 +2651,159 @@ html, body {
   color: var(--text-muted);
 }
 
+/* Loading Overlay with Status Logs */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-overlay-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+}
+
+.loading-overlay-content {
+  position: relative;
+  z-index: 1;
+  background: var(--panel-bg, #1a1a2e);
+  border: 1px solid var(--border-medium, #333);
+  border-radius: 1rem;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.loading-overlay-spinner-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.loading-overlay-spinner-container .loading-spinner {
+  margin-bottom: 1rem;
+}
+
+.loading-overlay-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  margin: 0;
+}
+
+.loading-overlay-logs {
+  background: var(--bg-tertiary, #0d0d1a);
+  border: 1px solid var(--border-light, #2a2a3e);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.8125rem;
+}
+
+.loading-log-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  line-height: 1.4;
+}
+
+.loading-log-timestamp {
+  color: var(--text-muted, #666);
+  flex-shrink: 0;
+  font-size: 0.75rem;
+}
+
+.loading-log-icon {
+  flex-shrink: 0;
+  width: 1rem;
+  text-align: center;
+}
+
+.loading-log-message {
+  flex: 1;
+  word-break: break-word;
+}
+
+.loading-log-info {
+  color: var(--text-secondary, #aaa);
+}
+
+.loading-log-info .loading-log-icon {
+  color: var(--accent-primary, #2f5dff);
+}
+
+.loading-log-success {
+  color: #22c55e;
+}
+
+.loading-log-success .loading-log-icon {
+  color: #22c55e;
+}
+
+.loading-log-warning {
+  color: #f59e0b;
+}
+
+.loading-log-warning .loading-log-icon {
+  color: #f59e0b;
+}
+
+.loading-log-error {
+  color: #ef4444;
+}
+
+.loading-log-error .loading-log-icon {
+  color: #ef4444;
+}
+
+.loading-log-pending {
+  color: var(--text-muted, #666);
+}
+
+.loading-log-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--border-light, #333);
+  border-top-color: var(--accent-primary, #2f5dff);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Scrollbar for loading logs */
+.loading-overlay-logs::-webkit-scrollbar {
+  width: 6px;
+}
+
+.loading-overlay-logs::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.loading-overlay-logs::-webkit-scrollbar-thumb {
+  background: var(--border-medium, #333);
+  border-radius: 3px;
+}
+
+.loading-overlay-logs::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light, #444);
+}
+
 /* Explorer List View */
 .explorer-list {
   display: grid;
