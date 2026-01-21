@@ -1,6 +1,16 @@
 {
   "env": {
-    "GH_TOKEN": "YOUR_TOKEN_HERE"
+    "GH_TOKEN": "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"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(gh pr create*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh pr comment*)",
+      "Bash(gh issue comment*)",
+      "Bash(git tag*)",
+      "Bash(git push*--tags*)"
+    ]
   },
   "hooks": {
     "SessionStart": [
