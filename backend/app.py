@@ -23,6 +23,151 @@ BACK4APP_URL = "https://parseapi.back4app.com/classes/Meetings"
 
 # Known working AA Meeting Guide API feeds (verified January 2026)
 AA_FEEDS = {
+    # === ALABAMA ===
+    "Shoals AA (District 1)": {
+        "url": "https://shoalsaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
+    "Cullman AA (District 2)": {
+        "url": "https://the12traditions.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
+    "Northeast Alabama AA (District 3)": {
+        "url": "https://aaarea1dist3.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
+    "Coosa Valley AA (District 4)": {
+        "url": "https://coosavalleyaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
+    "West Alabama AA": {
+        "url": "https://westalaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
+    "Birmingham AA": {
+        "url": "https://birminghamaa.org/wp/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
+    "Central Alabama AA (District 8)": {
+        "url": "https://centralalaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
+    "Auburn AA (District 9)": {
+        "url": "https://aaauburn.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
+    "Dothan AA (District 10)": {
+        "url": "https://aadothan.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
+    "Southeast Alabama AA (District 11)": {
+        "url": "https://district11aa.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
+    "Mobile AA (District 12)": {
+        "url": "https://mobileaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
+    "Gulf Coast AA (District 19)": {
+        "url": "https://gulfcoastaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
+    "Huntsville AA (District 20)": {
+        "url": "https://aahuntsvilleal.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
+    "Eastern Shore AA (District 23)": {
+        "url": "https://easternshoreaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AL"
+    },
+    # === ALASKA ===
+    "Mat-Su AA (Wasilla)": {
+        "url": "https://alaskamatsuaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AK"
+    },
+    "Anchorage AA": {
+        "url": "https://anchorageaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AK"
+    },
+    "Fairbanks AA": {
+        "url": "https://fairbanksaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AK"
+    },
+    # === ARIZONA ===
+    "Rim Country AA (Payson)": {
+        "url": "https://aapayson.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AZ"
+    },
+    "East Valley AA (Mesa)": {
+        "url": "https://aamesaaz.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AZ"
+    },
+    "Central Mountain AA (Cottonwood)": {
+        "url": "https://centralmountain.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AZ"
+    },
+    "Phoenix": {
+        "url": "https://aaphoenix.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AZ"
+    },
+    "West Phoenix AA (Peoria)": {
+        "url": "https://aawestphoenix.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AZ"
+    },
+    "Prescott AA": {
+        "url": "https://prescottaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AZ"
+    },
+    "Flagstaff AA": {
+        "url": "https://flagstaffaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AZ"
+    },
+    "Pinal County AA (Casa Grande)": {
+        "url": "https://aapinalcounty.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AZ"
+    },
+    "Tucson AA": {
+        "url": "https://aatucson.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AZ"
+    },
+    "Cochise County AA (Sierra Vista)": {
+        "url": "https://aa-cochisecounty.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AZ"
+    },
+    "Kingman AA": {
+        "url": "https://kingmanaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AZ"
+    },
+    "Lake Havasu AA": {
+        "url": "https://havasuaa.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AZ"
+    },
+    "River Cities AA (Bullhead City)": {
+        "url": "https://rcco-aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AZ"
+    },
+    "Yuma AA": {
+        "url": "https://aayuma.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AZ"
+    },
+    # === ARKANSAS ===
+    "Arkansas Central Office (Little Rock)": {
+        "url": "https://arkansascentraloffice.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AR"
+    },
+    "Hot Springs AA": {
+        "url": "https://aawcar.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AR"
+    },
+    "Fort Smith AA": {
+        "url": "https://aafsig.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AR"
+    },
+    "Northwest Arkansas AA": {
+        "url": "https://nwarkaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AR"
+    },
+    # === CALIFORNIA ===
     "Palo Alto (Bay Area)": {
         "url": "https://sheets.code4recovery.org/storage/12Ga8uwMG4WJ8pZ_SEU7vNETp_aQZ-2yNVsYDFqIwHyE.json",
         "state": "CA"
@@ -31,70 +176,1412 @@ AA_FEEDS = {
         "url": "https://aasandiego.org/wp-admin/admin-ajax.php?action=meetings",
         "state": "CA"
     },
-    "Phoenix": {
-        "url": "https://aaphoenix.org/wp-admin/admin-ajax.php?action=meetings",
-        "state": "AZ"
+    "Los Angeles AA": {
+        "url": "https://lacoaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CA"
     },
-    "Birmingham AA": {
-        "url": "https://birminghamaa.org/wp/wp-admin/admin-ajax.php?action=meetings",
-        "state": "AL"
+    "Orange County AA": {
+        "url": "https://www.oc-aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CA"
     },
-    "West Alabama AA": {
-        "url": "https://westalaa.org/wp-admin/admin-ajax.php?action=meetings",
-        "state": "AL"
+    "Sacramento AA (CCFAA)": {
+        "url": "https://aasacramento.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CA"
     },
-    # Virginia feeds (verified January 2026)
-    "Richmond AA": {
-        "url": "https://www.aarichmond.org/wp-admin/admin-ajax.php?action=meetings",
-        "state": "VA"
+    "San Luis Obispo AA": {
+        "url": "https://sloaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CA"
     },
-    "Blue Ridge AA": {
-        "url": "https://aablueridge.org/wp-admin/admin-ajax.php?action=meetings",
-        "state": "VA"
+    "East Bay AA (Oakland)": {
+        "url": "https://eastbayaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CA"
     },
-    # Washington feeds (verified January 2026)
-    "Eastside AA (Seattle)": {
-        "url": "https://www.eastsideaa.org/wp-admin/admin-ajax.php?action=meetings",
-        "state": "WA"
+    "San Jose AA": {
+        "url": "https://aasanjose.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CA"
     },
-    # Indiana feeds (verified January 2026)
+    "Contra Costa AA": {
+        "url": "https://contracostaaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CA"
+    },
+    "Central Valley AA (Modesto)": {
+        "url": "https://cviaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CA"
+    },
+    "Inland Empire AA": {
+        "url": "https://aainlandempire.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CA"
+    },
+    "Antelope Valley AA (Lancaster)": {
+        "url": "https://avcentraloffice.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CA"
+    },
+    "South Bay AA (Torrance)": {
+        "url": "https://asbco.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CA"
+    },
+    "San Mateo County AA": {
+        "url": "https://aa-san-mateo.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CA"
+    },
+    # === COLORADO ===
+    "Denver AA (DACCAA)": {
+        "url": "https://daccaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CO"
+    },
+    "Western Colorado AA": {
+        "url": "https://aa-westerncolorado.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CO"
+    },
+    "Northern Colorado AA (Fort Collins)": {
+        "url": "https://nocoaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CO"
+    },
+    "Boulder AA": {
+        "url": "https://www.bouldercountyaa.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CO"
+    },
+    # === CONNECTICUT ===
+    "Connecticut AA": {
+        "url": "https://ct-aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CT"
+    },
+    "Central Connecticut AA": {
+        "url": "https://ccti-aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CT"
+    },
+    "Fairfield County AA": {
+        "url": "https://iafc-aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "CT"
+    },
+    # === DELAWARE ===
+    "Delaware AA": {
+        "url": "https://delawareaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "DE"
+    },
+    "Northern Delaware AA": {
+        "url": "https://ndiaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "DE"
+    },
+    "Central Delaware AA": {
+        "url": "https://cdiaa-de.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "DE"
+    },
+    "Southern Delaware AA": {
+        "url": "https://sussexaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "DE"
+    },
+    # === FLORIDA ===
+    "Central Florida AA (Orlando)": {
+        "url": "https://cflintergroup.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "FL"
+    },
+    "Palm Beach County AA": {
+        "url": "https://aa-palmbeachcounty.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "FL"
+    },
+    "Broward County AA": {
+        "url": "https://aabroward.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "FL"
+    },
+    "Gainesville AA": {
+        "url": "https://aagainesville.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "FL"
+    },
+    "Pensacola AA (Tri-District)": {
+        "url": "https://aapensacola.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "FL"
+    },
+    "Fort Walton Beach AA": {
+        "url": "https://fortwaltonbeachaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "FL"
+    },
+    "Panama City AA": {
+        "url": "https://panamacityaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "FL"
+    },
+    # === GEORGIA ===
+    "Georgia AA (Area 16)": {
+        "url": "https://aageorgia.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "GA"
+    },
+    "Southeast Georgia AA": {
+        "url": "https://aasega.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "GA"
+    },
+    "Athens GA AA": {
+        "url": "https://athensaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "GA"
+    },
+    "Savannah AA": {
+        "url": "https://savannahaa.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "GA"
+    },
+    "Atlanta AA": {
+        "url": "https://atlantaaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "GA"
+    },
+    # === HAWAII ===
+    "Oahu AA": {
+        "url": "https://oahuaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "HI"
+    },
+    "Maui AA": {
+        "url": "https://aamaui.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "HI"
+    },
+    "West Hawaii AA (Kona)": {
+        "url": "https://westhawaiiaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "HI"
+    },
+    # === IDAHO ===
+    "Idaho AA (Area 18)": {
+        "url": "https://idahoarea18aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "ID"
+    },
+    "North Idaho AA": {
+        "url": "https://northidahoaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "ID"
+    },
+    # === ILLINOIS ===
+    "Central Illinois AA (District 11)": {
+        "url": "https://aaci11.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "IL"
+    },
+    "Northern Illinois AA (District 11)": {
+        "url": "https://aa-nia-dist11.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "IL"
+    },
+    "Southern Illinois AA (Area 21)": {
+        "url": "https://area21aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "IL"
+    },
+    # === INDIANA ===
     "Indianapolis AA": {
         "url": "https://indyaa.org/wp-admin/admin-ajax.php?action=meetings",
         "state": "IN"
     },
-    # Texas feeds (verified January 2026)
+    "Southern Indiana AA (Area 23)": {
+        "url": "https://area23aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "IN"
+    },
+    "Fort Wayne AA": {
+        "url": "https://aafortwayne.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "IN"
+    },
+    # === IOWA ===
+    "Iowa AA (Area 24)": {
+        "url": "https://aa-iowa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "IA"
+    },
+    "Ames AA": {
+        "url": "https://amesaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "IA"
+    },
+    "Cedar Rapids AA": {
+        "url": "https://aa-cedarrapids.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "IA"
+    },
+    "Des Moines AA": {
+        "url": "https://aadesmoines.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "IA"
+    },
+    "Siouxland AA (Sioux City)": {
+        "url": "https://aasiouxcity.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "IA"
+    },
+    "Quad Cities AA": {
+        "url": "https://aaquadcities.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "IA"
+    },
+    # === KANSAS ===
+    "Kansas AA (Area 25)": {
+        "url": "https://ks-aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "KS"
+    },
+    "Lawrence KS AA (District 23)": {
+        "url": "https://aa-ksdist23.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "KS"
+    },
+    "Topeka AA": {
+        "url": "https://aatopeka.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "KS"
+    },
+    "Kansas City AA": {
+        "url": "https://kc-aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "KS"
+    },
+    # === KENTUCKY ===
+    "Kentucky AA (Area 26)": {
+        "url": "https://area26.net/wp-admin/admin-ajax.php?action=meetings",
+        "state": "KY"
+    },
+    "Bluegrass AA (Lexington)": {
+        "url": "https://bluegrassintergroup.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "KY"
+    },
+    "Western Kentucky AA": {
+        "url": "https://wkintergroup.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "KY"
+    },
+    "Louisville AA": {
+        "url": "https://loukyaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "KY"
+    },
+    # === LOUISIANA ===
+    "Louisiana AA (Area 27)": {
+        "url": "https://aa-louisiana.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "LA"
+    },
+    "New Orleans AA": {
+        "url": "https://aaneworleans.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "LA"
+    },
+    "Baton Rouge AA": {
+        "url": "https://aabatonrouge.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "LA"
+    },
+    "Southwest Louisiana AA": {
+        "url": "https://aa-swla.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "LA"
+    },
+    "Shreveport AA": {
+        "url": "https://aa-shreveport.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "LA"
+    },
+    # === MAINE ===
+    "Maine AA (Area 28)": {
+        "url": "https://maineaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "ME"
+    },
+    "Maine Central Service Office": {
+        "url": "https://csoaamaine.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "ME"
+    },
+    "Downeast Maine AA": {
+        "url": "https://downeastintergroup.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "ME"
+    },
+    # === MARYLAND ===
+    "Maryland AA (Area 29)": {
+        "url": "https://marylandaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MD"
+    },
+    "Baltimore AA": {
+        "url": "https://baltimoreaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MD"
+    },
+    "Northeastern Maryland AA": {
+        "url": "https://nemdaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MD"
+    },
+    "Western Maryland AA": {
+        "url": "https://westernmarylandaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MD"
+    },
+    "Maryland Mid-Shore AA": {
+        "url": "https://midshoreintergroup.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MD"
+    },
+    # === MASSACHUSETTS ===
+    "Eastern Massachusetts AA (Area 30)": {
+        "url": "https://aaemass.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MA"
+    },
+    "Western Massachusetts AA": {
+        "url": "https://westernmassaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MA"
+    },
+    "Boston AA": {
+        "url": "https://aaboston.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MA"
+    },
+    "Worcester AA": {
+        "url": "https://aaworcester.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MA"
+    },
+    "Cape Cod AA": {
+        "url": "https://capecodaa.net/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MA"
+    },
+    "Berkshire AA": {
+        "url": "https://berkshireaaintergroup.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MA"
+    },
+    # === MICHIGAN ===
+    "Southeastern Michigan AA (Area 33)": {
+        "url": "https://aa-semi.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MI"
+    },
+    "Michigan Statewide AA": {
+        "url": "https://aamichiganstatewide.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MI"
+    },
+    "Huron Valley AA": {
+        "url": "https://hvai.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MI"
+    },
+    # === MINNESOTA ===
+    "Minnesota AA": {
+        "url": "https://aaminnesota.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MN"
+    },
+    "Southern Minnesota AA (Area 36)": {
+        "url": "https://area36.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MN"
+    },
+    "Northern Minnesota AA (Area 35)": {
+        "url": "https://area35.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MN"
+    },
+    "Minneapolis AA": {
+        "url": "https://aaminneapolis.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MN"
+    },
+    "St. Paul AA": {
+        "url": "https://aastpaul.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MN"
+    },
+    "St. Cloud AA": {
+        "url": "https://aasaintcloud.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MN"
+    },
+    "Duluth AA": {
+        "url": "https://duluthaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MN"
+    },
+    # === MISSISSIPPI ===
+    "Mississippi AA (Area 37)": {
+        "url": "https://aa-mississippi.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MS"
+    },
+    "Mid-Mississippi AA (Jackson)": {
+        "url": "https://midmissintergroup.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MS"
+    },
+    "Gulf Coast AA (South MS)": {
+        "url": "https://aagulfcoast.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MS"
+    },
+    "DeSoto County AA": {
+        "url": "https://desotocounty-aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MS"
+    },
+    "Northeast Mississippi AA": {
+        "url": "https://northmsaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MS"
+    },
+    # === MISSOURI ===
+    "Eastern Missouri AA (Area 38)": {
+        "url": "https://eamo.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MO"
+    },
+    "Tri-County AA (St. Charles)": {
+        "url": "https://tricountyaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MO"
+    },
+    "Mid Missouri AA (Columbia)": {
+        "url": "https://aacomm.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MO"
+    },
+    "Kansas City MO AA": {
+        "url": "https://kc-aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MO"
+    },
+    # === MONTANA ===
+    "Montana AA (Area 40)": {
+        "url": "https://aa-montana.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MT"
+    },
+    "Flathead Valley AA (NW Montana)": {
+        "url": "https://aanwmt.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "MT"
+    },
+    # === NEBRASKA ===
+    "Nebraska AA (Area 41)": {
+        "url": "https://area41aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NE"
+    },
+    "Lincoln AA": {
+        "url": "https://lincolnaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NE"
+    },
+    "Omaha AA": {
+        "url": "https://omahaaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NE"
+    },
+    "Norfolk NE AA": {
+        "url": "https://aane.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NE"
+    },
+    "Grand Island AA": {
+        "url": "https://grandislandaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NE"
+    },
+    "Kearney AA": {
+        "url": "https://kearneyaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NE"
+    },
+    # === NEVADA ===
+    "Nevada AA (Area 42)": {
+        "url": "https://nevadaarea42.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NV"
+    },
+    "Northern Nevada AA (Reno)": {
+        "url": "https://nnig.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NV"
+    },
+    "Las Vegas AA": {
+        "url": "https://lvcentraloffice.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NV"
+    },
+    # === NEW HAMPSHIRE ===
+    "New Hampshire AA": {
+        "url": "https://nhaa.net/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NH"
+    },
+    "Seacoast NH AA": {
+        "url": "https://seacoastaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NH"
+    },
+    "North Conway AA": {
+        "url": "https://northconwayaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NH"
+    },
+    # === NEW JERSEY ===
+    "Northern New Jersey AA (Area 44)": {
+        "url": "https://nnjaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NJ"
+    },
+    "Southern New Jersey AA": {
+        "url": "https://snjaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NJ"
+    },
+    "South Jersey AA": {
+        "url": "https://aasj.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NJ"
+    },
+    "Central Jersey AA": {
+        "url": "https://cjiaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NJ"
+    },
+    "Cape Atlantic AA": {
+        "url": "https://capeatlanticaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NJ"
+    },
+    # === NEW MEXICO ===
+    "Santa Fe AA": {
+        "url": "https://santafeaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NM"
+    },
+    "Las Cruces AA (District 4)": {
+        "url": "https://nmdistrict4aa.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NM"
+    },
+    # === NEW YORK ===
+    "New York Intergroup (NYC)": {
+        "url": "https://nyintergroup.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NY"
+    },
+    "Central New York AA (Area 47)": {
+        "url": "https://aacny.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NY"
+    },
+    "Brooklyn AA": {
+        "url": "https://brooklynintergroup.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NY"
+    },
+    # === NORTH CAROLINA ===
+    "North Carolina AA (Area 51)": {
+        "url": "https://aanorthcarolina.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NC"
+    },
+    "Western NC AA (Mountain)": {
+        "url": "https://aancmco.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NC"
+    },
+    "Charlotte AA": {
+        "url": "https://charlotteaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NC"
+    },
+    "Greensboro AA": {
+        "url": "https://aagreensboronc.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NC"
+    },
+    "Eastern NC AA (District 60)": {
+        "url": "https://aaeasternnc.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "NC"
+    },
+    # === OHIO ===
+    "Ohio AA": {
+        "url": "https://aaohio.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "OH"
+    },
+    "Central Ohio AA": {
+        "url": "https://aacentralohio.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "OH"
+    },
+    "Central Southeast Ohio AA (Area 53)": {
+        "url": "https://area53aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "OH"
+    },
+    "Akron AA": {
+        "url": "https://akronaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "OH"
+    },
+    # === OKLAHOMA ===
+    "Oklahoma AA (Area 57)": {
+        "url": "https://aaoklahoma.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "OK"
+    },
+    "Oklahoma City AA": {
+        "url": "https://okcintergroup.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "OK"
+    },
+    "Tulsa AA (Northeast OK)": {
+        "url": "https://aaneok.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "OK"
+    },
+    "Southeast Oklahoma AA": {
+        "url": "https://seokaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "OK"
+    },
+    # === OREGON ===
+    "Central Oregon AA": {
+        "url": "https://coigaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "OR"
+    },
+    "Portland AA (District 26)": {
+        "url": "https://district26aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "OR"
+    },
+    "Roseburg AA": {
+        "url": "https://roseburgintergroup.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "OR"
+    },
+    "Grants Pass AA": {
+        "url": "https://grantspassaa.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "OR"
+    },
+    # === PENNSYLVANIA ===
+    "Western Pennsylvania AA (Area 60)": {
+        "url": "https://wpaarea60.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "PA"
+    },
+    "Bucks & Montgomery Counties AA (District 23)": {
+        "url": "https://aad23.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "PA"
+    },
+    "Lower Northeast Philadelphia AA": {
+        "url": "https://district60aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "PA"
+    },
+    "Southern Bucks County AA": {
+        "url": "https://d51a59aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "PA"
+    },
+    "Northwest Philadelphia AA": {
+        "url": "https://district25aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "PA"
+    },
+    "Montgomery County PA AA": {
+        "url": "https://district38-aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "PA"
+    },
+    "York PA AA": {
+        "url": "https://york-pa-aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "PA"
+    },
+    "Reading Berks AA": {
+        "url": "https://readingberksintergroup.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "PA"
+    },
+    "Somerset County AA": {
+        "url": "https://somersetcountyaa.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "PA"
+    },
+    "Harrisburg AA": {
+        "url": "https://aaharrisburg.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "PA"
+    },
+    # === RHODE ISLAND ===
+    "Rhode Island AA": {
+        "url": "https://rhodeisland-aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "RI"
+    },
+    "Rhode Island AA (Area 61)": {
+        "url": "https://aainri.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "RI"
+    },
+    # === SOUTH CAROLINA ===
+    "South Carolina AA (Area 62)": {
+        "url": "https://sc-aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "SC"
+    },
+    "Upstate SC AA (Greenville)": {
+        "url": "https://upstateintergroup.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "SC"
+    },
+    "Grand Strand AA (Myrtle Beach)": {
+        "url": "https://aamyrtlebeach.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "SC"
+    },
+    "Columbia SC AA": {
+        "url": "https://aacolumbia.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "SC"
+    },
+    "Charleston SC AA (Tri-County)": {
+        "url": "https://tcio.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "SC"
+    },
+    # === SOUTH DAKOTA ===
+    "South Dakota AA (Area 63)": {
+        "url": "https://area63aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "SD"
+    },
+    "Northern Black Hills AA": {
+        "url": "https://aanorthernhills.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "SD"
+    },
+    # === TENNESSEE ===
+    "East Tennessee AA": {
+        "url": "https://etiaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "TN"
+    },
+    "Nashville AA": {
+        "url": "https://aanashville.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "TN"
+    },
+    # === TEXAS ===
     "Houston AA": {
         "url": "https://aahouston.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "TX"
+    },
+    "Dallas AA": {
+        "url": "https://aadallas.org/wp-admin/admin-ajax.php?action=meetings",
         "state": "TX"
     },
     "Austin AA": {
         "url": "https://www.austinaa.org/wp-admin/admin-ajax.php?action=meetings",
         "state": "TX"
     },
-    # Georgia feeds (verified January 2026)
-    "Atlanta AA": {
-        "url": "https://atlantaaa.org/wp-admin/admin-ajax.php?action=meetings",
-        "state": "GA"
+    "Southwest Texas AA (District 12)": {
+        "url": "https://aa12.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "TX"
     },
-    # Colorado feeds (verified January 2026)
-    "Boulder AA": {
-        "url": "https://www.bouldercountyaa.com/wp-admin/admin-ajax.php?action=meetings",
-        "state": "CO"
+    "Coastal Bend AA (Corpus Christi)": {
+        "url": "https://cbiaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "TX"
+    },
+    "Central Texas Deaf AA": {
+        "url": "https://centexdeafintergroup.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "TX"
+    },
+    # === UTAH ===
+    "Utah AA": {
+        "url": "https://utahaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "UT"
+    },
+    "Salt Lake AA": {
+        "url": "https://saltlakeaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "UT"
+    },
+    "Northern Utah AA (Ogden)": {
+        "url": "https://northernutahaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "UT"
+    },
+    # === VERMONT ===
+    "Vermont AA (Area 70)": {
+        "url": "https://aavt.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "VT"
+    },
+    "Burlington VT AA": {
+        "url": "https://burlingtonaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "VT"
+    },
+    # === VIRGINIA ===
+    "Virginia AA (Area 71)": {
+        "url": "https://aavirginia.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "VA"
+    },
+    "Northern Virginia AA": {
+        "url": "https://nvintergroup.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "VA"
+    },
+    "Roanoke AA": {
+        "url": "https://aaroanoke.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "VA"
+    },
+    "Richmond AA": {
+        "url": "https://www.aarichmond.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "VA"
+    },
+    "Charlottesville AA": {
+        "url": "https://aaheartofva.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "VA"
+    },
+    "Eastern Shore VA AA": {
+        "url": "https://aaeasternshoreva.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "VA"
+    },
+    "Blue Ridge AA": {
+        "url": "https://aablueridge.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "VA"
+    },
+    # === WASHINGTON ===
+    "Seattle AA (Greater Seattle)": {
+        "url": "https://seattleaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "WA"
+    },
+    "Eastside AA (Seattle)": {
+        "url": "https://www.eastsideaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "WA"
+    },
+    "Eastern Washington AA (Area 92)": {
+        "url": "https://area92aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "WA"
+    },
+    # === WEST VIRGINIA ===
+    "West Virginia AA (Area 73)": {
+        "url": "https://area73aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "WV"
+    },
+    "Beckley WV AA (District 3)": {
+        "url": "https://aawvdistrict3.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "WV"
+    },
+    "Wheeling WV AA (District 6)": {
+        "url": "https://aa6wv.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "WV"
+    },
+    "Berkeley Morgan WV AA (District 11)": {
+        "url": "https://aawv11.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "WV"
+    },
+    "Northeast WV AA (District 13)": {
+        "url": "https://aawv13.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "WV"
+    },
+    # === WISCONSIN ===
+    "Madison WI AA": {
+        "url": "https://aamadisonwi.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "WI"
+    },
+    "Milwaukee AA": {
+        "url": "https://aamilwaukee.com/wp-admin/admin-ajax.php?action=meetings",
+        "state": "WI"
+    },
+    "Racine AA": {
+        "url": "https://racinecentraloffice.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "WI"
+    },
+    "Fox Valley WI AA": {
+        "url": "https://district02aa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "WI"
+    },
+    "Northern Wisconsin AA (Area 74)": {
+        "url": "https://area74.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "WI"
+    },
+    # === WYOMING ===
+    "Wyoming AA (Area 76)": {
+        "url": "https://wyomingaa.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "WY"
     },
 }
 
 # BMLT (Basic Meeting List Toolkit) feeds for NA meetings
 # These use a different API format and need transformation
 NA_FEEDS = {
+    # === ALABAMA / NW FLORIDA ===
     "Alabama NA": {
         "url": "https://bmlt.sezf.org/main_server/client_interface/json/?switcher=GetSearchResults&services[]=80&services[]=81&services[]=82&services[]=83&services[]=85&services[]=86&services[]=87&services[]=88&services[]=89&services[]=92&services[]=125",
         "state": "AL",
         "type": "bmlt"
     },
-    # Missouri NA feed (verified January 2026)
+    # === ALASKA ===
+    "Alaska NA": {
+        "url": "https://akna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "AK",
+        "type": "bmlt"
+    },
+    # === ARIZONA ===
+    "Arizona NA": {
+        "url": "https://arizona-na.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "AZ",
+        "type": "bmlt"
+    },
+    # === ARKANSAS ===
+    "Arkansas NA": {
+        "url": "https://arscna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "AR",
+        "type": "bmlt"
+    },
+    # === CALIFORNIA ===
+    "Southern California NA": {
+        "url": "https://todayna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "CA",
+        "type": "bmlt"
+    },
+    "Northern California NA": {
+        "url": "https://norcalna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "CA",
+        "type": "bmlt"
+    },
+    "Central California NA": {
+        "url": "https://ccrna.net/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "CA",
+        "type": "bmlt"
+    },
+    "Orange County NA": {
+        "url": "https://orangecountyna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "CA",
+        "type": "bmlt"
+    },
+    "San Francisco NA": {
+        "url": "https://sfna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "CA",
+        "type": "bmlt"
+    },
+    "Sacramento NA": {
+        "url": "https://sacramentona.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "CA",
+        "type": "bmlt"
+    },
+    "Greater San Jose NA": {
+        "url": "https://sjna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "CA",
+        "type": "bmlt"
+    },
+    "Inland Empire Foothills NA": {
+        "url": "https://iefoothillsna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "CA",
+        "type": "bmlt"
+    },
+    # === COLORADO ===
+    "Denver NA (Mile High)": {
+        "url": "https://denverna.com/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "CO",
+        "type": "bmlt"
+    },
+    "Boulder NA": {
+        "url": "https://naboulder.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "CO",
+        "type": "bmlt"
+    },
+    "Northern Colorado NA": {
+        "url": "https://otwna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "CO",
+        "type": "bmlt"
+    },
+    # === CONNECTICUT ===
+    "Connecticut NA": {
+        "url": "https://ctna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "CT",
+        "type": "bmlt"
+    },
+    # === DELAWARE ===
+    "Delaware NA (Small Wonder)": {
+        "url": "https://freestatena.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "DE",
+        "type": "bmlt"
+    },
+    # === FLORIDA ===
+    "Florida NA": {
+        "url": "https://naflorida.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "FL",
+        "type": "bmlt"
+    },
+    "South Florida NA": {
+        "url": "https://sfrna.net/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "FL",
+        "type": "bmlt"
+    },
+    "Orlando NA": {
+        "url": "https://orlandona.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "FL",
+        "type": "bmlt"
+    },
+    "MidCoast NA (Boca/Delray)": {
+        "url": "https://midcoastarea.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "FL",
+        "type": "bmlt"
+    },
+    # === GEORGIA ===
+    "Georgia NA": {
+        "url": "https://grscna.com/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "GA",
+        "type": "bmlt"
+    },
+    "Northeast Georgia NA": {
+        "url": "https://negana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "GA",
+        "type": "bmlt"
+    },
+    "North Atlanta NA": {
+        "url": "https://northatlantana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "GA",
+        "type": "bmlt"
+    },
+    # === HAWAII ===
+    "Hawaii NA": {
+        "url": "https://na-hawaii.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "HI",
+        "type": "bmlt"
+    },
+    # === IDAHO ===
+    "Southern Idaho NA": {
+        "url": "https://sirna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "ID",
+        "type": "bmlt"
+    },
+    "North Idaho NA": {
+        "url": "https://northidahona.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "ID",
+        "type": "bmlt"
+    },
+    # === ILLINOIS ===
+    "Chicagoland NA": {
+        "url": "https://chicagona.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "IL",
+        "type": "bmlt"
+    },
+    "Heart of Illinois NA": {
+        "url": "https://heartofillinoisna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "IL",
+        "type": "bmlt"
+    },
+    "Rock River NA (Rockford)": {
+        "url": "https://rockriverna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "IL",
+        "type": "bmlt"
+    },
+    # === INDIANA ===
+    "Indiana NA": {
+        "url": "https://naindiana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "IN",
+        "type": "bmlt"
+    },
+    "Central Indiana NA": {
+        "url": "https://centralindianana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "IN",
+        "type": "bmlt"
+    },
+    "South Central Indiana NA": {
+        "url": "https://southcentralna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "IN",
+        "type": "bmlt"
+    },
+    # === IOWA ===
+    "Iowa NA": {
+        "url": "https://iowa-na.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "IA",
+        "type": "bmlt"
+    },
+    # === KANSAS ===
+    "Mid-America NA (Kansas)": {
+        "url": "https://marscna.net/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "KS",
+        "type": "bmlt"
+    },
+    "Kansas City NA": {
+        "url": "https://kansascityna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "KS",
+        "type": "bmlt"
+    },
+    "Wichita NA": {
+        "url": "https://wmana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "KS",
+        "type": "bmlt"
+    },
+    # === KENTUCKY ===
+    "Northern Kentucky NA": {
+        "url": "https://nkyna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "KY",
+        "type": "bmlt"
+    },
+    "Louisville NA": {
+        "url": "https://nalouisville.net/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "KY",
+        "type": "bmlt"
+    },
+    "South Central Kentucky NA": {
+        "url": "https://sckana.net/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "KY",
+        "type": "bmlt"
+    },
+    "Eastern Kentucky NA (Grassroots)": {
+        "url": "https://grassrootsna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "KY",
+        "type": "bmlt"
+    },
+    # === LOUISIANA ===
+    "Louisiana NA": {
+        "url": "https://larna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "LA",
+        "type": "bmlt"
+    },
+    "New Orleans NA": {
+        "url": "https://noana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "LA",
+        "type": "bmlt"
+    },
+    "Northshore LA NA": {
+        "url": "https://nsana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "LA",
+        "type": "bmlt"
+    },
+    # === MAINE ===
+    "Maine NA": {
+        "url": "https://namaine.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "ME",
+        "type": "bmlt"
+    },
+    # === MARYLAND ===
+    "Free State NA (Maryland)": {
+        "url": "https://freestatena.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "MD",
+        "type": "bmlt"
+    },
+    "Chesapeake Potomac NA (MD/DC/VA)": {
+        "url": "https://cprna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "MD",
+        "type": "bmlt"
+    },
+    # === MASSACHUSETTS ===
+    "Western Mass NA": {
+        "url": "https://westernmassna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "MA",
+        "type": "bmlt"
+    },
+    "Central Mass NA": {
+        "url": "https://centralmassna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "MA",
+        "type": "bmlt"
+    },
+    "Southeast Mass NA": {
+        "url": "https://semana.us/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "MA",
+        "type": "bmlt"
+    },
+    # === MICHIGAN ===
+    "Michigan NA": {
+        "url": "https://michigan-na.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "MI",
+        "type": "bmlt"
+    },
+    # === MINNESOTA ===
+    "Minnesota NA": {
+        "url": "https://naminnesota.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "MN",
+        "type": "bmlt"
+    },
+    "Twin Cities NA": {
+        "url": "https://twin-cities-na.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "MN",
+        "type": "bmlt"
+    },
+    # === MISSISSIPPI ===
+    "Mississippi NA": {
+        "url": "https://mrscna.net/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "MS",
+        "type": "bmlt"
+    },
+    "Gulf Coast MS NA": {
+        "url": "https://mgcana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "MS",
+        "type": "bmlt"
+    },
+    # === MISSOURI ===
     "Missouri NA": {
         "url": "https://missourina.org/main_server/client_interface/json/?switcher=GetSearchResults",
         "state": "MO",
+        "type": "bmlt"
+    },
+    # === NEBRASKA ===
+    "Nebraska NA": {
+        "url": "https://nebraskana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "NE",
+        "type": "bmlt"
+    },
+    # === NEVADA ===
+    "Southern Nevada NA (Region 51)": {
+        "url": "https://region51na.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "NV",
+        "type": "bmlt"
+    },
+    "Northern Nevada NA (Sierra Sage)": {
+        "url": "https://sierrasagena.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "NV",
+        "type": "bmlt"
+    },
+    # === NEW HAMPSHIRE ===
+    "Granite State NA (NH)": {
+        "url": "https://gsana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "NH",
+        "type": "bmlt"
+    },
+    # === NEW JERSEY ===
+    "New Jersey NA": {
+        "url": "https://nanj.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "NJ",
+        "type": "bmlt"
+    },
+    "Middlesex County NJ NA": {
+        "url": "https://middlesexna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "NJ",
+        "type": "bmlt"
+    },
+    "Bergen County NJ NA": {
+        "url": "https://bergenarea.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "NJ",
+        "type": "bmlt"
+    },
+    # === NEW MEXICO ===
+    "Rio Grande NA (NM)": {
+        "url": "https://riograndena.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "NM",
+        "type": "bmlt"
+    },
+    # === NEW YORK ===
+    "Greater New York NA": {
+        "url": "https://newyorkna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "NY",
+        "type": "bmlt"
+    },
+    "NYC NA": {
+        "url": "https://nycna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "NY",
+        "type": "bmlt"
+    },
+    "Western New York NA": {
+        "url": "https://nawny.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "NY",
+        "type": "bmlt"
+    },
+    # === NORTH CAROLINA ===
+    "North Carolina NA": {
+        "url": "https://ncregion-na.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "NC",
+        "type": "bmlt"
+    },
+    "Carolina NA (NC/SC)": {
+        "url": "https://crna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "NC",
+        "type": "bmlt"
+    },
+    "NC Mountain NA": {
+        "url": "https://ncmountainna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "NC",
+        "type": "bmlt"
+    },
+    # === OHIO ===
+    "Ohio NA": {
+        "url": "https://naohio.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "OH",
+        "type": "bmlt"
+    },
+    "Central Ohio NA": {
+        "url": "https://nacentralohio.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "OH",
+        "type": "bmlt"
+    },
+    "Buckeye NA (NE Ohio)": {
+        "url": "https://brscna.com/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "OH",
+        "type": "bmlt"
+    },
+    # === OKLAHOMA ===
+    "Oklahoma NA": {
+        "url": "https://okna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "OK",
+        "type": "bmlt"
+    },
+    "Western Oklahoma NA": {
+        "url": "https://wascokna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "OK",
+        "type": "bmlt"
+    },
+    "Eastern Oklahoma NA": {
+        "url": "https://eascna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "OK",
+        "type": "bmlt"
+    },
+    # === OREGON ===
+    "Southern Oregon NA": {
+        "url": "https://soana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "OR",
+        "type": "bmlt"
+    },
+    "Portland NA": {
+        "url": "https://portlandna.com/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "OR",
+        "type": "bmlt"
+    },
+    "Washington County OR NA": {
+        "url": "https://washingtoncountyna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "OR",
+        "type": "bmlt"
+    },
+    "Lane County NA (Eugene)": {
+        "url": "https://lanecountyarea-na.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "OR",
+        "type": "bmlt"
+    },
+    # === PENNSYLVANIA ===
+    "Mid-Atlantic NA (PA)": {
+        "url": "https://marscna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "PA",
+        "type": "bmlt"
+    },
+    "Montgomery County PA NA": {
+        "url": "https://montcona.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "PA",
+        "type": "bmlt"
+    },
+    "Tri-State NA (PA/WV/OH)": {
+        "url": "https://tristate-na.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "PA",
+        "type": "bmlt"
+    },
+    # === SOUTH CAROLINA ===
+    "South Carolina NA (Carolina Region)": {
+        "url": "https://crna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "SC",
+        "type": "bmlt"
+    },
+    "South Coastal SC NA": {
+        "url": "https://southcoastalna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "SC",
+        "type": "bmlt"
+    },
+    # === SOUTH DAKOTA ===
+    "South Dakota NA": {
+        "url": "https://sdrna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "SD",
+        "type": "bmlt"
+    },
+    # === TENNESSEE ===
+    "Tennessee NA (Volunteer Region)": {
+        "url": "https://natennessee.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "TN",
+        "type": "bmlt"
+    },
+    "Upper Cumberland TN NA": {
+        "url": "https://nauca.us/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "TN",
+        "type": "bmlt"
+    },
+    "Knoxville NA": {
+        "url": "https://naknoxville.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "TN",
+        "type": "bmlt"
+    },
+    # === TEXAS ===
+    "Dallas NA": {
+        "url": "https://dallasareana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "TX",
+        "type": "bmlt"
+    },
+    "Central Texas NA (Austin)": {
+        "url": "https://ctana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "TX",
+        "type": "bmlt"
+    },
+    "Southeast Texas NA": {
+        "url": "https://setana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "TX",
+        "type": "bmlt"
+    },
+    "Coastal Bend TX NA": {
+        "url": "https://cbana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "TX",
+        "type": "bmlt"
+    },
+    # === UTAH ===
+    "Utah NA": {
+        "url": "https://nautah.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "UT",
+        "type": "bmlt"
+    },
+    "United Wasatch NA (Salt Lake)": {
+        "url": "https://uwana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "UT",
+        "type": "bmlt"
+    },
+    "Northern Utah NA": {
+        "url": "https://northernutahna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "UT",
+        "type": "bmlt"
+    },
+    "Southern Utah NA": {
+        "url": "https://nasouthernutah.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "UT",
+        "type": "bmlt"
+    },
+    # === VIRGINIA ===
+    "Chesapeake Potomac VA NA": {
+        "url": "https://cprna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "VA",
+        "type": "bmlt"
+    },
+    "Central Atlantic VA NA": {
+        "url": "https://car-na.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "VA",
+        "type": "bmlt"
+    },
+    # === WASHINGTON ===
+    "Northeast Washington NA": {
+        "url": "https://newana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "WA",
+        "type": "bmlt"
+    },
+    "Chelan Douglas WA NA": {
+        "url": "https://cdcna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "WA",
+        "type": "bmlt"
+    },
+    # === WEST VIRGINIA ===
+    "Mountaineer NA (WV)": {
+        "url": "https://mrscna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "WV",
+        "type": "bmlt"
+    },
+    "Almost Heaven NA (East WV)": {
+        "url": "https://almostheavenareana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "WV",
+        "type": "bmlt"
+    },
+    # === WISCONSIN ===
+    "Badgerland NA (Madison)": {
+        "url": "https://badgerlandna.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "WI",
+        "type": "bmlt"
+    },
+    "Metro Milwaukee NA": {
+        "url": "https://namilwaukee.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "WI",
+        "type": "bmlt"
+    },
+    "Southeastern WI NA (SEFA)": {
+        "url": "https://sefa-na.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "WI",
+        "type": "bmlt"
+    },
+    "Chippewa Valley NA": {
+        "url": "https://chippewavalley-na.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "WI",
+        "type": "bmlt"
+    },
+    "Kettle Moraine NA": {
+        "url": "https://kmana.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "WI",
+        "type": "bmlt"
+    },
+    # === VIRTUAL NA ===
+    "Virtual NA (Online)": {
+        "url": "https://virtual-na.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "state": "ONLINE",
         "type": "bmlt"
     },
 }
