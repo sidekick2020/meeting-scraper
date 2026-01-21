@@ -2820,6 +2820,7 @@ def save_scrape_history(status="completed", feeds_processed=0):
         "total_saved": scraping_state["total_saved"],
         "feeds_processed": feeds_processed,
         "meetings_by_state": dict(scraping_state["meetings_by_state"]),
+        "feed_stats": dict(scraping_state.get("feed_stats", {})),
         "errors": list(scraping_state["errors"]),
         "status": status
     }
@@ -3571,6 +3572,7 @@ def get_history():
                         "total_saved": item.get("total_saved", 0),
                         "feeds_processed": item.get("feeds_processed", 0),
                         "meetings_by_state": item.get("meetings_by_state", {}),
+                        "feed_stats": item.get("feed_stats", {}),
                         "errors": item.get("errors", []),
                         "status": item.get("status", "completed")
                     })
@@ -3579,6 +3581,64 @@ def get_history():
             print(f"Error fetching history from Back4app: {e}")
 
     return jsonify({"history": []})
+
+@app.route('/api/history/feed/<path:feed_name>', methods=['GET'])
+def get_feed_history(feed_name):
+    """Get scrape history for a specific feed/source"""
+    from urllib.parse import unquote
+    feed_name = unquote(feed_name)
+
+    feed_history = []
+
+    # First check in-memory history
+    if scrape_history:
+        for entry in scrape_history:
+            feed_stats = entry.get("feed_stats", {})
+            if feed_name in feed_stats:
+                stats = feed_stats[feed_name]
+                feed_history.append({
+                    "id": entry.get("id"),
+                    "started_at": entry.get("started_at"),
+                    "completed_at": entry.get("completed_at"),
+                    "status": entry.get("status"),
+                    "found": stats.get("found", 0),
+                    "saved": stats.get("saved", 0),
+                    "duplicates": stats.get("duplicates", 0),
+                    "errors": stats.get("errors", 0)
+                })
+        if feed_history:
+            return jsonify({"feed_name": feed_name, "history": feed_history})
+
+    # Fall back to Back4app
+    if BACK4APP_APP_ID and BACK4APP_REST_KEY:
+        try:
+            headers = {
+                "X-Parse-Application-Id": BACK4APP_APP_ID,
+                "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+            }
+            history_url = "https://parseapi.back4app.com/classes/ScrapeHistory?order=-createdAt&limit=20"
+            response = requests.get(history_url, headers=headers, timeout=6)
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("results", [])
+                for item in results:
+                    feed_stats = item.get("feed_stats", {})
+                    if feed_name in feed_stats:
+                        stats = feed_stats[feed_name]
+                        feed_history.append({
+                            "id": item.get("id") or item.get("objectId"),
+                            "started_at": item.get("started_at"),
+                            "completed_at": item.get("completed_at"),
+                            "status": item.get("status", "completed"),
+                            "found": stats.get("found", 0),
+                            "saved": stats.get("saved", 0),
+                            "duplicates": stats.get("duplicates", 0),
+                            "errors": stats.get("errors", 0)
+                        })
+        except Exception as e:
+            print(f"Error fetching feed history from Back4app: {e}")
+
+    return jsonify({"feed_name": feed_name, "history": feed_history})
 
 @app.route('/api/check-unfinished', methods=['GET'])
 def check_unfinished_scrape():

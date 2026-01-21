@@ -11278,3 +11278,125 @@ a.sidebar-nav-item {
   border-color: #1a4fd8;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
+
+/* Feed History Styles */
+.feed-action-btn.active {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+
+.feed-action-btn.active:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: white;
+}
+
+.feed-history-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.feed-history-loading,
+.feed-history-empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border-radius: 0.5rem;
+}
+
+.feed-history-empty p {
+  margin: 0;
+}
+
+.feed-history-hint {
+  font-size: 0.8rem;
+  margin-top: 0.5rem !important;
+  opacity: 0.8;
+}
+
+.feed-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.feed-history-entry {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+  padding: 0.875rem;
+}
+
+.feed-history-entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.feed-history-status {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.feed-history-status.status-completed {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.feed-history-status.status-in_progress {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.feed-history-status.status-stopped {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.feed-history-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.feed-history-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.feed-history-stat {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.feed-history-stat strong {
+  color: var(--text-primary);
+  margin-right: 0.2rem;
+}
+
+.feed-history-stat-error {
+  color: #ef4444;
+}
+
+.feed-history-stat-error strong {
+  color: #ef4444;
+}
+
+/* Light mode for feed history */
+[data-theme="light"] .feed-history-entry {
+  background: #f9fafb;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .feed-history-loading,
+[data-theme="light"] .feed-history-empty {
+  background: #f3f4f6;
+}

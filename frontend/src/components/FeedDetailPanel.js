@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
 // Source feed metadata - maps feed names to their details
 // Note: The backend dynamically provides feed data, so this is supplementary metadata
@@ -204,6 +206,53 @@ const stateNames = {
 };
 
 function FeedDetailPanel({ feed, isOpen, onClose }) {
+  const [feedHistory, setFeedHistory] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const fetchFeedHistory = useCallback(async (feedName) => {
+    setIsLoadingHistory(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/history/feed/${encodeURIComponent(feedName)}`, {
+        signal: AbortSignal.timeout(8000)
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setFeedHistory(data.history || []);
+      }
+    } catch (error) {
+      console.error('Error fetching feed history:', error);
+      setFeedHistory([]);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && feed?.name && showHistory) {
+      fetchFeedHistory(feed.name);
+    }
+  }, [isOpen, feed?.name, showHistory, fetchFeedHistory]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setShowHistory(false);
+      setFeedHistory([]);
+    }
+  }, [isOpen]);
+
+  const formatDate = (isoString) => {
+    if (!isoString) return 'N/A';
+    const date = new Date(isoString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   if (!feed) return null;
 
   const feedName = feed.name;
@@ -416,16 +465,65 @@ function FeedDetailPanel({ feed, isOpen, onClose }) {
                   Visit Source Website
                 </a>
               )}
-              <button className="feed-action-btn feed-action-secondary" disabled>
+              <button
+                className={`feed-action-btn feed-action-secondary ${showHistory ? 'active' : ''}`}
+                onClick={() => setShowHistory(!showHistory)}
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <rect x="3" y="3" width="18" height="18" rx="2"/>
                   <path d="M3 9h18"/>
                   <path d="M9 21V9"/>
                 </svg>
-                View Scrape History
+                {showHistory ? 'Hide Scrape History' : 'View Scrape History'}
               </button>
             </div>
           </div>
+
+          {/* Scrape History Section */}
+          {showHistory && (
+            <div className="feed-section feed-history-section">
+              <h4>Scrape History for This Source</h4>
+              {isLoadingHistory ? (
+                <div className="feed-history-loading">Loading history...</div>
+              ) : feedHistory.length === 0 ? (
+                <div className="feed-history-empty">
+                  <p>No scrape history for this source yet.</p>
+                  <p className="feed-history-hint">Run the scraper with this source selected to see history appear here.</p>
+                </div>
+              ) : (
+                <div className="feed-history-list">
+                  {feedHistory.map((entry, index) => (
+                    <div key={entry.id || index} className="feed-history-entry">
+                      <div className="feed-history-entry-header">
+                        <span className={`feed-history-status status-${entry.status}`}>
+                          {entry.status === 'completed' ? 'Completed' :
+                           entry.status === 'in_progress' ? 'In Progress' :
+                           entry.status === 'stopped' ? 'Stopped' : entry.status}
+                        </span>
+                        <span className="feed-history-date">{formatDate(entry.completed_at || entry.started_at)}</span>
+                      </div>
+                      <div className="feed-history-stats">
+                        <span className="feed-history-stat">
+                          <strong>{entry.found}</strong> found
+                        </span>
+                        <span className="feed-history-stat">
+                          <strong>{entry.saved}</strong> saved
+                        </span>
+                        <span className="feed-history-stat">
+                          <strong>{entry.duplicates}</strong> duplicates
+                        </span>
+                        {entry.errors > 0 && (
+                          <span className="feed-history-stat feed-history-stat-error">
+                            <strong>{entry.errors}</strong> errors
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </>
