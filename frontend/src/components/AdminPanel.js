@@ -60,6 +60,7 @@ function AdminPanel({ onBackToPublic }) {
   const [scrapeError, setScrapeError] = useState(null);
   const [shouldAbandonOld, setShouldAbandonOld] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
+  const [feedSearchQuery, setFeedSearchQuery] = useState('');
 
   // Directory state
   const [directoryMeetings, setDirectoryMeetings] = useState([]);
@@ -1220,38 +1221,117 @@ function AdminPanel({ onBackToPublic }) {
         </div>
       )}
 
-      {showFeedSelector && (
-        <div className="modal-overlay">
-          <div className="modal feed-selector-modal">
-            <h2>Select Sources to Scrape</h2>
-            <p className="feed-selector-info">
-              Choose which data sources to include in this scrape.
-            </p>
+      {/* Feed Selector Sidebar */}
+      <div className={`feed-selector-sidebar ${showFeedSelector ? 'open' : ''}`}>
+        <div className="feed-selector-sidebar-header">
+          <h2>Select Sources to Scrape</h2>
+          <button
+            className="sidebar-close-btn"
+            onClick={() => { setShowFeedSelector(false); setScrapeError(null); setShouldAbandonOld(false); setFeedSearchQuery(''); }}
+            disabled={isStartingScrape}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
 
-            {scrapeError && (
-              <div className="error-box">
-                {scrapeError}
-              </div>
-            )}
+        <p className="feed-selector-info">
+          Choose which data sources to include in this scrape.
+        </p>
 
-            <div className="feed-selector-actions">
-              <button onClick={selectAllFeeds} className="btn btn-ghost btn-sm" disabled={isStartingScrape}>
-                Select All
-              </button>
-              <button onClick={selectNoFeeds} className="btn btn-ghost btn-sm" disabled={isStartingScrape}>
-                Select None
-              </button>
+        {scrapeError && (
+          <div className="error-box">
+            {scrapeError}
+          </div>
+        )}
+
+        {/* Search Bar */}
+        <div className="feed-search-container">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Search sources..."
+            value={feedSearchQuery}
+            onChange={(e) => setFeedSearchQuery(e.target.value)}
+            className="feed-search-input"
+            disabled={isStartingScrape}
+          />
+          {feedSearchQuery && (
+            <button
+              className="feed-search-clear"
+              onClick={() => setFeedSearchQuery('')}
+              disabled={isStartingScrape}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          )}
+        </div>
+
+        <div className="feed-selector-actions">
+          <button onClick={selectAllFeeds} className="btn btn-ghost btn-sm" disabled={isStartingScrape}>
+            Select All
+          </button>
+          <button onClick={selectNoFeeds} className="btn btn-ghost btn-sm" disabled={isStartingScrape}>
+            Select None
+          </button>
+          <span className="selected-count-inline">
+            {selectedFeeds.length} of {feeds.length} selected
+          </span>
+        </div>
+
+        <div className="feed-selector-list">
+          {feeds.length === 0 ? (
+            <div className="feed-selector-empty">
+              <p>No data sources available</p>
+              <p className="hint">Check backend connection</p>
             </div>
+          ) : (
+            (() => {
+              const filteredFeeds = feeds.filter(feed =>
+                feed.name.toLowerCase().includes(feedSearchQuery.toLowerCase()) ||
+                feed.state.toLowerCase().includes(feedSearchQuery.toLowerCase())
+              );
 
-            <div className="feed-selector-list">
-              {feeds.length === 0 ? (
-                <div className="feed-selector-empty">
-                  <p>No data sources available</p>
-                  <p className="hint">Check backend connection</p>
-                </div>
-              ) : (
-                feeds.map((feed) => (
-                  <label key={feed.name} className={`feed-selector-item ${isStartingScrape ? 'disabled' : ''}`}>
+              if (filteredFeeds.length === 0) {
+                return (
+                  <div className="feed-selector-empty">
+                    <p>No sources match "{feedSearchQuery}"</p>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setFeedSearchQuery('')}>
+                      Clear search
+                    </button>
+                  </div>
+                );
+              }
+
+              return filteredFeeds.map((feed) => {
+                const formatLastScraped = (dateStr) => {
+                  if (!dateStr) return 'Never';
+                  const date = new Date(dateStr);
+                  const now = new Date();
+                  const diffMs = now - date;
+                  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+                  if (diffHours < 1) return 'Just now';
+                  if (diffHours < 24) return `${diffHours}h ago`;
+                  if (diffDays === 1) return 'Yesterday';
+                  if (diffDays < 7) return `${diffDays}d ago`;
+                  return date.toLocaleDateString();
+                };
+
+                const needsScrape = !feed.lastScraped ||
+                  (new Date() - new Date(feed.lastScraped)) > (7 * 24 * 60 * 60 * 1000); // 7 days
+
+                return (
+                  <label key={feed.name} className={`feed-selector-item-enhanced ${isStartingScrape ? 'disabled' : ''} ${selectedFeeds.includes(feed.name) ? 'selected' : ''}`}>
                     <input
                       type="checkbox"
                       checked={selectedFeeds.includes(feed.name)}
@@ -1259,45 +1339,62 @@ function AdminPanel({ onBackToPublic }) {
                       disabled={isStartingScrape}
                     />
                     <span className="feed-checkbox"></span>
-                    <div className="feed-item-info">
-                      <span className="feed-item-name">{feed.name}</span>
-                      <span className="feed-item-state">{feed.state}</span>
+                    <div className="feed-item-content">
+                      <div className="feed-item-header">
+                        <span className="feed-item-name">{feed.name}</span>
+                        <span className="feed-item-state-badge">{feed.state}</span>
+                      </div>
+                      <div className="feed-item-meta">
+                        <span className="feed-item-stat">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                          </svg>
+                          {feed.meetingCount > 0 ? `${feed.meetingCount.toLocaleString()} meetings` : 'No data'}
+                        </span>
+                        <span className={`feed-item-stat ${needsScrape ? 'needs-scrape' : ''}`}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12,6 12,12 16,14"/>
+                          </svg>
+                          {formatLastScraped(feed.lastScraped)}
+                          {needsScrape && <span className="scrape-indicator" title="Scrape recommended">*</span>}
+                        </span>
+                      </div>
                     </div>
                   </label>
-                ))
-              )}
-            </div>
-
-            <div className="feed-selector-footer">
-              <span className="selected-count">
-                {selectedFeeds.length} of {feeds.length} selected
-              </span>
-              <div className="feed-selector-buttons">
-                <button
-                  onClick={() => { setShowFeedSelector(false); setScrapeError(null); setShouldAbandonOld(false); }}
-                  className="btn btn-ghost"
-                  disabled={isStartingScrape}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => startScraping()}
-                  className="btn btn-primary"
-                  disabled={selectedFeeds.length === 0 || isStartingScrape}
-                >
-                  {isStartingScrape ? (
-                    <>
-                      <span className="btn-spinner"></span>
-                      Starting...
-                    </>
-                  ) : (
-                    'Start Scraping'
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
+                );
+              });
+            })()
+          )}
         </div>
+
+        <div className="feed-selector-footer">
+          <button
+            onClick={() => startScraping()}
+            className="btn btn-primary btn-large btn-full"
+            disabled={selectedFeeds.length === 0 || isStartingScrape}
+          >
+            {isStartingScrape ? (
+              <>
+                <span className="btn-spinner"></span>
+                Starting...
+              </>
+            ) : (
+              `Start Scraping (${selectedFeeds.length} source${selectedFeeds.length !== 1 ? 's' : ''})`
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Overlay for sidebar */}
+      {showFeedSelector && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => { setShowFeedSelector(false); setScrapeError(null); setShouldAbandonOld(false); setFeedSearchQuery(''); }}
+        />
       )}
     </div>
   );

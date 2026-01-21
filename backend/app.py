@@ -3028,11 +3028,85 @@ def get_status():
 
 @app.route('/api/feeds', methods=['GET'])
 def get_feeds():
-    """Get list of configured feeds"""
+    """Get list of configured feeds with statistics (meeting count, last scrape time)"""
     all_feeds = get_all_feeds()
+
+    # Get meeting counts by source from Back4app
+    meeting_counts = {}
+    last_scraped = {}
+
+    if BACK4APP_APP_ID and BACK4APP_REST_KEY:
+        try:
+            headers = {
+                "X-Parse-Application-Id": BACK4APP_APP_ID,
+                "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+            }
+
+            # Query to get counts grouped by sourceFeed using aggregate
+            # Back4app supports aggregate queries via the aggregate endpoint
+            import urllib.parse
+
+            # We'll query meetings and count them locally since Parse doesn't support
+            # efficient group-by counts. Instead, get distinct sourceFeed values with counts.
+            # Use a more efficient approach: query with distinct and count per source
+
+            # First, get all unique source feeds from recent scrape history
+            if scrape_history:
+                latest_completed = next(
+                    (h for h in scrape_history if h.get("status") == "completed"),
+                    None
+                )
+                if latest_completed:
+                    feed_stats = latest_completed.get("feed_stats", {})
+                    for feed_name, stats in feed_stats.items():
+                        meeting_counts[feed_name] = stats.get("saved", 0)
+                        last_scraped[feed_name] = latest_completed.get("completed_at")
+
+            # If no history in memory, try to get from Back4app
+            if not meeting_counts:
+                # Get the most recent completed scrape from Back4app
+                history_url = "https://parseapi.back4app.com/classes/ScrapeHistory?where=" + urllib.parse.quote('{"status":"completed"}') + "&order=-completedAt&limit=1"
+                response = requests.get(history_url, headers=headers, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    results = data.get("results", [])
+                    if results:
+                        latest = results[0]
+                        feed_stats = latest.get("feed_stats", {})
+                        completed_at = latest.get("completed_at") or latest.get("completedAt")
+                        for feed_name, stats in feed_stats.items():
+                            if isinstance(stats, dict):
+                                meeting_counts[feed_name] = stats.get("saved", 0)
+                            else:
+                                meeting_counts[feed_name] = 0
+                            last_scraped[feed_name] = completed_at
+
+            # Also get actual current meeting counts from database for accuracy
+            # Query meetings grouped by sourceFeed (limited approach)
+            for feed_name in list(all_feeds.keys())[:50]:  # Limit to avoid timeout
+                if feed_name not in meeting_counts:
+                    try:
+                        where = {"sourceFeed": feed_name}
+                        count_url = f"https://parseapi.back4app.com/classes/Meetings?where={urllib.parse.quote(json.dumps(where))}&count=1&limit=0"
+                        count_response = requests.get(count_url, headers=headers, timeout=5)
+                        if count_response.status_code == 200:
+                            count_data = count_response.json()
+                            meeting_counts[feed_name] = count_data.get("count", 0)
+                    except:
+                        pass
+
+        except Exception as e:
+            print(f"Error fetching feed statistics: {e}")
+
     return jsonify({
         "feeds": [
-            {"name": name, "state": config["state"], "type": config.get("type", "tsml")}
+            {
+                "name": name,
+                "state": config["state"],
+                "type": config.get("type", "tsml"),
+                "meetingCount": meeting_counts.get(name, 0),
+                "lastScraped": last_scraped.get(name)
+            }
             for name, config in all_feeds.items()
         ]
     })
