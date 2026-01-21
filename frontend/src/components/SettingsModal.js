@@ -103,18 +103,18 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
     setVersionSwitchProgress(isRollback ? 'Rolling back...' : 'Switching version...');
 
     try {
-      // Step 1: Validate the new endpoint
+      // Step 1: Validate the API is reachable
       setVersionSwitchProgress('Validating endpoint...');
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const testResponse = await fetch(`${BACKEND_URL}/api/${newVersion}/meetings?limit=1`, {
+      const testResponse = await fetch(`${BACKEND_URL}/api/meetings?limit=1`, {
         signal: controller.signal
       });
       clearTimeout(timeoutId);
 
       if (!testResponse.ok) {
-        throw new Error(`API ${newVersion} returned status ${testResponse.status}`);
+        throw new Error(`API returned status ${testResponse.status}`);
       }
 
       // Step 2: Save current version to history (for rollback)
