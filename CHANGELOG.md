@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0] - 2026-01-21
+
+### New Features
+- **Multi-Day Selection**: Select multiple days at once with visual day chips
+  - Quick presets: Weekdays, Weekends, Every day
+  - Clear visual feedback for selected days
+- **Multi-Type Selection**: Filter by multiple meeting types simultaneously
+  - 13 meeting types supported: AA, NA, CA, MA, OA, GA, Al-Anon, SLAA, HA, SA, CMA, ACA, Other
+  - Each type has a distinct SVG icon for quick visual identification
+- **Recent Searches**: Automatically saves your last 5 location searches
+  - Persists across sessions via localStorage
+  - One-click to clear search history
+- **Enhanced Autocomplete**: Improved location search suggestions
+  - Grouped by category: Recent, Cities, States, Locations
+  - Highlighted matching text in suggestions
+  - Triggers after just 1 character (was 2)
+
+### UI/UX Improvements
+- **Cleaner Search Bar Design**: Removed visual dividers for a modern look
+  - Added leading icons to each section (location, calendar, users)
+  - Subtle hover effects on filter sections
+  - Clear buttons (×) appear on hover for each active filter
+- **Meeting Type Icons**: Visual icons representing each program
+  - AA (bottle), NA (pill), CA (snowflake), MA (leaf), OA (utensils)
+  - GA (dice), Al-Anon (family), SLAA (heart), HA (syringe), SA (link)
+  - CMA (crystal), ACA (users)
+- **Active Filter Indicator**: Green badge on search button when filters are active
+- **Mobile Responsive**: Search bar stacks vertically on small screens
+
 ## [1.7.2] - 2026-01-21
 
 ### UI/UX Improvements
