@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.1] - 2026-01-21
+
+### UI/UX Improvements
+- **Meetings List Placeholder**: Added visually friendly empty state when no scrape is in progress
+  - Calendar icon with gradient background
+  - Clear messaging: "Once you start a new scrape, recently added meetings will populate here"
+  - Hint pill directing users to click "Start Scraping"
+  - Soft purple/indigo color scheme matching the app theme
+
 ## [1.6.0] - 2026-01-21
 
 ### New Features
