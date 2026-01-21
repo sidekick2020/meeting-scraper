@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.0] - 2026-01-21
+
+### New Features
+- **API Versioning with Changelog**: Users can now view and switch between API versions in Settings
+  - Enhanced API version selector with feature details and endpoint information
+  - Each version shows its stability status (Stable/Beta)
+  - Feature lists for each API version
+  - Endpoint previews showing available API paths
+- **Integrated Changelog Viewer**: Release Notes tab now displays full changelog from the server
+  - Structured display with sections for features, bug fixes, and improvements
+  - Version dates and release information
+  - Expandable details for each changelog item
+  - Visual icons for different change categories
+- **New API Endpoints**: Added backend support for versioning
+  - `/api/api-versions` - Get available API versions with their features
+  - `/api/changelog` - Get parsed changelog from CHANGELOG.md
+
+### UI/UX Improvements
+- Enhanced API version cards with feature lists and endpoint previews
+- Status badges showing Stable/Beta for each version
+- Improved changelog display with collapsible sections
+- Better visual hierarchy for release notes
+
 ## [1.5.4] - 2026-01-21
 
 ### New Features

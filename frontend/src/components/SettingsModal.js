@@ -2,65 +2,35 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
-// Release notes content
-const RELEASE_NOTES = `
-## Version 1.4.0
-
-### New Features
-- **Dedicated Docs Endpoint**: Documentation now has its own URL at /docs
-  - Direct link for sharing documentation
-  - Standalone page mode with "Back to App" navigation
-  - Can be accessed without signing in to admin panel
-- **React Router Integration**: Added URL-based routing to the frontend
-
-### Documentation
-- **README Enhancements**: Prominent Render Dashboard links, external links open in new tab
-
-## Version 1.3.2
-
-### New Features
-- **Alabama Meeting Feeds**: Added meeting data sources for Alabama
-  - Birmingham AA, West Alabama AA, Alabama NA feeds
-- **BMLT Feed Support**: Added support for BMLT API format
-
-## Version 1.3.1
-
-### Documentation
-- **Mobile Quick Start Guide**: Step-by-step guide for showing meetings in iOS and Android apps
-  - iOS integration with Swift/SwiftUI using ParseSwift SDK
-  - Android integration with Kotlin/Jetpack Compose using Parse Android SDK
-  - Complete Meeting model definitions for both platforms
-
-## Version 1.3.0
-
-### New Features
-- **Admin Directory Load More**: Replaced Previous/Next pagination with "Load More" button
-- **Search Highlighting**: Added search term highlighting in admin directory
-
-### Bug Fixes
-- **Deployment Indicator**: Fixed indicator not disappearing when deployment finishes
-
-## Earlier Updates
-
-### Performance Improvements
-- **Faster Initial Load**: Reduced initial meeting request from 1000 to 100
-- **Coverage Analysis Optimization**: Fixed timeout with single batched fetch
-
-### UI/UX Improvements
-- **Dark/Light Mode Toggle**: Added theme toggle in profile dropdown
-- **Light Mode Improvements**: Comprehensive styling overhaul
-- **Skeleton Loading**: Added shimmer animation for users table
-
-### New Features
-- **Downloadable Model Files**: Added Meeting.swift and Meeting.kt files
-- **CC Email for Invites**: Added ability to CC someone when sending invitations
-- **Comprehensive Query Docs**: Added extensive query examples for iOS and Android
-`;
-
-// Default API versions (will be enhanced with git tag data when available)
+// Default API versions (will be enhanced with server data when available)
 const DEFAULT_API_VERSIONS = [
-  { version: 'v1', label: 'v1 (Stable)', description: 'Current stable API version', isDefault: true },
-  { version: 'v2-beta', label: 'v2 Beta', description: 'New features, may have breaking changes', isDefault: true }
+  {
+    version: 'v1',
+    label: 'v1 (Stable)',
+    description: 'Current stable API with full meeting data support',
+    status: 'stable',
+    features: [
+      'Full meeting list with pagination',
+      'Search and filtering',
+      'Heatmap clustering',
+      'State-based grouping'
+    ],
+    endpoints: ['/api/meetings', '/api/meetings/heatmap', '/api/meetings/by-state']
+  },
+  {
+    version: 'v2-beta',
+    label: 'v2 Beta',
+    description: 'Next generation API with enhanced features',
+    status: 'beta',
+    features: [
+      'All v1 features',
+      'Enhanced filtering options',
+      'Improved response format',
+      'Batch operations support',
+      'Webhooks (coming soon)'
+    ],
+    endpoints: ['/api/v2/meetings', '/api/v2/meetings/heatmap', '/api/v2/meetings/by-state']
+  }
 ];
 
 function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
@@ -88,6 +58,16 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   const [loadingVersions, setLoadingVersions] = useState(false);
   const [hasGitTags, setHasGitTags] = useState(false);
   const [buildVersion, setBuildVersion] = useState('');
+
+  // API versions with features
+  const [apiVersions, setApiVersions] = useState(DEFAULT_API_VERSIONS);
+  const [loadingApiVersions, setLoadingApiVersions] = useState(false);
+
+  // Changelog state
+  const [changelog, setChangelog] = useState([]);
+  const [loadingChangelog, setLoadingChangelog] = useState(false);
+  const [showChangelogModal, setShowChangelogModal] = useState(false);
+  const [selectedVersionChangelog, setSelectedVersionChangelog] = useState(null);
 
   // Users state
   const [users, setUsers] = useState([]);
@@ -247,8 +227,62 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   useEffect(() => {
     if (activeTab === 'api') {
       fetchGitVersions();
+      fetchApiVersions();
+      fetchChangelog();
     }
   }, [activeTab, fetchGitVersions]);
+
+  // Fetch API versions with features from server
+  const fetchApiVersions = async () => {
+    setLoadingApiVersions(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/api-versions`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.versions && data.versions.length > 0) {
+          setApiVersions(data.versions);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch API versions:', error);
+    } finally {
+      setLoadingApiVersions(false);
+    }
+  };
+
+  // Fetch changelog from server
+  const fetchChangelog = async () => {
+    setLoadingChangelog(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/changelog`);
+      if (response.ok) {
+        const data = await response.json();
+        setChangelog(data.changelog || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch changelog:', error);
+    } finally {
+      setLoadingChangelog(false);
+    }
+  };
+
+  // Show changelog for a specific version
+  const handleShowVersionChangelog = (version) => {
+    setSelectedVersionChangelog(version);
+    setShowChangelogModal(true);
+  };
+
+  // Get section icon based on section name
+  const getSectionIcon = (sectionName) => {
+    const name = sectionName.toLowerCase();
+    if (name.includes('feature')) return '✨';
+    if (name.includes('bug') || name.includes('fix')) return '🐛';
+    if (name.includes('performance')) return '⚡';
+    if (name.includes('ui') || name.includes('ux')) return '🎨';
+    if (name.includes('documentation') || name.includes('doc')) return '📚';
+    if (name.includes('backend')) return '⚙️';
+    return '📝';
+  };
 
   const handleConfigSubmit = (e) => {
     e.preventDefault();
@@ -707,32 +741,80 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
               )}
 
               <div className={`api-version-options ${isVersionSwitching ? 'disabled' : ''}`}>
-                {DEFAULT_API_VERSIONS.map((v) => (
-                  <label
+                {apiVersions.map((v) => (
+                  <div
                     key={v.version}
-                    className={`api-version-option ${apiVersion === v.version ? 'selected' : ''} ${isVersionSwitching ? 'disabled' : ''}`}
+                    className={`api-version-card ${apiVersion === v.version ? 'selected' : ''} ${isVersionSwitching ? 'disabled' : ''}`}
                   >
-                    <input
-                      type="radio"
-                      name="apiVersion"
-                      value={v.version}
-                      checked={apiVersion === v.version}
-                      onChange={() => handleApiVersionChange(v.version)}
-                      disabled={isVersionSwitching}
-                    />
-                    <div className="version-radio">
-                      {isVersionSwitching && apiVersion !== v.version && (
-                        <div className="version-radio-loading"></div>
+                    <label className="api-version-card-header">
+                      <input
+                        type="radio"
+                        name="apiVersion"
+                        value={v.version}
+                        checked={apiVersion === v.version}
+                        onChange={() => handleApiVersionChange(v.version)}
+                        disabled={isVersionSwitching}
+                      />
+                      <div className="version-radio">
+                        {isVersionSwitching && apiVersion !== v.version && (
+                          <div className="version-radio-loading"></div>
+                        )}
+                      </div>
+                      <div className="version-info">
+                        <div className="version-title-row">
+                          <span className="version-label">{v.label}</span>
+                          <span className={`version-status-badge ${v.status || 'stable'}`}>
+                            {v.status === 'beta' ? 'Beta' : 'Stable'}
+                          </span>
+                        </div>
+                        <span className="version-description">{v.description}</span>
+                      </div>
+                      {apiVersion === v.version && (
+                        <span className="version-active-badge">Active</span>
                       )}
-                    </div>
-                    <div className="version-info">
-                      <span className="version-label">{v.label}</span>
-                      <span className="version-description">{v.description}</span>
-                    </div>
-                    {apiVersion === v.version && (
-                      <span className="version-active-badge">Active</span>
+                    </label>
+
+                    {/* Version Features */}
+                    {v.features && v.features.length > 0 && (
+                      <div className="version-features">
+                        <div className="version-features-header">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="9,11 12,14 22,4"/>
+                            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                          </svg>
+                          Features
+                        </div>
+                        <ul className="version-features-list">
+                          {v.features.slice(0, 4).map((feature, idx) => (
+                            <li key={idx}>{feature}</li>
+                          ))}
+                          {v.features.length > 4 && (
+                            <li className="more-features">+{v.features.length - 4} more</li>
+                          )}
+                        </ul>
+                      </div>
                     )}
-                  </label>
+
+                    {/* Version Endpoints */}
+                    {v.endpoints && v.endpoints.length > 0 && (
+                      <div className="version-endpoints">
+                        <div className="version-endpoints-header">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/>
+                          </svg>
+                          Endpoints
+                        </div>
+                        <div className="version-endpoints-list">
+                          {v.endpoints.slice(0, 2).map((endpoint, idx) => (
+                            <code key={idx} className="endpoint-badge">{endpoint}</code>
+                          ))}
+                          {v.endpoints.length > 2 && (
+                            <span className="more-endpoints">+{v.endpoints.length - 2} more</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
 
@@ -893,30 +975,84 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
 
           {activeTab === 'releases' && (
             <div className="release-notes-section">
-              <div className="release-notes-content">
-                {RELEASE_NOTES.split('\n').map((line, index) => {
-                  if (line.startsWith('## ')) {
-                    return <h2 key={index}>{line.replace('## ', '')}</h2>;
-                  } else if (line.startsWith('### ')) {
-                    return <h3 key={index}>{line.replace('### ', '')}</h3>;
-                  } else if (line.startsWith('- **')) {
-                    const match = line.match(/- \*\*(.+?)\*\*: (.+)/);
-                    if (match) {
-                      return (
-                        <div key={index} className="release-item">
-                          <strong>{match[1]}:</strong> {match[2]}
-                        </div>
-                      );
-                    }
-                    return <p key={index}>{line}</p>;
-                  } else if (line.startsWith('  - ')) {
-                    return <div key={index} className="release-subitem">{line.replace('  - ', '')}</div>;
-                  } else if (line.trim()) {
-                    return <p key={index}>{line}</p>;
-                  }
-                  return null;
-                })}
+              <div className="changelog-header">
+                <h3>Changelog</h3>
+                <p className="section-description">
+                  View all changes, features, and bug fixes across all versions.
+                </p>
               </div>
+
+              {loadingChangelog ? (
+                <div className="versions-loading">
+                  <div className="version-switch-spinner"></div>
+                  <span>Loading changelog...</span>
+                </div>
+              ) : changelog.length > 0 ? (
+                <div className="changelog-list">
+                  {changelog.map((version, vIndex) => (
+                    <div key={vIndex} className="changelog-version">
+                      <div className="changelog-version-header">
+                        <div className="changelog-version-info">
+                          <span className="changelog-version-number">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+                              <line x1="7" y1="7" x2="7.01" y2="7"/>
+                            </svg>
+                            {version.version}
+                          </span>
+                          {version.date && (
+                            <span className="changelog-version-date">{version.date}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="changelog-sections">
+                        {Object.entries(version.sections).map(([sectionName, items], sIndex) => (
+                          items.length > 0 && (
+                            <div key={sIndex} className="changelog-section">
+                              <div className="changelog-section-header">
+                                <span className="changelog-section-icon">{getSectionIcon(sectionName)}</span>
+                                <span className="changelog-section-name">{sectionName}</span>
+                                <span className="changelog-section-count">{items.length}</span>
+                              </div>
+
+                              <div className="changelog-items">
+                                {items.map((item, iIndex) => (
+                                  <div key={iIndex} className="changelog-item">
+                                    <div className="changelog-item-title">
+                                      <strong>{item.title}</strong>
+                                      {item.description && (
+                                        <span className="changelog-item-description">: {item.description}</span>
+                                      )}
+                                    </div>
+                                    {item.details && item.details.length > 0 && (
+                                      <ul className="changelog-item-details">
+                                        {item.details.map((detail, dIndex) => (
+                                          <li key={dIndex}>{detail}</li>
+                                        ))}
+                                      </ul>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="no-versions-message">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                  </svg>
+                  <p>No changelog available</p>
+                  <p className="hint">Check back later for release notes.</p>
+                </div>
+              )}
             </div>
           )}
         </div>

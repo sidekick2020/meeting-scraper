@@ -3182,6 +3182,145 @@ def get_version_history():
             "error": str(e)
         })
 
+# API Versions with changelog support
+API_VERSIONS = {
+    "v1": {
+        "version": "v1",
+        "label": "v1 (Stable)",
+        "description": "Current stable API with full meeting data support",
+        "status": "stable",
+        "released_at": "2025-12-01",
+        "features": [
+            "Full meeting list with pagination",
+            "Search and filtering",
+            "Heatmap clustering",
+            "State-based grouping"
+        ],
+        "endpoints": [
+            "/api/meetings",
+            "/api/meetings/heatmap",
+            "/api/meetings/by-state"
+        ]
+    },
+    "v2-beta": {
+        "version": "v2-beta",
+        "label": "v2 Beta",
+        "description": "Next generation API with enhanced features",
+        "status": "beta",
+        "released_at": "2026-01-15",
+        "features": [
+            "All v1 features",
+            "Enhanced filtering options",
+            "Improved response format",
+            "Batch operations support",
+            "Webhooks (coming soon)"
+        ],
+        "endpoints": [
+            "/api/v2/meetings",
+            "/api/v2/meetings/heatmap",
+            "/api/v2/meetings/by-state",
+            "/api/v2/batch"
+        ]
+    }
+}
+
+@app.route('/api/api-versions', methods=['GET'])
+def get_api_versions():
+    """Get available API versions with their details"""
+    return jsonify({
+        "versions": list(API_VERSIONS.values()),
+        "current_default": "v1"
+    })
+
+@app.route('/api/changelog', methods=['GET'])
+def get_changelog():
+    """Get changelog from CHANGELOG.md file, parsed into structured format"""
+    changelog_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'CHANGELOG.md')
+
+    # Also check for CHANGELOG.md in current directory or parent
+    if not os.path.exists(changelog_path):
+        changelog_path = os.path.join(os.path.dirname(__file__), '..', 'CHANGELOG.md')
+    if not os.path.exists(changelog_path):
+        changelog_path = '/home/user/meeting-scraper/CHANGELOG.md'
+
+    try:
+        with open(changelog_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Parse the changelog into structured format
+        versions = []
+        current_version = None
+        current_section = None
+
+        for line in content.split('\n'):
+            line = line.rstrip()
+
+            # Match version headers like "## [1.5.4] - 2026-01-21" or "## [Unreleased]"
+            version_match = re.match(r'^## \[([^\]]+)\](?:\s*-\s*(.+))?', line)
+            if version_match:
+                if current_version:
+                    versions.append(current_version)
+
+                version_num = version_match.group(1)
+                release_date = version_match.group(2) if version_match.group(2) else None
+
+                current_version = {
+                    "version": version_num,
+                    "date": release_date,
+                    "sections": {}
+                }
+                current_section = None
+                continue
+
+            # Match section headers like "### New Features"
+            section_match = re.match(r'^### (.+)', line)
+            if section_match and current_version:
+                current_section = section_match.group(1)
+                if current_section not in current_version["sections"]:
+                    current_version["sections"][current_section] = []
+                continue
+
+            # Match bullet points
+            bullet_match = re.match(r'^- \*\*(.+?)\*\*:?\s*(.*)$', line)
+            if bullet_match and current_version and current_section:
+                item = {
+                    "title": bullet_match.group(1),
+                    "description": bullet_match.group(2) if bullet_match.group(2) else "",
+                    "details": []
+                }
+                current_version["sections"][current_section].append(item)
+                continue
+
+            # Match sub-bullets (indented with spaces)
+            sub_bullet_match = re.match(r'^  - (.+)$', line)
+            if sub_bullet_match and current_version and current_section:
+                sections = current_version["sections"][current_section]
+                if sections:
+                    sections[-1]["details"].append(sub_bullet_match.group(1))
+                continue
+
+        # Don't forget the last version
+        if current_version:
+            versions.append(current_version)
+
+        return jsonify({
+            "changelog": versions,
+            "total_versions": len(versions)
+        })
+
+    except FileNotFoundError:
+        return jsonify({
+            "changelog": [],
+            "total_versions": 0,
+            "error": "Changelog file not found"
+        })
+    except Exception as e:
+        return jsonify({
+            "changelog": [],
+            "total_versions": 0,
+            "error": str(e)
+        })
+
 @app.route('/api/history', methods=['GET'])
 def get_history():
     """Get scrape history - from memory and Back4app"""
