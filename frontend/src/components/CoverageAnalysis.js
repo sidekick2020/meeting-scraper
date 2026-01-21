@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import StateHeatmapModal from './StateHeatmapModal';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -7,6 +8,7 @@ function CoverageAnalysis() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAllStates, setShowAllStates] = useState(false);
+  const [selectedState, setSelectedState] = useState(null);
 
   const fetchCoverage = useCallback(async (isInitialLoad = false) => {
     const controller = new AbortController();
@@ -124,7 +126,12 @@ function CoverageAnalysis() {
           <h4>Priority States (High Population, Low Coverage)</h4>
           <div className="priority-list">
             {priorityStates.slice(0, 5).map(state => (
-              <div key={state.state} className="priority-item">
+              <div
+                key={state.state}
+                className="priority-item clickable"
+                onClick={() => setSelectedState(state)}
+                title={`Click to view ${state.stateName} meeting heatmap`}
+              >
                 <span className="state-name">{state.stateName}</span>
                 <span className="state-pop">
                   {(state.population / 1000000).toFixed(1)}M pop
@@ -159,10 +166,16 @@ function CoverageAnalysis() {
           </thead>
           <tbody>
             {displayedStates.map(state => (
-              <tr key={state.state} className={state.meetings === 0 ? 'no-coverage' : ''}>
+              <tr
+                key={state.state}
+                className={`coverage-row ${state.meetings === 0 ? 'no-coverage' : ''}`}
+                onClick={() => setSelectedState(state)}
+                title={`Click to view ${state.stateName} meeting heatmap`}
+              >
                 <td>
                   <strong>{state.state}</strong>
                   <span className="state-full-name">{state.stateName}</span>
+                  <span className="state-view-map">View Map</span>
                 </td>
                 <td>{(state.population / 1000000).toFixed(1)}M</td>
                 <td>{state.meetings.toLocaleString()}</td>
@@ -205,12 +218,26 @@ function CoverageAnalysis() {
           <h4>States Without Any Meetings ({statesWithoutCoverage.length})</h4>
           <div className="no-coverage-list">
             {statesWithoutCoverage.map(state => (
-              <span key={state.state} className="no-coverage-tag">
+              <span
+                key={state.state}
+                className="no-coverage-tag clickable"
+                onClick={() => setSelectedState(state)}
+                title={`Click to view ${state.stateName}`}
+              >
                 {state.state} ({(state.population / 1000000).toFixed(1)}M)
               </span>
             ))}
           </div>
         </div>
+      )}
+
+      {/* State Heatmap Modal */}
+      {selectedState && (
+        <StateHeatmapModal
+          state={selectedState}
+          onClose={() => setSelectedState(null)}
+          avgCoverage={summary.averageCoveragePer100k}
+        />
       )}
     </div>
   );
