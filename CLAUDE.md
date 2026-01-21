@@ -49,19 +49,41 @@ The `/api/versions` endpoint reads git tags to populate the Release History in t
 - **Minor (X.Y.0)**: New features, significant enhancements
 - **Patch (X.Y.Z)**: Bug fixes, small improvements
 
-## Current Pending Tags
+## Periodic Tag Reminders
 
-The following tags have been created locally but need to be pushed by a user with full git access:
+**Claude should periodically remind the user to push pending tags**, especially:
+- At the end of a session where CHANGELOG was updated
+- When a significant feature is completed
+- When the user asks about releases or versions
 
-| Version | Commit | Status |
-|---------|--------|--------|
-| v1.6.0 | 3c419bf | Created locally, needs push |
+### Reminder Format
 
-To push pending tags:
-```bash
-git fetch --tags
+When reminding the user, provide **copy-paste ready commands** with a changelog summary:
+
+```
+📦 **Pending Release Tag**
+
+The following version is ready to be tagged and pushed:
+
+**v1.6.0** - API Versioning with Changelog
+- API Versioning with Changelog viewer in Settings
+- New /api/api-versions and /api/changelog endpoints
+- Enhanced version cards with feature lists and status badges
+
+**Run these commands to publish the release:**
+
+git tag -a v1.6.0 3c419bf -m "Release v1.6.0 - API Versioning with Changelog"
 git push origin v1.6.0
 ```
+
+### When to Suggest New Tags
+
+Suggest a new version tag when:
+- **Patch (X.Y.Z)**: Bug fixes, minor UI tweaks
+- **Minor (X.Y.0)**: New features, significant enhancements
+- **Major (X.0.0)**: Breaking changes, major rewrites
+
+Always check CHANGELOG.md to see what the latest documented version is, and compare with `git tag -l` to identify unpushed versions.
 
 ## Commit Message Format
 
