@@ -279,7 +279,9 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true }) {
   const [mapData, setMapData] = useState({ clusters: [], meetings: [], total: 0, mode: 'clustered' });
   const [stateData, setStateData] = useState({ states: [], total: 0 });
   const [currentZoom, setCurrentZoom] = useState(5);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loadingCount, setLoadingCount] = useState(0);
+
+  const isLoading = loadingCount > 0;
 
   const handleDataLoaded = useCallback((data) => {
     setMapData(data);
@@ -294,7 +296,7 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true }) {
   }, []);
 
   const handleLoadingChange = useCallback((loading) => {
-    setIsLoading(loading);
+    setLoadingCount(prev => loading ? prev + 1 : Math.max(0, prev - 1));
   }, []);
 
   // Determine what to display based on zoom level
@@ -406,7 +408,11 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true }) {
       {isLoading && (
         <div className="map-loading-overlay">
           <div className="loading-spinner small"></div>
-          <span>Loading map data...</span>
+          <span>
+            {showStateLevel
+              ? `Loading... ${stateData.total?.toLocaleString() || 0} meetings found`
+              : `Loading... ${mapData.total?.toLocaleString() || 0} meetings found`}
+          </span>
         </div>
       )}
 
