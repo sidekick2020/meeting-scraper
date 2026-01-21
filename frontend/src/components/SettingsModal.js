@@ -57,9 +57,10 @@ const RELEASE_NOTES = `
 - **Comprehensive Query Docs**: Added extensive query examples for iOS and Android
 `;
 
-const API_VERSIONS = [
-  { version: 'v1', label: 'v1 (Stable)', description: 'Current stable API version' },
-  { version: 'v2-beta', label: 'v2 Beta', description: 'New features, may have breaking changes' }
+// Default API versions (will be enhanced with git tag data when available)
+const DEFAULT_API_VERSIONS = [
+  { version: 'v1', label: 'v1 (Stable)', description: 'Current stable API version', isDefault: true },
+  { version: 'v2-beta', label: 'v2 Beta', description: 'New features, may have breaking changes', isDefault: true }
 ];
 
 function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
@@ -80,6 +81,13 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   });
   const [versionError, setVersionError] = useState('');
   const [versionSuccess, setVersionSuccess] = useState('');
+
+  // Git version tags state
+  const [gitVersions, setGitVersions] = useState([]);
+  const [recentCommits, setRecentCommits] = useState([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+  const [hasGitTags, setHasGitTags] = useState(false);
+  const [buildVersion, setBuildVersion] = useState('');
 
   // Users state
   const [users, setUsers] = useState([]);
@@ -216,6 +224,31 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
       fetchUsers();
     }
   }, [activeTab, isAdmin, fetchUsers]);
+
+  // Fetch git version tags when API tab is active
+  const fetchGitVersions = useCallback(async () => {
+    setLoadingVersions(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/versions`);
+      if (response.ok) {
+        const data = await response.json();
+        setGitVersions(data.versions || []);
+        setRecentCommits(data.recent_commits || []);
+        setHasGitTags(data.has_tags || false);
+        setBuildVersion(data.build_version || '');
+      }
+    } catch (error) {
+      console.error('Failed to fetch git versions:', error);
+    } finally {
+      setLoadingVersions(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'api') {
+      fetchGitVersions();
+    }
+  }, [activeTab, fetchGitVersions]);
 
   const handleConfigSubmit = (e) => {
     e.preventDefault();
@@ -674,7 +707,7 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
               )}
 
               <div className={`api-version-options ${isVersionSwitching ? 'disabled' : ''}`}>
-                {API_VERSIONS.map((v) => (
+                {DEFAULT_API_VERSIONS.map((v) => (
                   <label
                     key={v.version}
                     className={`api-version-option ${apiVersion === v.version ? 'selected' : ''} ${isVersionSwitching ? 'disabled' : ''}`}
@@ -708,8 +741,104 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
                 <code className="endpoint-url">
                   {BACKEND_URL}/api/{apiVersion}/meetings
                 </code>
+                {buildVersion && (
+                  <div className="build-version-info">
+                    <span className="build-label">Build:</span>
+                    <code className="build-version">{buildVersion}</code>
+                  </div>
+                )}
               </div>
 
+              {/* Git Version Tags Section */}
+              <div className="git-versions-section">
+                <h4>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+                    <line x1="7" y1="7" x2="7.01" y2="7"/>
+                  </svg>
+                  Release History
+                </h4>
+                <p className="section-description">
+                  All tagged releases with commit details.
+                </p>
+
+                {loadingVersions ? (
+                  <div className="versions-loading">
+                    <div className="version-switch-spinner"></div>
+                    <span>Loading version history...</span>
+                  </div>
+                ) : hasGitTags && gitVersions.length > 0 ? (
+                  <div className="git-versions-list">
+                    {gitVersions.map((v, index) => (
+                      <div key={v.tag} className={`git-version-entry ${v.is_current ? 'current' : ''}`}>
+                        <div className="git-version-header">
+                          <span className="git-version-tag">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+                              <line x1="7" y1="7" x2="7.01" y2="7"/>
+                            </svg>
+                            {v.tag}
+                          </span>
+                          {v.is_current && (
+                            <span className="git-version-current-badge">Current</span>
+                          )}
+                          <span className="git-version-date">
+                            {v.commit_date ? new Date(v.commit_date).toLocaleDateString() : ''}
+                          </span>
+                        </div>
+                        <div className="git-version-details">
+                          <div className="git-version-commit">
+                            <code className="commit-hash">{v.commit_hash}</code>
+                            <span className="commit-message">{v.commit_message}</span>
+                          </div>
+                          {v.annotation && v.annotation !== v.commit_message && (
+                            <div className="git-version-annotation">{v.annotation}</div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="no-versions-message">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="12" y1="16" x2="12" y2="12"/>
+                      <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <p>No version tags found in repository.</p>
+                    <p className="hint">Create tags using: <code>git tag -a v1.0.0 -m "Release notes"</code></p>
+                  </div>
+                )}
+
+                {/* Recent Commits (unreleased) */}
+                {recentCommits.length > 0 && (
+                  <div className="recent-commits-section">
+                    <h5>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="4"/>
+                        <line x1="1.05" y1="12" x2="7" y2="12"/>
+                        <line x1="17.01" y1="12" x2="22.96" y2="12"/>
+                      </svg>
+                      Unreleased Changes ({recentCommits.length} commits)
+                    </h5>
+                    <div className="recent-commits-list">
+                      {recentCommits.slice(0, 5).map((c, index) => (
+                        <div key={index} className="recent-commit-entry">
+                          <code className="commit-hash">{c.hash}</code>
+                          <span className="commit-message">{c.message}</span>
+                        </div>
+                      ))}
+                      {recentCommits.length > 5 && (
+                        <div className="more-commits">
+                          +{recentCommits.length - 5} more commits
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* API Version Switch History */}
               {versionHistory.length > 0 && (
                 <div className="api-rollback-section">
                   <h4>
@@ -717,7 +846,7 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
                       <polyline points="1,4 1,10 7,10"/>
                       <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
                     </svg>
-                    Version History
+                    API Version Switch History
                   </h4>
                   <p className="rollback-description">
                     Rollback to a previous API version if needed.

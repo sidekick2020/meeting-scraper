@@ -6657,6 +6657,275 @@ a.sidebar-nav-item {
   height: 14px;
 }
 
+/* Build Version Info */
+.build-version-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.build-label {
+  color: var(--text-muted);
+}
+
+.build-version {
+  font-size: 0.7rem;
+  padding: 0.125rem 0.375rem;
+  background: var(--bg-tertiary);
+  border-radius: 0.25rem;
+  color: var(--text-secondary);
+}
+
+/* Git Versions Section */
+.git-versions-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.git-versions-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.git-versions-section h4 svg {
+  color: var(--accent-primary);
+}
+
+.section-description {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: 0 0 1rem 0;
+}
+
+.versions-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.git-versions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.git-version-entry {
+  padding: 0.75rem 1rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.git-version-entry:hover {
+  border-color: var(--border-medium);
+}
+
+.git-version-entry.current {
+  border-color: var(--accent-primary);
+  background: var(--accent-subtle);
+}
+
+.git-version-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.git-version-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--accent-primary);
+}
+
+.git-version-tag svg {
+  width: 12px;
+  height: 12px;
+}
+
+.git-version-current-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.125rem 0.375rem;
+  background: var(--accent-primary);
+  color: white;
+  border-radius: 0.25rem;
+}
+
+.git-version-date {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.git-version-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.git-version-commit {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.commit-hash {
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 0.7rem;
+  padding: 0.125rem 0.375rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.25rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.commit-message {
+  color: var(--text-secondary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.git-version-annotation {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-style: italic;
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--border-light);
+  margin-top: 0.25rem;
+}
+
+.no-versions-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.no-versions-message svg {
+  opacity: 0.5;
+}
+
+.no-versions-message p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.no-versions-message .hint {
+  font-size: 0.75rem;
+}
+
+.no-versions-message code {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--bg-tertiary);
+  border-radius: 0.25rem;
+}
+
+/* Recent Commits Section */
+.recent-commits-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border-light);
+}
+
+.recent-commits-section h5 {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 0.75rem 0;
+}
+
+.recent-commits-section h5 svg {
+  color: var(--warning-color);
+}
+
+.recent-commits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.recent-commit-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-secondary);
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+}
+
+.more-commits {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: 0.5rem;
+}
+
+/* Light mode adjustments for git versions */
+[data-theme="light"] .git-versions-section {
+  border-top-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .git-version-entry {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .git-version-entry:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .git-version-entry.current {
+  background: rgba(26, 79, 216, 0.05);
+  border-color: #1a4fd8;
+}
+
+[data-theme="light"] .commit-hash {
+  background: #f3f4f6;
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #374151;
+}
+
+[data-theme="light"] .recent-commit-entry {
+  background: #f9fafb;
+}
+
+[data-theme="light"] .recent-commits-section {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .no-versions-message code {
+  background: #f3f4f6;
+}
+
 /* Release Notes Section */
 .release-notes-section {
   padding: 0.5rem 0;

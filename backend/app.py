@@ -3016,6 +3016,143 @@ def get_version():
         "started_at": BUILD_VERSION
     })
 
+@app.route('/api/versions', methods=['GET'])
+def get_version_history():
+    """Get detailed version history from git tags with commit info"""
+    import subprocess
+
+    versions = []
+
+    try:
+        # Get all tags sorted by version (newest first)
+        result = subprocess.run(
+            ['git', 'tag', '-l', '--sort=-v:refname'],
+            capture_output=True, text=True, timeout=10
+        )
+        tags = [t.strip() for t in result.stdout.strip().split('\n') if t.strip()]
+
+        for tag in tags[:20]:  # Limit to 20 most recent versions
+            try:
+                # Get commit hash for this tag
+                hash_result = subprocess.run(
+                    ['git', 'rev-list', '-n', '1', tag],
+                    capture_output=True, text=True, timeout=5
+                )
+                commit_hash = hash_result.stdout.strip()[:7] if hash_result.stdout else ''
+
+                # Get commit date for this tag
+                date_result = subprocess.run(
+                    ['git', 'log', '-1', '--format=%ci', tag],
+                    capture_output=True, text=True, timeout=5
+                )
+                commit_date = date_result.stdout.strip() if date_result.stdout else ''
+
+                # Get commit message for this tag
+                msg_result = subprocess.run(
+                    ['git', 'log', '-1', '--format=%s', tag],
+                    capture_output=True, text=True, timeout=5
+                )
+                commit_message = msg_result.stdout.strip() if msg_result.stdout else ''
+
+                # Get tag annotation if it exists
+                annotation_result = subprocess.run(
+                    ['git', 'tag', '-l', '-n99', tag],
+                    capture_output=True, text=True, timeout=5
+                )
+                annotation = ''
+                if annotation_result.stdout:
+                    # Format: "tag_name  annotation text"
+                    parts = annotation_result.stdout.strip().split(None, 1)
+                    if len(parts) > 1:
+                        annotation = parts[1]
+
+                versions.append({
+                    "tag": tag,
+                    "version": tag.lstrip('v'),  # Remove 'v' prefix if present
+                    "commit_hash": commit_hash,
+                    "commit_date": commit_date,
+                    "commit_message": commit_message,
+                    "annotation": annotation,
+                    "is_current": False  # Will be updated below
+                })
+            except Exception as e:
+                print(f"Error getting details for tag {tag}: {e}")
+                continue
+
+        # Mark current version based on HEAD
+        if versions:
+            try:
+                head_result = subprocess.run(
+                    ['git', 'describe', '--tags', '--exact-match', 'HEAD'],
+                    capture_output=True, text=True, timeout=5
+                )
+                current_tag = head_result.stdout.strip()
+                for v in versions:
+                    if v['tag'] == current_tag:
+                        v['is_current'] = True
+                        break
+            except:
+                # HEAD may not be on a tag
+                pass
+
+        # Also get recent commits not yet tagged (for upcoming version info)
+        recent_commits = []
+        try:
+            # Get commits since last tag (if any)
+            if tags:
+                log_result = subprocess.run(
+                    ['git', 'log', f'{tags[0]}..HEAD', '--oneline', '--no-decorate'],
+                    capture_output=True, text=True, timeout=10
+                )
+            else:
+                log_result = subprocess.run(
+                    ['git', 'log', '-10', '--oneline', '--no-decorate'],
+                    capture_output=True, text=True, timeout=10
+                )
+
+            for line in log_result.stdout.strip().split('\n')[:10]:
+                if line.strip():
+                    parts = line.split(' ', 1)
+                    recent_commits.append({
+                        "hash": parts[0],
+                        "message": parts[1] if len(parts) > 1 else ''
+                    })
+        except Exception as e:
+            print(f"Error getting recent commits: {e}")
+
+        return jsonify({
+            "versions": versions,
+            "recent_commits": recent_commits,
+            "has_tags": len(tags) > 0,
+            "build_version": BUILD_VERSION
+        })
+
+    except FileNotFoundError:
+        # Git not available
+        return jsonify({
+            "versions": [],
+            "recent_commits": [],
+            "has_tags": False,
+            "build_version": BUILD_VERSION,
+            "error": "Git not available on server"
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            "versions": [],
+            "recent_commits": [],
+            "has_tags": False,
+            "build_version": BUILD_VERSION,
+            "error": "Git command timed out"
+        })
+    except Exception as e:
+        return jsonify({
+            "versions": [],
+            "recent_commits": [],
+            "has_tags": False,
+            "build_version": BUILD_VERSION,
+            "error": str(e)
+        })
+
 @app.route('/api/history', methods=['GET'])
 def get_history():
     """Get scrape history - from memory and Back4app"""
