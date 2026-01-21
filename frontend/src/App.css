@@ -1925,6 +1925,7 @@
 
 /* Meeting Map */
 .meeting-map-container {
+  position: relative;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-light);
   border-radius: 1rem;

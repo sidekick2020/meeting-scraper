@@ -127,7 +127,7 @@ function HeatmapLayer({ clusters }) {
 }
 
 // Component to handle map movement events and fetch data
-function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange }) {
+function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadingChange }) {
   const map = useMap();
   const fetchTimeoutRef = useRef(null);
   const lastFetchRef = useRef(null);
@@ -139,6 +139,7 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange }) {
     stateDataFetchedRef.current = true;
 
     try {
+      onLoadingChange?.(true);
       const response = await fetch(`${BACKEND_URL}/api/meetings/by-state`);
       if (response.ok) {
         const data = await response.json();
@@ -146,8 +147,10 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange }) {
       }
     } catch (error) {
       console.error('Error fetching state data:', error);
+    } finally {
+      onLoadingChange?.(false);
     }
-  }, [onStateDataLoaded]);
+  }, [onStateDataLoaded, onLoadingChange]);
 
   const fetchHeatmapData = useCallback(async () => {
     const bounds = map.getBounds();
@@ -164,6 +167,7 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange }) {
     lastFetchRef.current = cacheKey;
 
     try {
+      onLoadingChange?.(true);
       const url = `${BACKEND_URL}/api/meetings/heatmap?zoom=${zoom}&north=${bounds.getNorth()}&south=${bounds.getSouth()}&east=${bounds.getEast()}&west=${bounds.getWest()}`;
       const response = await fetch(url);
 
@@ -173,8 +177,10 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange }) {
       }
     } catch (error) {
       console.error('Error fetching heatmap data:', error);
+    } finally {
+      onLoadingChange?.(false);
     }
-  }, [map, onDataLoaded]);
+  }, [map, onDataLoaded, onLoadingChange]);
 
   useEffect(() => {
     const handleMoveEnd = () => {
@@ -277,16 +283,18 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true }) {
 
   const handleDataLoaded = useCallback((data) => {
     setMapData(data);
-    setIsLoading(false);
   }, []);
 
   const handleStateDataLoaded = useCallback((data) => {
     setStateData(data);
-    setIsLoading(false);
   }, []);
 
   const handleZoomChange = useCallback((zoom) => {
     setCurrentZoom(zoom);
+  }, []);
+
+  const handleLoadingChange = useCallback((loading) => {
+    setIsLoading(loading);
   }, []);
 
   // Determine what to display based on zoom level
@@ -334,6 +342,7 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true }) {
           onDataLoaded={handleDataLoaded}
           onStateDataLoaded={handleStateDataLoaded}
           onZoomChange={handleZoomChange}
+          onLoadingChange={handleLoadingChange}
         />
 
         {/* Show state-level bubbles at very low zoom */}
@@ -393,6 +402,13 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true }) {
           </Marker>
         ))}
       </MapContainer>
+
+      {isLoading && (
+        <div className="map-loading-overlay">
+          <div className="loading-spinner small"></div>
+          <span>Loading map data...</span>
+        </div>
+      )}
 
       <div className="map-legend">
         <div className="legend-item">
