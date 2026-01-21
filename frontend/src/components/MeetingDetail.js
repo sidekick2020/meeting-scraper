@@ -80,6 +80,31 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
     window.open(url, '_blank');
   };
 
+  // Navigate to address using Google Maps directions
+  const navigateToMeeting = () => {
+    const address = meeting.formattedAddress ||
+      `${meeting.address || ''}${meeting.city ? ', ' + meeting.city : ''}${meeting.state ? ', ' + meeting.state : ''}${meeting.postalCode ? ' ' + meeting.postalCode : ''}`;
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address.trim())}`;
+    window.open(url, '_blank');
+  };
+
+  // Join online meeting
+  const joinMeeting = () => {
+    if (meeting.onlineUrl) {
+      window.open(meeting.onlineUrl, '_blank');
+    }
+  };
+
+  // Check if meeting has a navigable address (city or full address)
+  const hasNavigableAddress = (meeting) => {
+    return meeting?.address || (meeting?.city && meeting?.state);
+  };
+
+  // Check if meeting has online URL
+  const hasOnlineUrl = (meeting) => {
+    return meeting?.isOnline && meeting?.onlineUrl;
+  };
+
   // Sidebar mode rendering
   if (isSidebar) {
     return (
@@ -120,6 +145,29 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                     ))
                   )}
                 </div>
+
+                {/* Action Buttons */}
+                {(hasNavigableAddress(meeting) || hasOnlineUrl(meeting)) && (
+                  <div className="meeting-action-buttons">
+                    {hasOnlineUrl(meeting) && (
+                      <button className="btn btn-success btn-action" onClick={joinMeeting}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M15.6 11.6L22 7v10l-6.4-4.5v-1z"/>
+                          <rect x="2" y="5" width="14" height="14" rx="2"/>
+                        </svg>
+                        Join Meeting
+                      </button>
+                    )}
+                    {hasNavigableAddress(meeting) && (
+                      <button className="btn btn-primary btn-action" onClick={navigateToMeeting}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+                        </svg>
+                        Navigate
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Schedule */}
                 <div className="detail-section">
@@ -458,6 +506,29 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
               ))
             )}
           </div>
+
+          {/* Action Buttons */}
+          {(hasNavigableAddress(meeting) || hasOnlineUrl(meeting)) && (
+            <div className="meeting-action-buttons">
+              {hasOnlineUrl(meeting) && (
+                <button className="btn btn-success btn-action" onClick={joinMeeting}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M15.6 11.6L22 7v10l-6.4-4.5v-1z"/>
+                    <rect x="2" y="5" width="14" height="14" rx="2"/>
+                  </svg>
+                  Join Meeting
+                </button>
+              )}
+              {hasNavigableAddress(meeting) && (
+                <button className="btn btn-primary btn-action" onClick={navigateToMeeting}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+                  </svg>
+                  Navigate
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Schedule */}
           <div className="detail-section">

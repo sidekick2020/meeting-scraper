@@ -457,6 +457,29 @@ html, body {
   background: var(--bg-hover);
 }
 
+.btn-success {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: #ffffff;
+}
+
+.btn-success:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
+}
+
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.btn-action svg {
+  flex-shrink: 0;
+}
+
 .btn-danger {
   background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
   color: #ffffff;
@@ -2357,6 +2380,19 @@ html, body {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
+}
+
+.meeting-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.meeting-action-buttons .btn {
+  flex: 1;
+  min-width: 140px;
+  justify-content: center;
 }
 
 .badge {
@@ -8722,6 +8758,14 @@ a.sidebar-nav-item {
 
 [data-theme="light"] .btn-primary:hover {
   background: #143faf;
+}
+
+[data-theme="light"] .btn-success {
+  background: #16a34a;
+}
+
+[data-theme="light"] .btn-success:hover {
+  background: #15803d;
 }
 
 /* Light Mode: Profile Dropdown */
