@@ -1088,7 +1088,8 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
   }, []);
 
   // Reverse geocode map center to get location name
-  const reverseGeocodeMapCenter = useCallback(async (lat, lng) => {
+  // Adjusts detail level based on map zoom
+  const reverseGeocodeMapCenter = useCallback(async (lat, lng, mapZoom = 10) => {
     if (lat === undefined || lng === undefined) return;
 
     // Clear any pending reverse geocode
@@ -1099,9 +1100,13 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
     // Debounce reverse geocoding to avoid too many API calls
     reverseGeocodeTimeoutRef.current = setTimeout(async () => {
       try {
+        // Map zoom to Nominatim zoom for appropriate detail level
+        // Map zoom 4-6: show country/state, 7-9: show state, 10-12: show city, 13+: show neighborhood
+        const nominatimZoom = mapZoom < 7 ? 5 : mapZoom < 10 ? 8 : mapZoom < 13 ? 10 : 14;
+
         const response = await fetch(
           `https://nominatim.openstreetmap.org/reverse?` +
-          `format=json&lat=${lat}&lon=${lng}&addressdetails=1&zoom=10`,
+          `format=json&lat=${lat}&lon=${lng}&addressdetails=1&zoom=${nominatimZoom}`,
           {
             headers: {
               'User-Agent': 'MeetingScraper/1.0'
@@ -1112,19 +1117,32 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
         if (response.ok) {
           const data = await response.json();
           if (data && data.address) {
-            // Build location string from address components
-            const city = data.address.city || data.address.town || data.address.village || data.address.county || '';
+            // Build location string based on map zoom level
+            const neighborhood = data.address.suburb || data.address.neighbourhood || '';
+            const city = data.address.city || data.address.town || data.address.village || '';
+            const county = data.address.county || '';
             const state = data.address.state || '';
+            const country = data.address.country || '';
 
-            if (city && state) {
-              setMapCenterLocation(`${city}, ${state}`);
+            let locationName = null;
+
+            if (mapZoom >= 13 && neighborhood) {
+              // High zoom: show neighborhood + city
+              locationName = city ? `${neighborhood}, ${city}` : neighborhood;
+            } else if (mapZoom >= 10 && city) {
+              // Medium zoom: show city + state
+              locationName = state ? `${city}, ${state}` : city;
+            } else if (mapZoom >= 7 && (county || state)) {
+              // Low-medium zoom: show county or state
+              locationName = county || state;
             } else if (state) {
-              setMapCenterLocation(state);
-            } else if (city) {
-              setMapCenterLocation(city);
-            } else {
-              setMapCenterLocation(null);
+              // Low zoom: show state or country
+              locationName = country && country !== 'United States' ? `${state}, ${country}` : state;
+            } else if (country) {
+              locationName = country;
             }
+
+            setMapCenterLocation(locationName);
           } else {
             setMapCenterLocation(null);
           }
@@ -1464,9 +1482,9 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
       // User manually dragged the map - clear filters and reverse geocode
       setSelectedStates([]);
       setSelectedCity('');
-      // Reverse geocode to update location display based on map center
+      // Reverse geocode to update location display based on map center and zoom
       if (bounds.center_lat !== undefined && bounds.center_lng !== undefined) {
-        reverseGeocodeMapCenter(bounds.center_lat, bounds.center_lng);
+        reverseGeocodeMapCenter(bounds.center_lat, bounds.center_lng, bounds.zoom);
       }
     }
 
