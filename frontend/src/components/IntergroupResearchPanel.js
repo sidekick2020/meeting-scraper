@@ -50,6 +50,12 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
   const [selectedScript, setSelectedScript] = useState(null);
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
 
+  // Script testing state
+  const [isTestingScript, setIsTestingScript] = useState(false);
+  const [testResults, setTestResults] = useState(null);
+  const [isSavingSource, setIsSavingSource] = useState(false);
+  const [customSources, setCustomSources] = useState([]);
+
   // Findings state
   const [findings, setFindings] = useState([]);
 
@@ -367,6 +373,102 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
       console.error('Error deleting script:', error);
     }
   };
+
+  const testScript = async (script) => {
+    setIsTestingScript(true);
+    setTestResults(null);
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/intergroup-research/scripts/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: script.url,
+          feedType: script.feedType,
+          state: script.state || activeSession?.state,
+          sourceName: script.intergroupName
+        })
+      });
+      const data = await response.json();
+      setTestResults(data);
+
+      // Update script's tested status
+      if (data.success) {
+        await fetch(`${BACKEND_URL}/api/intergroup-research/scripts/${script.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tested: true,
+            testResults: {
+              totalMeetings: data.totalNormalized,
+              qualityScore: data.qualityScore,
+              testedAt: new Date().toISOString()
+            }
+          })
+        });
+        setSavedScripts(prev => prev.map(s =>
+          s.id === script.id
+            ? { ...s, tested: true, testResults: { totalMeetings: data.totalNormalized, qualityScore: data.qualityScore } }
+            : s
+        ));
+      }
+    } catch (error) {
+      console.error('Error testing script:', error);
+      setTestResults({ success: false, error: error.message });
+    } finally {
+      setIsTestingScript(false);
+    }
+  };
+
+  const saveAsSource = async () => {
+    if (!selectedScript || !testResults?.success) return;
+
+    setIsSavingSource(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/intergroup-research/sources`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: selectedScript.intergroupName,
+          url: selectedScript.url,
+          state: selectedScript.state || activeSession?.state,
+          feedType: selectedScript.feedType,
+          meetingCount: testResults.totalNormalized,
+          qualityScore: testResults.qualityScore,
+          scriptId: selectedScript.id
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setCustomSources(prev => [...prev, data.source]);
+        setTestResults(prev => ({ ...prev, savedAsSource: true }));
+      } else {
+        alert(data.error || 'Failed to save source');
+      }
+    } catch (error) {
+      console.error('Error saving source:', error);
+      alert('Error saving source: ' + error.message);
+    } finally {
+      setIsSavingSource(false);
+    }
+  };
+
+  const loadCustomSources = async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/intergroup-research/sources`);
+      const data = await response.json();
+      if (data.success) {
+        setCustomSources(data.sources);
+      }
+    } catch (error) {
+      console.error('Error loading custom sources:', error);
+    }
+  };
+
+  // Load custom sources on mount
+  useEffect(() => {
+    loadCustomSources();
+  }, []);
 
   const renderSessionSelector = () => (
     <div className="research-session-selector">
@@ -701,10 +803,16 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
                   <div
                     key={script.id}
                     className={`script-item ${selectedScript?.id === script.id ? 'active' : ''}`}
-                    onClick={() => setSelectedScript(script)}
+                    onClick={() => {
+                      setSelectedScript(script);
+                      setTestResults(null);
+                    }}
                   >
                     <div className="script-item-header">
                       <span className="script-name">{script.intergroupName}</span>
+                      {script.tested && (
+                        <span className="script-tested-badge" title="Tested">✓</span>
+                      )}
                       <button
                         className="btn-icon btn-danger-icon"
                         onClick={(e) => {
@@ -721,9 +829,35 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
                     <div className="script-item-meta">
                       <span className={`script-type-badge ${script.feedType}`}>{script.feedType}</span>
                       <span className="script-domain">{script.domain}</span>
+                      {script.testResults?.totalMeetings && (
+                        <span className="script-meeting-count">{script.testResults.totalMeetings} meetings</span>
+                      )}
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Custom Sources Section */}
+            {customSources.length > 0 && (
+              <div className="custom-sources-section">
+                <h4>Saved Sources ({customSources.length})</h4>
+                <div className="custom-sources-list">
+                  {customSources.map(source => (
+                    <div key={source.id} className={`source-item ${source.enabled ? 'enabled' : 'disabled'}`}>
+                      <div className="source-info">
+                        <span className="source-name">{source.name}</span>
+                        <span className="source-state">{source.state}</span>
+                      </div>
+                      <div className="source-meta">
+                        <span className="source-count">{source.meetingCount} meetings</span>
+                        <span className={`source-quality quality-${source.qualityScore >= 80 ? 'high' : source.qualityScore >= 50 ? 'medium' : 'low'}`}>
+                          {source.qualityScore}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -734,6 +868,27 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
                 <div className="script-viewer-header">
                   <h4>{selectedScript.intergroupName}</h4>
                   <div className="script-viewer-actions">
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => testScript(selectedScript)}
+                      disabled={isTestingScript}
+                    >
+                      {isTestingScript ? (
+                        <>
+                          <svg className="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                          </svg>
+                          Testing...
+                        </>
+                      ) : (
+                        <>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polygon points="5 3 19 12 5 21 5 3"/>
+                          </svg>
+                          Test Script
+                        </>
+                      )}
+                    </button>
                     <button
                       className="btn btn-ghost btn-sm"
                       onClick={() => {
@@ -752,6 +907,137 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
                   <span>URL: {selectedScript.url}</span>
                   <span>Type: {selectedScript.feedType}</span>
                 </div>
+
+                {/* Test Results Section */}
+                {testResults && (
+                  <div className={`test-results ${testResults.success ? 'success' : 'error'}`}>
+                    <div className="test-results-header">
+                      <h5>
+                        {testResults.success ? (
+                          <>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                              <polyline points="22,4 12,14.01 9,11.01"/>
+                            </svg>
+                            Test Successful
+                          </>
+                        ) : (
+                          <>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10"/>
+                              <line x1="15" y1="9" x2="9" y2="15"/>
+                              <line x1="9" y1="9" x2="15" y2="15"/>
+                            </svg>
+                            Test Failed
+                          </>
+                        )}
+                      </h5>
+                      {testResults.success && testResults.canSaveAsSource && !testResults.savedAsSource && (
+                        <button
+                          className="btn btn-success btn-sm"
+                          onClick={saveAsSource}
+                          disabled={isSavingSource}
+                        >
+                          {isSavingSource ? 'Saving...' : 'Save as Source'}
+                        </button>
+                      )}
+                      {testResults.savedAsSource && (
+                        <span className="saved-badge">✓ Saved as Source</span>
+                      )}
+                    </div>
+
+                    {testResults.success ? (
+                      <>
+                        <div className="test-stats">
+                          <div className="stat-item">
+                            <span className="stat-value">{testResults.totalRaw}</span>
+                            <span className="stat-label">Raw Meetings</span>
+                          </div>
+                          <div className="stat-item">
+                            <span className="stat-value">{testResults.totalNormalized}</span>
+                            <span className="stat-label">Normalized</span>
+                          </div>
+                          <div className="stat-item">
+                            <span className={`stat-value quality-${testResults.qualityScore >= 80 ? 'high' : testResults.qualityScore >= 50 ? 'medium' : 'low'}`}>
+                              {testResults.qualityScore}%
+                            </span>
+                            <span className="stat-label">Quality Score</span>
+                          </div>
+                        </div>
+
+                        <div className="field-stats">
+                          <h6>Field Population</h6>
+                          <div className="field-bars">
+                            {Object.entries(testResults.fieldStats || {}).map(([field, count]) => (
+                              <div key={field} className="field-bar-item">
+                                <span className="field-name">{field}</span>
+                                <div className="field-bar">
+                                  <div
+                                    className="field-bar-fill"
+                                    style={{ width: `${(count / testResults.totalNormalized) * 100}%` }}
+                                  />
+                                </div>
+                                <span className="field-count">{count}/{testResults.totalNormalized}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {testResults.sampleMeetings && testResults.sampleMeetings.length > 0 && (
+                          <div className="sample-meetings">
+                            <h6>Sample Meetings ({testResults.sampleMeetings.length})</h6>
+                            <div className="meetings-table-wrapper">
+                              <table className="meetings-table">
+                                <thead>
+                                  <tr>
+                                    <th>Name</th>
+                                    <th>Day</th>
+                                    <th>Time</th>
+                                    <th>City</th>
+                                    <th>Address</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {testResults.sampleMeetings.map((meeting, idx) => (
+                                    <tr key={idx}>
+                                      <td>{meeting.name || '-'}</td>
+                                      <td>{meeting.day !== undefined ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][meeting.day] || meeting.day : '-'}</td>
+                                      <td>{meeting.time || '-'}</td>
+                                      <td>{meeting.city || '-'}</td>
+                                      <td className="address-cell">{meeting.address || '-'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+
+                        {testResults.errors && testResults.errors.length > 0 && (
+                          <div className="test-errors">
+                            <h6>Errors ({testResults.errors.length})</h6>
+                            <ul>
+                              {testResults.errors.map((error, idx) => (
+                                <li key={idx}>{error}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="test-error-message">
+                        <p>{testResults.error}</p>
+                        {testResults.rawResponse && (
+                          <details>
+                            <summary>Raw Response</summary>
+                            <pre>{testResults.rawResponse}</pre>
+                          </details>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <pre className="script-code">
                   <code>{selectedScript.content}</code>
                 </pre>
