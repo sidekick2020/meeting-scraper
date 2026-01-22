@@ -232,7 +232,10 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                         <path d="M16 2v4M8 2v4M3 10h18"/>
                       </svg>
                     </span>
-                    <span>{dayNames[meeting.day] || 'Day not specified'}</span>
+                    <div className="detail-content">
+                      <span>{dayNames[meeting.day] || 'Day not specified'}</span>
+                      <span className="field-description">Weekly meeting day</span>
+                    </div>
                   </div>
                   <div className="detail-row">
                     <span className="detail-icon">
@@ -241,10 +244,13 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                         <path d="M12 6v6l4 2"/>
                       </svg>
                     </span>
-                    <span>
-                      {formatTime(meeting.time)}
-                      {meeting.endTime && ` - ${formatTime(meeting.endTime)}`}
-                    </span>
+                    <div className="detail-content">
+                      <span>
+                        {formatTime(meeting.time)}
+                        {meeting.endTime && ` - ${formatTime(meeting.endTime)}`}
+                      </span>
+                      <span className="field-description">{meeting.endTime ? 'Start and end time' : 'Meeting start time'}</span>
+                    </div>
                   </div>
                   {meeting.timezone && (
                     <div className="detail-row">
@@ -254,7 +260,10 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                           <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
                         </svg>
                       </span>
-                      <span>{meeting.timezone}</span>
+                      <div className="detail-content">
+                        <span>{meeting.timezone}</span>
+                        <span className="field-description">Local timezone for this meeting</span>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -270,7 +279,10 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                           <polyline points="9,22 9,12 15,12 15,22"/>
                         </svg>
                       </span>
-                      <span>{meeting.locationName}</span>
+                      <div className="detail-content">
+                        <span>{meeting.locationName}</span>
+                        <span className="field-description">Venue or building name</span>
+                      </div>
                     </div>
                   )}
                   {meeting.address && (
@@ -281,12 +293,15 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                           <circle cx="12" cy="10" r="3"/>
                         </svg>
                       </span>
-                      <span>
-                        {meeting.address}
-                        {meeting.city && `, ${meeting.city}`}
-                        {meeting.state && `, ${meeting.state}`}
-                        {meeting.postalCode && ` ${meeting.postalCode}`}
-                      </span>
+                      <div className="detail-content">
+                        <span>
+                          {meeting.address}
+                          {meeting.city && `, ${meeting.city}`}
+                          {meeting.state && `, ${meeting.state}`}
+                          {meeting.postalCode && ` ${meeting.postalCode}`}
+                        </span>
+                        <span className="field-description">Street address</span>
+                      </div>
                     </div>
                   )}
                   {meeting.region && (
@@ -298,10 +313,13 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                           <line x1="16" y1="6" x2="16" y2="22"/>
                         </svg>
                       </span>
-                      <span>
-                        {meeting.region}
-                        {meeting.subRegion && ` / ${meeting.subRegion}`}
-                      </span>
+                      <div className="detail-content">
+                        <span>
+                          {meeting.region}
+                          {meeting.subRegion && ` / ${meeting.subRegion}`}
+                        </span>
+                        <span className="field-description">Geographic district or area</span>
+                      </div>
                     </div>
                   )}
                   {meeting.locationNotes && (
@@ -312,7 +330,10 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                           <path d="M12 16v-4M12 8h.01"/>
                         </svg>
                       </span>
-                      <span>{meeting.locationNotes}</span>
+                      <div className="detail-content">
+                        <span>{meeting.locationNotes}</span>
+                        <span className="field-description">Directions to find the meeting room</span>
+                      </div>
                     </div>
                   )}
                   {meeting.latitude && meeting.longitude && !hasFullStreetAddress(meeting) && (
@@ -339,9 +360,12 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                             <path d="M8 21h8M12 17v4"/>
                           </svg>
                         </span>
-                        <a href={meeting.onlineUrl} target="_blank" rel="noopener noreferrer">
-                          Join Online Meeting
-                        </a>
+                        <div className="detail-content">
+                          <a href={meeting.onlineUrl} target="_blank" rel="noopener noreferrer">
+                            Join Online Meeting
+                          </a>
+                          <span className="field-description">Video conference link (Zoom, etc.)</span>
+                        </div>
                       </div>
                     )}
                     {meeting.onlineUrlNotes && (
@@ -354,7 +378,10 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                             <line x1="16" y1="17" x2="8" y2="17"/>
                           </svg>
                         </span>
-                        <span>{meeting.onlineUrlNotes}</span>
+                        <div className="detail-content">
+                          <span>{meeting.onlineUrlNotes}</span>
+                          <span className="field-description">Password or meeting ID if needed</span>
+                        </div>
                       </div>
                     )}
                     {meeting.conferencePhone && (
@@ -364,7 +391,10 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                             <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
                           </svg>
                         </span>
-                        <a href={`tel:${meeting.conferencePhone}`}>{meeting.conferencePhone}</a>
+                        <div className="detail-content">
+                          <a href={`tel:${meeting.conferencePhone}`}>{meeting.conferencePhone}</a>
+                          <span className="field-description">Phone dial-in number</span>
+                        </div>
                       </div>
                     )}
                     {meeting.conferencePhoneNotes && (
@@ -377,7 +407,10 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                             <line x1="16" y1="17" x2="8" y2="17"/>
                           </svg>
                         </span>
-                        <span>{meeting.conferencePhoneNotes}</span>
+                        <div className="detail-content">
+                          <span>{meeting.conferencePhoneNotes}</span>
+                          <span className="field-description">Phone access code or instructions</span>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -396,7 +429,10 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                             <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
                           </svg>
                         </span>
-                        <span>{meeting.group}</span>
+                        <div className="detail-content">
+                          <span>{meeting.group}</span>
+                          <span className="field-description">Home group that hosts this meeting</span>
+                        </div>
                       </div>
                     )}
                     {meeting.groupNotes && (
@@ -409,7 +445,10 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                             <line x1="16" y1="17" x2="8" y2="17"/>
                           </svg>
                         </span>
-                        <span>{meeting.groupNotes}</span>
+                        <div className="detail-content">
+                          <span>{meeting.groupNotes}</span>
+                          <span className="field-description">Additional info about the group</span>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -427,7 +466,10 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                             <circle cx="12" cy="7" r="4"/>
                           </svg>
                         </span>
-                        <span>{meeting.contactName}</span>
+                        <div className="detail-content">
+                          <span>{meeting.contactName}</span>
+                          <span className="field-description">Meeting contact person</span>
+                        </div>
                       </div>
                     )}
                     {meeting.contactEmail && (
@@ -438,7 +480,10 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                             <polyline points="22,6 12,13 2,6"/>
                           </svg>
                         </span>
-                        <a href={`mailto:${meeting.contactEmail}`}>{meeting.contactEmail}</a>
+                        <div className="detail-content">
+                          <a href={`mailto:${meeting.contactEmail}`}>{meeting.contactEmail}</a>
+                          <span className="field-description">Email for questions about this meeting</span>
+                        </div>
                       </div>
                     )}
                     {meeting.contactPhone && (
@@ -449,7 +494,10 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                             <line x1="12" y1="18" x2="12.01" y2="18"/>
                           </svg>
                         </span>
-                        <a href={`tel:${meeting.contactPhone}`}>{meeting.contactPhone}</a>
+                        <div className="detail-content">
+                          <a href={`tel:${meeting.contactPhone}`}>{meeting.contactPhone}</a>
+                          <span className="field-description">Phone for questions about this meeting</span>
+                        </div>
                       </div>
                     )}
                   </div>
