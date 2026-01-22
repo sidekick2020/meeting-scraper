@@ -1056,15 +1056,19 @@ function MeetingsExplorer({ onAdminClick }) {
     availableCities.forEach(city => {
       if (city && city.toLowerCase().includes(lowerQuery) && !seen.has(city.toLowerCase())) {
         seen.add(city.toLowerCase());
-        // Find the state for this city
-        const meetingWithCity = meetings.find(m => m.city === city);
+        // Find a meeting with coordinates for this city
+        const meetingWithCity = meetings.find(m => m.city === city && m.latitude && m.longitude);
+        const meetingForState = meetingWithCity || meetings.find(m => m.city === city);
         cityResults.push({
           type: 'city',
           value: city,
           label: city,
-          subLabel: meetingWithCity?.state || '',
+          subLabel: meetingForState?.state || '',
           group: 'cities',
-          highlight: highlightMatch(city)
+          highlight: highlightMatch(city),
+          // Include coordinates for instant panning
+          lat: meetingWithCity?.latitude,
+          lng: meetingWithCity?.longitude
         });
       }
     });
@@ -1099,7 +1103,12 @@ function MeetingsExplorer({ onAdminClick }) {
             label: m.locationName,
             subLabel: m.city ? `${m.city}, ${m.state}` : m.state,
             group: 'locations',
-            highlight: highlightMatch(m.locationName)
+            highlight: highlightMatch(m.locationName),
+            // Include coordinates for instant panning
+            lat: m.latitude,
+            lng: m.longitude,
+            city: m.city,
+            state: m.state
           });
         }
       }
@@ -1189,8 +1198,35 @@ function MeetingsExplorer({ onAdminClick }) {
       if (suggestion.subLabel) {
         setSelectedStates([suggestion.subLabel]);
       }
-      // Geocode and pan map to the city
-      geocodeAndPanMap(suggestion.value, suggestion.subLabel);
+      // Use local coordinates for instant panning if available
+      if (suggestion.lat && suggestion.lng) {
+        setTargetLocation({
+          lat: suggestion.lat,
+          lng: suggestion.lng,
+          zoom: 12
+        });
+      } else {
+        // Fall back to geocoding if no local coordinates
+        geocodeAndPanMap(suggestion.value, suggestion.subLabel);
+      }
+    }
+
+    // If it's a meeting location, set filters and pan to coordinates
+    if (suggestion.type === 'location') {
+      if (suggestion.city) {
+        setSelectedCity(suggestion.city);
+      }
+      if (suggestion.state) {
+        setSelectedStates([suggestion.state]);
+      }
+      // Use coordinates for instant panning (zoom in more for specific locations)
+      if (suggestion.lat && suggestion.lng) {
+        setTargetLocation({
+          lat: suggestion.lat,
+          lng: suggestion.lng,
+          zoom: 15
+        });
+      }
     }
   };
 
