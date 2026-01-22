@@ -48,6 +48,9 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
+  // Script expansion state
+  const [isScriptExpanded, setIsScriptExpanded] = useState(false);
+
   // Initialize form from task data when task changes
   useEffect(() => {
     if (task && isOpen) {
@@ -66,6 +69,7 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
       setSuggestions([]);
       setSaveSuccess(false);
       setSubmitSuccess(false);
+      setIsScriptExpanded(false);
 
       // Auto-research on open if we have state info
       if (task.state && !task.url) {
@@ -131,6 +135,7 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
     setTestResults(null);
     setSuggestions([]);
     setTestAttempts(prev => prev + 1);
+    setIsScriptExpanded(false);
 
     try {
       const response = await fetch(`${BACKEND_URL}/api/tasks/test-source`, {
@@ -140,6 +145,7 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
           url: sourceUrl,
           feedType: feedType,
           state: sourceState || 'XX',
+          name: sourceName || '',  // Include source name for script generation
           attempt: testAttempts + 1,
           retryWithAlternate
         })
@@ -654,6 +660,57 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
                 {testResults.saveError && (
                   <div className="test-save-error">
                     {testResults.saveError}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Generated Script - Expandable */}
+            {testResults?.success && testResults?.generatedScript && (
+              <div className="generated-script-section">
+                <button
+                  className="script-toggle-btn"
+                  onClick={() => setIsScriptExpanded(!isScriptExpanded)}
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    className={`script-chevron ${isScriptExpanded ? 'expanded' : ''}`}
+                  >
+                    <polyline points="9,18 15,12 9,6"/>
+                  </svg>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="16 18 22 12 16 6"/>
+                    <polyline points="8 6 2 12 8 18"/>
+                  </svg>
+                  <span>Generated Python Script</span>
+                  <span className="script-badge">{testResults.feedType?.toUpperCase()}</span>
+                </button>
+                {isScriptExpanded && (
+                  <div className="script-content">
+                    <div className="script-header">
+                      <span className="script-filename">
+                        scrape_{(sourceName || 'source').toLowerCase().replace(/\s+/g, '_')}.py
+                      </span>
+                      <button
+                        className="script-copy-btn"
+                        onClick={() => {
+                          navigator.clipboard.writeText(testResults.generatedScript);
+                        }}
+                        title="Copy to clipboard"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                        </svg>
+                        Copy
+                      </button>
+                    </div>
+                    <pre className="script-code"><code>{testResults.generatedScript}</code></pre>
                   </div>
                 )}
               </div>
