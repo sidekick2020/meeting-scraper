@@ -827,18 +827,10 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
   useEffect(() => {
     let filtered = [...meetings];
 
-    // Filter by current map bounds - only show meetings in visible area
-    if (mapBounds) {
-      filtered = filtered.filter(m => {
-        if (!m.latitude || !m.longitude) return true; // Keep online meetings without coords
-        return (
-          m.latitude >= mapBounds.south &&
-          m.latitude <= mapBounds.north &&
-          m.longitude >= mapBounds.west &&
-          m.longitude <= mapBounds.east
-        );
-      });
-    }
+    // Note: We don't filter by map bounds client-side anymore because:
+    // 1. Server already filters meetings by bounds when fetching
+    // 2. Client-side filtering caused empty results when panning to new areas
+    // 3. Meetings accumulate as user explores, so old meetings outside bounds are kept for reference
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -1501,10 +1493,10 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
     if (showHybridOnly) filters.hybrid = true;
     if (selectedFormat) filters.format = selectedFormat;
 
-    // Fetch meetings for new area - accumulate with existing cache
-    // Don't reset - let meetings accumulate as user explores
+    // Fetch meetings for new area - use bulk loading for faster results
+    // Accumulate with existing cache as user explores
     setCurrentPage(0);
-    fetchMeetings({ bounds, filters });
+    fetchMeetings({ bounds, filters, bulkLoad: true });
   }, [fetchMeetings, showTodayOnly, selectedDays, selectedTypes, showOnlineOnly, showHybridOnly, selectedFormat, reverseGeocodeMapCenter]);
 
   // Build filters object to pass to the map
