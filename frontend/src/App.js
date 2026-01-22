@@ -12,6 +12,7 @@ import DevDocs from './components/DevDocs';
 import DownloadPage from './components/DownloadPage';
 import NotFound from './components/NotFound';
 import LoadingOverlay from './components/LoadingOverlay';
+import PublicSidebar from './components/PublicSidebar';
 
 function SignInModal({ onClose }) {
   const { signIn, authError, clearError, allowedDomains } = useAuth();
@@ -82,6 +83,16 @@ function AppContent() {
     setIsBackendReady(true);
   };
 
+  // Check for admin=1 query param (from other pages navigating here)
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('admin') === '1') {
+      // Clear the query param
+      window.history.replaceState({}, '', '/');
+      handleAdminClick();
+    }
+  }, []);
+
   // Backend is ready when Parse connection check completes (success, error, or not configured)
   React.useEffect(() => {
     if (connectionStatus === 'connected' || connectionStatus === 'error' || connectionStatus === 'not_configured') {
@@ -112,7 +123,10 @@ function AppContent() {
       <DeploymentIndicator />
 
       {currentView === 'public' ? (
-        <MeetingsExplorer onAdminClick={handleAdminClick} />
+        <>
+          <MeetingsExplorer onAdminClick={handleAdminClick} />
+          <PublicSidebar onAdminClick={handleAdminClick} />
+        </>
       ) : (
         <>
           {!isBackendReady && <LoadingOverlay onReady={handleBackendReady} />}
@@ -128,9 +142,27 @@ function AppContent() {
 }
 
 function DocsPage() {
+  const handleAdminClick = () => {
+    window.location.href = '/?admin=1';
+  };
+
   return (
     <div className="App">
       <DevDocs standalone={true} />
+      <PublicSidebar onAdminClick={handleAdminClick} />
+    </div>
+  );
+}
+
+function DownloadPageWrapper() {
+  const handleAdminClick = () => {
+    window.location.href = '/?admin=1';
+  };
+
+  return (
+    <div className="App">
+      <DownloadPage />
+      <PublicSidebar onAdminClick={handleAdminClick} />
     </div>
   );
 }
@@ -145,7 +177,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<AppContent />} />
                 <Route path="/docs" element={<DocsPage />} />
-                <Route path="/download" element={<DownloadPage />} />
+                <Route path="/download" element={<DownloadPageWrapper />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </DataCacheProvider>
