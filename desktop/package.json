@@ -33,10 +33,11 @@
           "arch": ["arm64"]
         }
       ],
-      "identity": null,
-      "hardenedRuntime": false,
+      "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "signIgnore": [".*"]
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "notarize": true
     },
     "dmg": {
       "title": "Meeting Scraper",

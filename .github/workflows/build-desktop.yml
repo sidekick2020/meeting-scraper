@@ -3,8 +3,8 @@ name: Build Desktop App
 on:
   push:
     tags:
-      - 'v*'           # Triggers on any version tag (v1.0.0, v1.12.0, etc.)
-      - 'mac-v*'       # Also triggers on mac-specific tags (mac-v1.0.0)
+      - 'v*'
+      - 'mac-v*'
   workflow_dispatch:
     inputs:
       version:
@@ -50,17 +50,48 @@ jobs:
         run: |
           npm version ${{ steps.get_version.outputs.version }} --no-git-tag-version --allow-same-version
 
+      - name: Import Code Signing Certificate
+        env:
+          MAC_CERTIFICATE: ${{ secrets.MAC_CERTIFICATE }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+        run: |
+          # Create temp keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          # Create and configure keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate
+          echo "$MAC_CERTIFICATE" | base64 --decode > $RUNNER_TEMP/certificate.p12
+          security import $RUNNER_TEMP/certificate.p12 -P "$MAC_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Add to search list
+          security list-keychain -d user -s $KEYCHAIN_PATH login.keychain
+
+          # Verify
+          security find-identity -v $KEYCHAIN_PATH
+
       - name: Build Mac App (Apple Silicon)
         working-directory: desktop
         run: npm run build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Build Mac App (Intel)
         working-directory: desktop
         run: npm run build:intel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: List built files
         working-directory: desktop/dist
@@ -82,9 +113,10 @@ jobs:
             1. Download the DMG for your Mac type
             2. Open the DMG file
             3. Drag Meeting Scraper to Applications
-            4. Open from Applications (right-click → Open if prompted)
+            4. Open from Applications
 
             ### What's New
+            - Signed and notarized for seamless installation
             - Native Mac app for Meeting Scraper
             - Connects to live production data
           files: |
