@@ -228,6 +228,8 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
     if (activeTab === 'api') {
       fetchGitVersions();
       fetchApiVersions();
+    }
+    if (activeTab === 'releases') {
       fetchChangelog();
     }
   }, [activeTab, fetchGitVersions]);
