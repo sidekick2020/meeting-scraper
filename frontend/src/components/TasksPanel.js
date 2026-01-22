@@ -110,14 +110,17 @@ function TasksPanel({ feeds }) {
         const data = await response.json();
         setResearchProgress('Research complete!');
 
-        // Add new tasks from research
+        // Add new tasks from research immediately
         if (data.suggestions && data.suggestions.length > 0) {
           setTasks(prev => [...data.suggestions, ...prev]);
         }
 
-        // Refresh tasks after a moment (force refresh to get new data)
+        // Invalidate cache if server indicates data changed
+        if (data.cache_invalidated) {
+          invalidateTasksCache();
+        }
+
         setTimeout(() => {
-          fetchTasks(true);
           setIsResearching(false);
           setResearchProgress('');
         }, 1500);
@@ -138,6 +141,11 @@ function TasksPanel({ feeds }) {
     }
   };
 
+  // Helper to invalidate task cache
+  const invalidateTasksCache = useCallback(() => {
+    setCache(TASKS_CACHE_KEY, null, 0);
+  }, [setCache]);
+
   // Update task status
   const updateTaskStatus = async (taskId, newStatus) => {
     try {
@@ -148,9 +156,15 @@ function TasksPanel({ feeds }) {
       });
 
       if (response.ok) {
+        const data = await response.json();
+        // Update local state immediately for fast UI
         setTasks(prev => prev.map(task =>
           task.id === taskId ? { ...task, status: newStatus } : task
         ));
+        // Invalidate cache if server indicates data changed
+        if (data.cache_invalidated) {
+          invalidateTasksCache();
+        }
       }
     } catch (error) {
       console.error('Error updating task:', error);
@@ -165,7 +179,13 @@ function TasksPanel({ feeds }) {
       });
 
       if (response.ok) {
+        const data = await response.json();
+        // Update local state immediately for fast UI
         setTasks(prev => prev.filter(task => task.id !== taskId));
+        // Invalidate cache if server indicates data changed
+        if (data.cache_invalidated) {
+          invalidateTasksCache();
+        }
       }
     } catch (error) {
       console.error('Error deleting task:', error);
@@ -190,10 +210,15 @@ function TasksPanel({ feeds }) {
 
       if (response.ok) {
         const data = await response.json();
+        // Update local state immediately for fast UI
         setTasks(prev => [data.task, ...prev]);
         setNewTaskTitle('');
         setNewTaskDescription('');
         setShowAddTask(false);
+        // Invalidate cache if server indicates data changed
+        if (data.cache_invalidated) {
+          invalidateTasksCache();
+        }
       }
     } catch (error) {
       console.error('Error adding task:', error);
@@ -215,9 +240,17 @@ function TasksPanel({ feeds }) {
         const data = await response.json();
         setResearchProgress(`Found ${data.suggestionsCount || 0} potential sources!`);
 
+        // Add new tasks directly to state for immediate UI update
+        if (data.tasks && data.tasks.length > 0) {
+          setTasks(prev => [...data.tasks, ...prev]);
+        }
+
+        // Invalidate cache if server indicates data changed
+        if (data.cache_invalidated) {
+          invalidateTasksCache();
+        }
+
         setTimeout(() => {
-          fetchTasks();
-          fetchDrySpots();
           setIsResearching(false);
           setResearchProgress('');
         }, 1500);

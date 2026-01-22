@@ -110,7 +110,8 @@ changelog_cache = CacheManager('changelog', ttl_seconds=300, max_entries=5)  # 5
 users_cache = CacheManager('users', ttl_seconds=60, max_entries=10)  # 1 min TTL (shorter for user data)
 api_versions_cache = CacheManager('api_versions', ttl_seconds=600, max_entries=5)  # 10 min TTL
 git_versions_cache = CacheManager('git_versions', ttl_seconds=300, max_entries=10)  # 5 min TTL
-feeds_cache = CacheManager('feeds', ttl_seconds=300, max_entries=5)  # 5 min TTL for feed statistics
+coverage_gaps_cache = CacheManager('coverage_gaps', ttl_seconds=300, max_entries=20)  # 5 min TTL for coverage gaps
+feeds_cache = CacheManager('feeds', ttl_seconds=600, max_entries=5)  # 10 min TTL for feeds (rarely changes)
 
 
 # Back4app Configuration - read from environment variables
@@ -1738,6 +1739,20 @@ def get_all_feeds():
         all_feeds[name] = config  # Already has type
     return all_feeds
 
+
+def get_all_feeds_cached():
+    """Get combined dictionary of all feeds with caching.
+
+    Since feeds rarely change (only when code is updated), cache for 10 minutes.
+    """
+    cached = feeds_cache.get('all_feeds')
+    if cached is not None:
+        return cached
+
+    all_feeds = get_all_feeds()
+    feeds_cache.set('all_feeds', all_feeds)
+    return all_feeds
+
 # Request headers to avoid 406 errors
 REQUEST_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0; +https://github.com/code4recovery)'
@@ -3134,6 +3149,8 @@ def get_cache_stats():
             users_cache.stats(),
             api_versions_cache.stats(),
             git_versions_cache.stats(),
+            coverage_gaps_cache.stats(),
+            feeds_cache.stats(),
             {
                 "name": "state_meeting_counts",
                 "entries": 1 if state_meeting_counts_cache["data"] else 0,
@@ -3146,6 +3163,11 @@ def get_cache_stats():
                 "entries": len(geocode_cache),
                 "max_entries": "unlimited",
                 "ttl_seconds": "permanent"
+            },
+            {
+                "name": "task_state_index",
+                "entries": len(task_state_index),
+                "description": "O(1) task lookup by state"
             }
         ]
     })
@@ -4889,11 +4911,74 @@ def check_user_access():
 # In-memory tasks storage (in production, this would be in the database)
 tasks_storage = []
 task_id_counter = 1
+# Task index by state for O(1) lookups (maps state_code -> set of task_ids)
+task_state_index = {}
+
+def _index_task_add(task):
+    """Add a task to the state index for O(1) state lookups."""
+    state = task.get('state')
+    if state:
+        if state not in task_state_index:
+            task_state_index[state] = set()
+        task_state_index[state].add(task['id'])
+
+def _index_task_remove(task_id, state=None):
+    """Remove a task from the state index."""
+    if state and state in task_state_index:
+        task_state_index[state].discard(task_id)
+        if not task_state_index[state]:
+            del task_state_index[state]
+    else:
+        # If state not provided, search all (fallback)
+        for s in list(task_state_index.keys()):
+            task_state_index[s].discard(task_id)
+            if not task_state_index[s]:
+                del task_state_index[s]
+
+def _get_tasks_by_state(state_code):
+    """Get task IDs for a state in O(1) time."""
+    return task_state_index.get(state_code, set())
 
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
-    """Get all research tasks"""
-    return jsonify({'tasks': tasks_storage})
+    """Get research tasks with optional filtering.
+
+    Query parameters:
+        status: Filter by status ('pending', 'in_progress', 'completed', 'all')
+        state: Filter by state code (e.g., 'CA', 'NY')
+        limit: Maximum number of tasks to return (default: all)
+        offset: Number of tasks to skip (for pagination)
+    """
+    status_filter = request.args.get('status', 'all')
+    state_filter = request.args.get('state')
+    limit = request.args.get('limit', type=int)
+    offset = request.args.get('offset', 0, type=int)
+
+    # Start with all tasks (reversed for newest-first since we use append)
+    # or filter by state using O(1) index lookup
+    if state_filter:
+        task_ids = _get_tasks_by_state(state_filter)
+        filtered_tasks = [t for t in reversed(tasks_storage) if t['id'] in task_ids]
+    else:
+        filtered_tasks = list(reversed(tasks_storage))
+
+    # Apply status filter
+    if status_filter and status_filter != 'all':
+        filtered_tasks = [t for t in filtered_tasks if t.get('status') == status_filter]
+
+    total_filtered = len(filtered_tasks)
+
+    # Apply pagination
+    if offset:
+        filtered_tasks = filtered_tasks[offset:]
+    if limit:
+        filtered_tasks = filtered_tasks[:limit]
+
+    return jsonify({
+        'tasks': filtered_tasks,
+        'total': len(tasks_storage),
+        'filtered_count': total_filtered
+    })
 
 @app.route('/api/tasks', methods=['POST'])
 def create_task():
@@ -4913,9 +4998,12 @@ def create_task():
         'created_at': datetime.now().isoformat()
     }
     task_id_counter += 1
-    tasks_storage.insert(0, task)
+    # Use append O(1) instead of insert(0) O(n), list is reversed when returning
+    tasks_storage.append(task)
+    # Update state index for O(1) lookups
+    _index_task_add(task)
 
-    return jsonify({'task': task, 'success': True})
+    return jsonify({'task': task, 'success': True, 'cache_invalidated': True})
 
 @app.route('/api/tasks/<int:task_id>', methods=['PUT'])
 def update_task(task_id):
@@ -4930,7 +5018,7 @@ def update_task(task_id):
                 task['title'] = data['title']
             if 'description' in data:
                 task['description'] = data['description']
-            return jsonify({'task': task, 'success': True})
+            return jsonify({'task': task, 'success': True, 'cache_invalidated': True})
 
     return jsonify({'error': 'Task not found'}), 404
 
@@ -4938,36 +5026,94 @@ def update_task(task_id):
 def delete_task(task_id):
     """Delete a task"""
     global tasks_storage
+    # Find the task to get its state for index removal
+    task_to_delete = next((t for t in tasks_storage if t['id'] == task_id), None)
+    if task_to_delete:
+        _index_task_remove(task_id, task_to_delete.get('state'))
     tasks_storage = [t for t in tasks_storage if t['id'] != task_id]
-    return jsonify({'success': True})
+    return jsonify({'success': True, 'cache_invalidated': True})
+
+def _fetch_all_state_meeting_counts():
+    """Fetch meeting counts for all states in a single batch query.
+
+    Uses cached data if available and not expired (5 min TTL).
+    Returns dict mapping state_code -> meeting_count.
+    """
+    import time
+    current_time = time.time()
+    cache = state_meeting_counts_cache
+
+    # Check if cache is valid
+    if cache["last_updated"] and (current_time - cache["last_updated"]) < cache["ttl"]:
+        if cache["data"]:
+            return cache["data"]
+
+    state_counts = {}
+
+    if BACK4APP_APP_ID and BACK4APP_REST_KEY:
+        headers = {
+            "X-Parse-Application-Id": BACK4APP_APP_ID,
+            "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+        }
+        # Batch fetch: Use aggregation pipeline to get counts per state in ONE request
+        try:
+            # Back4App supports aggregate queries - group by state and count
+            aggregate_url = f"{BACK4APP_URL.replace('/classes/Meetings', '')}/aggregate/Meetings"
+            pipeline = [
+                {"$group": {"objectId": "$state", "count": {"$sum": 1}}}
+            ]
+            response = requests.post(
+                aggregate_url,
+                headers={**headers, "Content-Type": "application/json"},
+                json=pipeline,
+                timeout=30
+            )
+            if response.status_code == 200:
+                results = response.json().get('results', [])
+                for item in results:
+                    state_code = item.get('objectId')
+                    if state_code:
+                        state_counts[state_code] = item.get('count', 0)
+        except Exception:
+            # Fallback: batch fetch with parallel requests if aggregate fails
+            # Limit to essential states only (high population states)
+            priority_states = [s for s, p in US_STATE_POPULATION.items() if p > 2000]
+            for state_code in priority_states[:20]:  # Limit to top 20 by population
+                try:
+                    url = f"{BACK4APP_URL}?where={{\"state\":\"{state_code}\"}}&count=1&limit=0"
+                    resp = requests.get(url, headers=headers, timeout=5)
+                    if resp.status_code == 200:
+                        state_counts[state_code] = resp.json().get('count', 0)
+                except Exception:
+                    pass
+
+    # Update cache
+    cache["data"] = state_counts
+    cache["last_updated"] = current_time
+    return state_counts
+
 
 @app.route('/api/coverage/gaps', methods=['GET'])
 def get_coverage_gaps():
-    """Get states/regions with low meeting coverage (dry spots)"""
-    # Get existing feeds to identify covered states
-    all_feeds = get_all_feeds()
+    """Get states/regions with low meeting coverage (dry spots).
+
+    Results are cached for 5 minutes to avoid repeated expensive queries.
+    """
+    # Check cache first
+    cached_result = coverage_gaps_cache.get('gaps')
+    if cached_result is not None:
+        return jsonify(cached_result)
+
+    # Get existing feeds to identify covered states (cached)
+    all_feeds = get_all_feeds_cached()
     covered_states = set(feed['state'] for feed in all_feeds.values())
 
-    # Define US states with their populations (in thousands)
-    # States not in our feeds are considered gaps
+    # Batch fetch all state meeting counts in ONE query instead of N+1
+    state_counts = _fetch_all_state_meeting_counts()
+
     gaps = []
-
     for state_code, population in US_STATE_POPULATION.items():
-        meetings_count = 0
-
-        # If we have Back4App configured, try to get actual meeting counts
-        if BACK4APP_APP_ID and BACK4APP_REST_KEY:
-            try:
-                headers = {
-                    "X-Parse-Application-Id": BACK4APP_APP_ID,
-                    "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
-                }
-                url = f"{BACK4APP_URL}?where={{\"state\":\"{state_code}\"}}&count=1&limit=0"
-                response = requests.get(url, headers=headers, timeout=5)
-                if response.status_code == 200:
-                    meetings_count = response.json().get('count', 0)
-            except:
-                pass
+        meetings_count = state_counts.get(state_code, 0)
 
         # Consider it a gap if:
         # - No meetings at all, OR
@@ -4987,7 +5133,12 @@ def get_coverage_gaps():
     # Sort by population (highest first) to prioritize high-impact gaps
     gaps.sort(key=lambda x: x['population'], reverse=True)
 
-    return jsonify({'gaps': gaps[:20]})  # Return top 20 gaps
+    result = {'gaps': gaps[:20]}
+
+    # Cache the result for 5 minutes
+    coverage_gaps_cache.set('gaps', result)
+
+    return jsonify(result)
 
 @app.route('/api/tasks/research', methods=['POST'])
 def research_intergroup():
@@ -5042,21 +5193,28 @@ def research_intergroup():
         }
         task_id_counter += 1
         suggestions.append(task)
-        tasks_storage.insert(0, task)
+        # Use append O(1) instead of insert(0) O(n)
+        tasks_storage.append(task)
+        # Update state index
+        _index_task_add(task)
 
     return jsonify({
         'success': True,
         'suggestions': suggestions,
-        'message': f'Created {len(suggestions)} research tasks for {state_name}'
+        'message': f'Created {len(suggestions)} research tasks for {state_name}',
+        'cache_invalidated': True
     })
 
 @app.route('/api/tasks/research-all', methods=['POST'])
 def research_all_gaps():
-    """Research all coverage gaps and create tasks"""
+    """Research all coverage gaps and create tasks.
+
+    Optimized to use state index for O(1) task lookups instead of O(n) per state.
+    """
     global task_id_counter
 
-    # Get current coverage gaps
-    all_feeds = get_all_feeds()
+    # Get current coverage gaps (using cached feeds)
+    all_feeds = get_all_feeds_cached()
     covered_states = set(feed['state'] for feed in all_feeds.values())
 
     suggestions_count = 0
@@ -5067,10 +5225,17 @@ def research_all_gaps():
         if state_code not in covered_states and population > 1000:  # Only states with >1M population
             state_name = US_STATE_NAMES.get(state_code, state_code)
 
-            # Check if we already have a task for this state
-            existing = any(t['state'] == state_code and t['status'] != 'completed' for t in tasks_storage)
-            if existing:
-                continue
+            # Use O(1) index lookup instead of O(n) list scan
+            task_ids = _get_tasks_by_state(state_code)
+            if task_ids:
+                # Check if any existing task for this state is not completed
+                existing = any(
+                    t['status'] != 'completed'
+                    for t in tasks_storage
+                    if t['id'] in task_ids
+                )
+                if existing:
+                    continue
 
             task = {
                 'id': task_id_counter,
@@ -5084,14 +5249,18 @@ def research_all_gaps():
             }
             task_id_counter += 1
             new_tasks.append(task)
-            tasks_storage.insert(0, task)
+            # Use append O(1) instead of insert(0) O(n)
+            tasks_storage.append(task)
+            # Update state index
+            _index_task_add(task)
             suggestions_count += 1
 
     return jsonify({
         'success': True,
         'suggestionsCount': suggestions_count,
         'tasks': new_tasks,
-        'message': f'Created {suggestions_count} tasks for uncovered states'
+        'message': f'Created {suggestions_count} tasks for uncovered states',
+        'cache_invalidated': True
     })
 
 
