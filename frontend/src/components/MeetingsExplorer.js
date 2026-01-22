@@ -283,6 +283,7 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
   const thumbnailRequestsRef = useRef(new Set());
   const initialFetchDoneRef = useRef(false);
   const meetingsRef = useRef(cachedMeetings?.data || []);
+  const loadMoreSentinelRef = useRef(null);
 
   // Fetch thumbnail for a single meeting
   const fetchThumbnail = useCallback(async (meetingId) => {
@@ -635,6 +636,32 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
 
     fetchMeetings();
   }, [fetchMeetings, cachedMeetings]);
+
+  // Infinite scroll - load more meetings when sentinel becomes visible
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting && hasMore && !isLoadingMore && !isLoading) {
+          loadMoreMeetings();
+        }
+      },
+      {
+        root: null,
+        rootMargin: '200px',
+        threshold: 0,
+      }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMore, isLoadingMore, isLoading, loadMoreMeetings]);
 
   // Cache meetings data when it changes
   useEffect(() => {
@@ -2072,7 +2099,12 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
                 )}
               </div>
 
-              {/* Load More Button with Progress */}
+              {/* Sentinel element for infinite scroll detection */}
+              {hasMore && !isLoading && (
+                <div ref={loadMoreSentinelRef} className="infinite-scroll-sentinel" aria-hidden="true" />
+              )}
+
+              {/* Load More Button with Progress - shown as fallback */}
               {hasMore && (
                 <div className="load-more-container">
                   {isLoadingMore && loadingProgress.total > 0 && (
