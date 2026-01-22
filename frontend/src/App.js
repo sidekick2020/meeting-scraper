@@ -8,6 +8,7 @@ import AdminPanel from './components/AdminPanel';
 import DeploymentIndicator from './components/DeploymentIndicator';
 import DevDocs from './components/DevDocs';
 import DownloadPage from './components/DownloadPage';
+import NotFound from './components/NotFound';
 import LoadingOverlay from './components/LoadingOverlay';
 
 function SignInModal({ onClose }) {
@@ -130,9 +131,10 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <Routes>
+            <Route path="/" element={<AppContent />} />
             <Route path="/docs" element={<DocsPage />} />
             <Route path="/download" element={<DownloadPage />} />
-            <Route path="/*" element={<AppContent />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
       </ThemeProvider>
