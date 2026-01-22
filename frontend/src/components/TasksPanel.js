@@ -404,9 +404,67 @@ function TasksPanel({ feeds }) {
 
   if (isLoading) {
     return (
-      <div className="tasks-loading">
-        <div className="loading-spinner"></div>
-        <p>Loading tasks...</p>
+      <div className="skeleton-tasks-container">
+        {/* Skeleton Header */}
+        <div className="skeleton-tasks-header">
+          <div className="skeleton-tasks-header-left">
+            <div className="skeleton-tasks-title"></div>
+            <div className="skeleton-tasks-subtitle"></div>
+          </div>
+          <div className="skeleton-tasks-actions">
+            <div className="skeleton-tasks-btn"></div>
+            <div className="skeleton-tasks-btn" style={{ width: '150px' }}></div>
+          </div>
+        </div>
+
+        {/* Skeleton Coverage Gaps Section */}
+        <div className="skeleton-tasks-section">
+          <div className="skeleton-section-header">
+            <div className="skeleton-section-title"></div>
+            <div className="skeleton-section-count"></div>
+          </div>
+          <div className="skeleton-dry-spots-grid">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="skeleton-dry-spot-card">
+                <div className="skeleton-dry-spot-info">
+                  <div className="skeleton-dry-spot-state"></div>
+                  <div className="skeleton-dry-spot-stats"></div>
+                </div>
+                <div className="skeleton-dry-spot-btn"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Skeleton Tasks Section */}
+        <div className="skeleton-tasks-section">
+          <div className="skeleton-section-header">
+            <div className="skeleton-section-title" style={{ width: '60px' }}></div>
+            <div className="skeleton-task-filters">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="skeleton-filter-btn"></div>
+              ))}
+            </div>
+          </div>
+          <div className="skeleton-tasks-list">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="skeleton-task-card">
+                <div className="skeleton-task-checkbox"></div>
+                <div className="skeleton-task-content">
+                  <div className="skeleton-task-title"></div>
+                  <div className="skeleton-task-meta">
+                    <div className="skeleton-task-tag"></div>
+                    <div className="skeleton-task-tag" style={{ width: '60px' }}></div>
+                  </div>
+                </div>
+                <div className="skeleton-task-actions">
+                  <div className="skeleton-task-action-btn"></div>
+                  <div className="skeleton-task-action-btn"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

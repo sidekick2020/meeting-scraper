@@ -88,8 +88,27 @@ function ScrapeHistory() {
   if (isLoading) {
     return (
       <div className="scrape-history">
-        <h3>Scrape History</h3>
-        <div className="history-loading">Loading history...</div>
+        <div className="history-header">
+          <h3>Scrape History</h3>
+        </div>
+        <div className="skeleton-history-list">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="skeleton-history-entry">
+              <div className="skeleton-history-header">
+                <div className="skeleton-history-main">
+                  <div className="skeleton-history-status"></div>
+                  <div className="skeleton-history-date"></div>
+                </div>
+                <div className="skeleton-history-stats">
+                  <div className="skeleton-history-stat"></div>
+                  <div className="skeleton-history-stat"></div>
+                  <div className="skeleton-history-stat"></div>
+                  <div className="skeleton-history-expand"></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
