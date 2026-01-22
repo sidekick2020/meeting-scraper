@@ -3400,6 +3400,31 @@ a.sidebar-nav-item {
   opacity: 0.5;
 }
 
+.directory-error svg {
+  color: var(--error-color, #ef4444);
+  opacity: 0.8;
+}
+
+.directory-error p {
+  color: var(--error-color, #ef4444);
+}
+
+.retry-button {
+  margin-top: 1rem;
+  padding: 0.5rem 1.5rem;
+  background: var(--primary-color, #3b82f6);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.retry-button:hover {
+  background: var(--primary-hover, #2563eb);
+}
+
 .directory-table-wrapper {
   flex: 1;
   overflow: auto;

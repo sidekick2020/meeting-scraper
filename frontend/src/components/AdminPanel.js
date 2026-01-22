@@ -105,6 +105,7 @@ function AdminPanel({ onBackToPublic }) {
   const [directoryOnline, setDirectoryOnline] = useState('');
   const [directoryTotal, setDirectoryTotal] = useState(cachedDirectoryTotal?.data || 0);
   const [directoryHasMore, setDirectoryHasMore] = useState(true);
+  const [directoryError, setDirectoryError] = useState(null);
   const [availableStates, setAvailableStates] = useState(cachedStates?.data || []);
   const DIRECTORY_PAGE_SIZE = 25;
 
@@ -210,6 +211,7 @@ function AdminPanel({ onBackToPublic }) {
   const fetchDirectoryMeetings = useCallback(async (search = '', state = '', day = '', type = '', online = '') => {
     setDirectoryLoading(true);
     setDirectoryMeetings([]);
+    setDirectoryError(null);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
@@ -232,11 +234,21 @@ function AdminPanel({ onBackToPublic }) {
         setDirectoryMeetings(meetings);
         setDirectoryTotal(data.total || 0);
         setDirectoryHasMore(meetings.length < (data.total || 0));
+        if (data.error) {
+          setDirectoryError(data.error);
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setDirectoryError(errorData.error || `Server error: ${response.status}`);
+        setDirectoryTotal(0);
       }
     } catch (error) {
       clearTimeout(timeoutId);
-      if (error.name !== 'AbortError') {
+      if (error.name === 'AbortError') {
+        setDirectoryError('Request timed out. Please try again.');
+      } else {
         console.error('Error fetching directory meetings:', error);
+        setDirectoryError('Failed to connect to server');
       }
     } finally {
       setDirectoryLoading(false);
@@ -357,16 +369,12 @@ function AdminPanel({ onBackToPublic }) {
     }
   }, [fetchAvailableStates, cachedStates]);
 
-  // Fetch directory meetings when section is active or filters change
+  // Fetch directory meetings when section becomes active or filters change
   useEffect(() => {
     if (activeSection === 'directory') {
-      // Only fetch if we don't have cached data or filters changed
-      const hasFilters = directorySearch || directoryState || directoryDay || directoryType || directoryOnline;
-      if (!cachedDirectory?.data || hasFilters || directoryMeetings.length === 0) {
-        fetchDirectoryMeetings(directorySearch, directoryState, directoryDay, directoryType, directoryOnline);
-      }
+      fetchDirectoryMeetings(directorySearch, directoryState, directoryDay, directoryType, directoryOnline);
     }
-  }, [activeSection, directorySearch, directoryState, directoryDay, directoryType, directoryOnline, fetchDirectoryMeetings, cachedDirectory, directoryMeetings.length]);
+  }, [activeSection, directorySearch, directoryState, directoryDay, directoryType, directoryOnline, fetchDirectoryMeetings]);
 
   // Cache feeds when they change
   useEffect(() => {
@@ -991,6 +999,21 @@ function AdminPanel({ onBackToPublic }) {
               <div className="directory-loading">
                 <div className="loading-spinner"></div>
                 <p>Loading meetings...</p>
+              </div>
+            ) : directoryError ? (
+              <div className="directory-empty directory-error">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <p>{directoryError}</p>
+                <button
+                  className="retry-button"
+                  onClick={() => fetchDirectoryMeetings(directorySearch, directoryState, directoryDay, directoryType, directoryOnline)}
+                >
+                  Retry
+                </button>
               </div>
             ) : directoryMeetings.length === 0 ? (
               <div className="directory-empty">

@@ -3857,6 +3857,8 @@ def get_meetings():
             where['city'] = city
         if online == 'true':
             where['isOnline'] = True
+        elif online == 'false':
+            where['isOnline'] = False
         if hybrid == 'true':
             where['isHybrid'] = True
         if meeting_format:
