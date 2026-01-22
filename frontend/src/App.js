@@ -126,7 +126,6 @@ function AppContent() {
       {currentView === 'public' ? (
         <>
           <MeetingsExplorer
-            onAdminClick={handleAdminClick}
             sidebarOpen={sidebarOpen}
             onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
           />

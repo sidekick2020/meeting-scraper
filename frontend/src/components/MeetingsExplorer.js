@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import MeetingMap from './MeetingMap';
 import MeetingDetail from './MeetingDetail';
-import ThemeToggle from './ThemeToggle';
 import { SidebarToggleButton } from './PublicSidebar';
 import { useDataCache } from '../contexts/DataCacheContext';
 import { useParse } from '../contexts/ParseContext';
@@ -157,7 +156,7 @@ const MeetingTypeIcon = ({ type, size = 16 }) => {
   return iconMap[iconKey] || iconMap.circle;
 };
 
-function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
+function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
   // Data cache context for persisting data across navigation
   const { getCache, setCache } = useDataCache();
 
@@ -1923,12 +1922,6 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
           </button>
         </div>
 
-        <div className="airbnb-header-right">
-          <ThemeToggle />
-          <button className="btn btn-ghost admin-link" onClick={onAdminClick}>
-            Admin
-          </button>
-        </div>
       </header>
 
       {/* Secondary Filter Bar */}
@@ -2046,58 +2039,7 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
 
       {/* Main Content - Split View */}
       <div className="airbnb-main">
-        {/* Map Panel (Left) */}
-        <div className={`airbnb-map-panel ${isMapCollapsed ? 'collapsed' : ''}`}>
-          <button
-            className="map-collapse-btn"
-            onClick={() => setIsMapCollapsed(!isMapCollapsed)}
-            title={isMapCollapsed ? 'Show map' : 'Hide map'}
-          >
-            {isMapCollapsed ? (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
-            ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-            )}
-          </button>
-
-          {!isMapCollapsed && (
-            <>
-              <MeetingMap
-                onSelectMeeting={handleMapMarkerClick}
-                onStateClick={(stateData) => {
-                  // Set the state filter to show meetings for this state
-                  setSelectedStates([stateData.state]);
-                  // Clear target location since we're clicking a state
-                  setTargetLocation(null);
-                  // Scroll to the meeting list
-                  if (listRef.current) {
-                    listRef.current.scrollIntoView({ behavior: 'smooth' });
-                  }
-                }}
-                showHeatmap={true}
-                targetLocation={targetLocation}
-                filters={mapFilters}
-                onBoundsChange={handleMapBoundsChange}
-                onMapMeetingCount={setMapMeetingCount}
-              />
-              {(isLoading || isLoadingMore) && (
-                <div className={`map-loading-indicator ${isLoading && !isLoadingMore ? 'subtle' : ''}`}>
-                  <div className="loading-spinner-mini"></div>
-                  <span>{isLoading && !isLoadingMore ? 'Loading meetings...' : 'Loading more...'}</span>
-                  {loadingProgress.total > 0 && (
-                    <span className="loading-count">{loadingProgress.loaded}/{loadingProgress.total}</span>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* List Panel (Right) */}
+        {/* List Panel (Left) */}
         <div className={`airbnb-list-panel ${isMapCollapsed ? 'expanded' : ''}`} ref={listRef}>
           {error || configStatus === 'not_configured' || configStatus === 'unreachable' ? (
             <div className="list-error">
@@ -2292,6 +2234,57 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
                       </span>
                       <span className="batch-size-info">Batch: {batchSize}</span>
                     </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Map Panel (Right) */}
+        <div className={`airbnb-map-panel ${isMapCollapsed ? 'collapsed' : ''}`}>
+          <button
+            className="map-collapse-btn"
+            onClick={() => setIsMapCollapsed(!isMapCollapsed)}
+            title={isMapCollapsed ? 'Show map' : 'Hide map'}
+          >
+            {isMapCollapsed ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            )}
+          </button>
+
+          {!isMapCollapsed && (
+            <>
+              <MeetingMap
+                onSelectMeeting={handleMapMarkerClick}
+                onStateClick={(stateData) => {
+                  // Set the state filter to show meetings for this state
+                  setSelectedStates([stateData.state]);
+                  // Clear target location since we're clicking a state
+                  setTargetLocation(null);
+                  // Scroll to the meeting list
+                  if (listRef.current) {
+                    listRef.current.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+                showHeatmap={true}
+                targetLocation={targetLocation}
+                filters={mapFilters}
+                onBoundsChange={handleMapBoundsChange}
+                onMapMeetingCount={setMapMeetingCount}
+              />
+              {(isLoading || isLoadingMore) && (
+                <div className={`map-loading-indicator ${isLoading && !isLoadingMore ? 'subtle' : ''}`}>
+                  <div className="loading-spinner-mini"></div>
+                  <span>{isLoading && !isLoadingMore ? 'Loading meetings...' : 'Loading more...'}</span>
+                  {loadingProgress.total > 0 && (
+                    <span className="loading-count">{loadingProgress.loaded}/{loadingProgress.total}</span>
                   )}
                 </div>
               )}
