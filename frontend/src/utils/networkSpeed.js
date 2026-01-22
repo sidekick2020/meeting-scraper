@@ -2,7 +2,7 @@
  * Network Speed Detection and Adaptive Batch Loading Utility
  *
  * Detects network speed and calculates optimal batch sizes for meeting data loading.
- * Batch sizes range from 10-100 based on network conditions.
+ * Batch sizes range from 5-50 based on network conditions.
  */
 
 // Batch size configuration
@@ -21,13 +21,13 @@ const BATCH_CONFIG = {
 };
 
 // Speed categories with corresponding batch sizes
-// Using smaller batches (5-20) for faster perceived loading
+// Dynamic batch sizes (5-50) based on connection quality
 const SPEED_TO_BATCH = {
   'very-slow': 5,
   'slow': 5,
-  'medium': 10,
-  'fast': 15,
-  'very-fast': 20,
+  'medium': 15,
+  'fast': 30,
+  'very-fast': 50,
 };
 
 // Store last known network speed for quick access
@@ -114,7 +114,7 @@ export function categorizeSpeed(speedMbps) {
 /**
  * Calculates optimal batch size based on network speed
  * @param {number} speedMbps - Speed in Mbps
- * @returns {number} - Optimal batch size (10-100)
+ * @returns {number} - Optimal batch size (5-50)
  */
 export function calculateBatchSize(speedMbps) {
   const category = categorizeSpeed(speedMbps);
