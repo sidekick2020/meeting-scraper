@@ -1,13 +1,27 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
+// Cache key and TTL
+const HISTORY_CACHE_KEY = 'scrapeHistory:data';
+const HISTORY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 function ScrapeHistory() {
-  const [history, setHistory] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { getCache, setCache } = useDataCache();
+  const cachedHistory = getCache(HISTORY_CACHE_KEY);
+
+  const [history, setHistory] = useState(cachedHistory?.data || []);
+  const [isLoading, setIsLoading] = useState(!cachedHistory?.data);
   const [expandedId, setExpandedId] = useState(null);
 
-  const fetchHistory = useCallback(async () => {
+  const fetchHistory = useCallback(async (forceRefresh = false) => {
+    // Skip if we have cached data and not forcing refresh
+    if (!forceRefresh && cachedHistory?.data && cachedHistory.data.length > 0) {
+      setIsLoading(false);
+      return;
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
@@ -19,7 +33,10 @@ function ScrapeHistory() {
 
       if (response.ok) {
         const data = await response.json();
-        setHistory(data.history || []);
+        const historyData = data.history || [];
+        setHistory(historyData);
+        // Cache the data
+        setCache(HISTORY_CACHE_KEY, historyData, HISTORY_CACHE_TTL);
       }
     } catch (error) {
       clearTimeout(timeoutId);
@@ -29,12 +46,12 @@ function ScrapeHistory() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [cachedHistory, setCache]);
 
   useEffect(() => {
     fetchHistory();
-    // Refresh history every 30 seconds
-    const interval = setInterval(fetchHistory, 30000);
+    // Refresh history every 30 seconds (but will use cache if available)
+    const interval = setInterval(() => fetchHistory(true), 30000);
     return () => clearInterval(interval);
   }, [fetchHistory]);
 
@@ -81,7 +98,7 @@ function ScrapeHistory() {
     <div className="scrape-history">
       <div className="history-header">
         <h3>Scrape History</h3>
-        <button className="btn btn-ghost btn-small" onClick={fetchHistory}>
+        <button className="btn btn-ghost btn-small" onClick={() => fetchHistory(true)}>
           Refresh
         </button>
       </div>

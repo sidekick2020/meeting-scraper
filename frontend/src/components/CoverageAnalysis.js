@@ -1,22 +1,36 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import StateHeatmapModal from './StateHeatmapModal';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
+// Cache key and TTL
+const COVERAGE_CACHE_KEY = 'coverage:data';
+const COVERAGE_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
 function CoverageAnalysis() {
-  const [coverage, setCoverage] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { getCache, setCache } = useDataCache();
+  const cachedCoverage = getCache(COVERAGE_CACHE_KEY);
+
+  const [coverage, setCoverage] = useState(cachedCoverage?.data || null);
+  const [loading, setLoading] = useState(!cachedCoverage?.data);
   const [error, setError] = useState(null);
   const [showAllStates, setShowAllStates] = useState(false);
   const [selectedState, setSelectedState] = useState(null);
 
-  const fetchCoverage = useCallback(async (isInitialLoad = false) => {
+  const fetchCoverage = useCallback(async (isInitialLoad = false, forceRefresh = false) => {
+    // Skip if we have cached data and not forcing refresh
+    if (!forceRefresh && cachedCoverage?.data) {
+      setLoading(false);
+      return;
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       // Only show loading spinner on initial load, not refreshes
-      if (isInitialLoad) {
+      if (isInitialLoad && !cachedCoverage?.data) {
         setLoading(true);
       }
       const response = await fetch(`${BACKEND_URL}/api/coverage`, {
@@ -28,6 +42,8 @@ function CoverageAnalysis() {
         const data = await response.json();
         setCoverage(data);
         setError(null);
+        // Cache the data
+        setCache(COVERAGE_CACHE_KEY, data, COVERAGE_CACHE_TTL);
       } else {
         setError('Failed to load coverage data');
       }
@@ -41,7 +57,7 @@ function CoverageAnalysis() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [cachedCoverage, setCache]);
 
   useEffect(() => {
     fetchCoverage(true); // Initial load shows spinner
@@ -79,7 +95,7 @@ function CoverageAnalysis() {
       <div className="coverage-analysis">
         <h3>Coverage Analysis</h3>
         <div className="error-message">{error}</div>
-        <button onClick={fetchCoverage} className="btn btn-secondary">
+        <button onClick={() => fetchCoverage(true, true)} className="btn btn-secondary">
           Retry
         </button>
       </div>
@@ -95,7 +111,7 @@ function CoverageAnalysis() {
     <div className="coverage-analysis">
       <div className="coverage-header">
         <h3>US Coverage Analysis</h3>
-        <button onClick={() => fetchCoverage(false)} className="btn btn-ghost btn-small">
+        <button onClick={() => fetchCoverage(false, true)} className="btn btn-ghost btn-small">
           Refresh
         </button>
       </div>
