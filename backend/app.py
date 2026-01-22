@@ -6719,6 +6719,907 @@ def delete_submission(submission_id):
     })
 
 
+# =============================================================================
+# INTERGROUP RESEARCH SYSTEM
+# Deep research tool for discovering meeting data sources across states
+# =============================================================================
+
+# In-memory storage for research sessions (would use Parse/DB in production)
+intergroup_research_sessions = []
+intergroup_research_findings = []
+intergroup_research_notes = []
+intergroup_research_scripts = []
+research_session_counter = 0
+
+# Known intergroup URL patterns to try
+INTERGROUP_URL_PATTERNS = {
+    'tsml_standard': {
+        'pattern': 'https://{domain}/wp-admin/admin-ajax.php?action=meetings',
+        'type': 'tsml',
+        'description': 'Standard TSML WordPress plugin endpoint'
+    },
+    'tsml_rest': {
+        'pattern': 'https://{domain}/wp-json/tsml/v1/meetings/',
+        'type': 'tsml',
+        'description': 'TSML REST API endpoint'
+    },
+    'meetings_php': {
+        'pattern': 'https://{domain}/meetings.php',
+        'type': 'custom_html',
+        'description': 'Custom PHP meeting finder (like lacoaa.org)'
+    },
+    'meeting_finder': {
+        'pattern': 'https://{domain}/meeting-finder/',
+        'type': 'unknown',
+        'description': 'Generic meeting finder page'
+    },
+    'find_meeting': {
+        'pattern': 'https://{domain}/find-a-meeting/',
+        'type': 'unknown',
+        'description': 'Common AA meeting finder URL'
+    },
+    'meetings_page': {
+        'pattern': 'https://{domain}/meetings/',
+        'type': 'unknown',
+        'description': 'Meetings page'
+    }
+}
+
+# Known California intergroup domains (can be extended per-state)
+KNOWN_INTERGROUPS = {
+    'CA': [
+        {'name': 'Los Angeles Central Office', 'domain': 'lacoaa.org', 'type': 'custom'},
+        {'name': 'Orange County Intergroup', 'domain': 'oc-aa.org', 'type': 'tsml'},
+        {'name': 'San Francisco & Marin Intergroup', 'domain': 'aasfmarin.org', 'type': 'tsml'},
+        {'name': 'San Mateo County Intergroup', 'domain': 'aa-san-mateo.org', 'type': 'tsml'},
+        {'name': 'Sonoma County Intergroup', 'domain': 'sonomacountyaa.org', 'type': 'tsml'},
+        {'name': 'Santa Clara County (San Jose)', 'domain': 'aasanjose.org', 'type': 'tsml'},
+        {'name': 'East Bay Intergroup', 'domain': 'eastbayaa.org', 'type': 'tsml'},
+        {'name': 'NorCal Intergroup', 'domain': 'aanorcal.org', 'type': 'tsml'},
+        {'name': 'Central Coast (San Luis Obispo)', 'domain': 'sloaa.org', 'type': 'tsml'},
+        {'name': 'Delta Intergroup (Stockton)', 'domain': 'aadelta.org', 'type': 'tsml'},
+        {'name': 'Salinas Valley', 'domain': 'aasalinas.org', 'type': 'tsml'},
+        {'name': 'Santa Cruz County', 'domain': 'aasantacruz.org', 'type': 'tsml'},
+        {'name': 'Desert Intergroup', 'domain': 'aainthedesert.org', 'type': 'unknown'},
+        {'name': 'Harbor Area', 'domain': 'hacoaa.org', 'type': 'unknown'},
+        {'name': 'Inland Empire', 'domain': 'inlandempireaa.org', 'type': 'unknown'},
+        {'name': 'San Fernando Valley', 'domain': 'sfvaa.org', 'type': 'unknown'},
+        {'name': 'San Gabriel', 'domain': 'aasgvco.org', 'type': 'unknown'},
+        {'name': 'North Orange County', 'domain': 'aanoc.org', 'type': 'unknown'},
+        {'name': 'North San Diego', 'domain': 'ncsandiegoaa.org', 'type': 'unknown'},
+        {'name': 'San Diego', 'domain': 'aasandiego.org', 'type': 'unknown'},
+        {'name': 'Santa Barbara', 'domain': 'santabarbaraaa.com', 'type': 'unknown'},
+        {'name': 'Monterey Bay', 'domain': 'aamonterey.org', 'type': 'unknown'},
+    ],
+    'NY': [
+        {'name': 'New York Intergroup', 'domain': 'nyintergroup.org', 'type': 'unknown'},
+        {'name': 'Nassau Intergroup', 'domain': 'nassauny-aa.org', 'type': 'unknown'},
+    ],
+    'TX': [
+        {'name': 'Houston Intergroup', 'domain': 'aahouston.org', 'type': 'unknown'},
+        {'name': 'Dallas Intergroup', 'domain': 'aadallas.org', 'type': 'unknown'},
+        {'name': 'San Antonio Intergroup', 'domain': 'aasanantonio.org', 'type': 'unknown'},
+    ],
+    'FL': [
+        {'name': 'South Florida Intergroup', 'domain': 'aamiami.org', 'type': 'unknown'},
+        {'name': 'Tampa Bay Intergroup', 'domain': 'aatampa-area.org', 'type': 'unknown'},
+    ],
+}
+
+
+@app.route('/api/intergroup-research/sessions', methods=['GET'])
+def get_research_sessions():
+    """Get all research sessions with optional filtering"""
+    state_filter = request.args.get('state')
+    status_filter = request.args.get('status')
+
+    sessions = intergroup_research_sessions.copy()
+
+    if state_filter:
+        sessions = [s for s in sessions if s.get('state') == state_filter]
+    if status_filter:
+        sessions = [s for s in sessions if s.get('status') == status_filter]
+
+    # Sort by created date, newest first
+    sessions.sort(key=lambda x: x.get('createdAt', ''), reverse=True)
+
+    return jsonify({
+        'success': True,
+        'sessions': sessions,
+        'total': len(sessions)
+    })
+
+
+@app.route('/api/intergroup-research/sessions', methods=['POST'])
+def create_research_session():
+    """Create a new research session for a state"""
+    global research_session_counter
+
+    data = request.json
+    state = data.get('state', '')
+    notes = data.get('notes', '')
+
+    if not state:
+        return jsonify({
+            'success': False,
+            'error': 'State is required'
+        }), 400
+
+    research_session_counter += 1
+    state_name = US_STATE_NAMES.get(state, state)
+
+    session = {
+        'id': research_session_counter,
+        'state': state,
+        'stateName': state_name,
+        'status': 'active',
+        'notes': notes,
+        'createdAt': datetime.now().isoformat(),
+        'updatedAt': datetime.now().isoformat(),
+        'intergroups_found': 0,
+        'endpoints_tested': 0,
+        'working_sources': 0,
+        'failed_attempts': 0
+    }
+
+    intergroup_research_sessions.append(session)
+
+    return jsonify({
+        'success': True,
+        'session': session
+    })
+
+
+@app.route('/api/intergroup-research/sessions/<int:session_id>', methods=['GET'])
+def get_research_session(session_id):
+    """Get a specific research session with all its data"""
+    session = None
+    for s in intergroup_research_sessions:
+        if s['id'] == session_id:
+            session = s
+            break
+
+    if not session:
+        return jsonify({
+            'success': False,
+            'error': 'Session not found'
+        }), 404
+
+    # Get related findings, notes, and scripts
+    findings = [f for f in intergroup_research_findings if f.get('sessionId') == session_id]
+    notes = [n for n in intergroup_research_notes if n.get('sessionId') == session_id]
+    scripts = [s for s in intergroup_research_scripts if s.get('sessionId') == session_id]
+
+    return jsonify({
+        'success': True,
+        'session': session,
+        'findings': findings,
+        'notes': notes,
+        'scripts': scripts
+    })
+
+
+@app.route('/api/intergroup-research/sessions/<int:session_id>', methods=['PUT'])
+def update_research_session(session_id):
+    """Update a research session"""
+    data = request.json
+
+    for session in intergroup_research_sessions:
+        if session['id'] == session_id:
+            # Update allowed fields
+            if 'status' in data:
+                session['status'] = data['status']
+            if 'notes' in data:
+                session['notes'] = data['notes']
+            session['updatedAt'] = datetime.now().isoformat()
+
+            return jsonify({
+                'success': True,
+                'session': session
+            })
+
+    return jsonify({
+        'success': False,
+        'error': 'Session not found'
+    }), 404
+
+
+@app.route('/api/intergroup-research/sessions/<int:session_id>', methods=['DELETE'])
+def delete_research_session(session_id):
+    """Delete a research session and all related data"""
+    global intergroup_research_sessions, intergroup_research_findings
+    global intergroup_research_notes, intergroup_research_scripts
+
+    original_len = len(intergroup_research_sessions)
+    intergroup_research_sessions = [s for s in intergroup_research_sessions if s['id'] != session_id]
+
+    if len(intergroup_research_sessions) == original_len:
+        return jsonify({
+            'success': False,
+            'error': 'Session not found'
+        }), 404
+
+    # Delete related data
+    intergroup_research_findings = [f for f in intergroup_research_findings if f.get('sessionId') != session_id]
+    intergroup_research_notes = [n for n in intergroup_research_notes if n.get('sessionId') != session_id]
+    intergroup_research_scripts = [s for s in intergroup_research_scripts if s.get('sessionId') != session_id]
+
+    return jsonify({
+        'success': True,
+        'message': 'Session deleted'
+    })
+
+
+@app.route('/api/intergroup-research/discover', methods=['POST'])
+def discover_intergroups():
+    """Discover intergroups for a state - returns known intergroups and searches for more"""
+    data = request.json
+    state = data.get('state', '')
+    session_id = data.get('sessionId')
+
+    if not state:
+        return jsonify({
+            'success': False,
+            'error': 'State is required'
+        }), 400
+
+    state_name = US_STATE_NAMES.get(state, state)
+
+    # Get known intergroups for this state
+    known = KNOWN_INTERGROUPS.get(state, [])
+
+    # Generate search suggestions based on common patterns
+    generated = []
+    state_lower = state.lower()
+    state_name_lower = state_name.lower().replace(' ', '')
+
+    domain_patterns = [
+        f'aa{state_lower}.org',
+        f'{state_lower}aa.org',
+        f'aa{state_name_lower}.org',
+        f'{state_name_lower}aa.org',
+        f'aa-{state_lower}.org',
+    ]
+
+    for domain in domain_patterns:
+        if not any(k['domain'] == domain for k in known):
+            generated.append({
+                'name': f'{state_name} AA (Generated)',
+                'domain': domain,
+                'type': 'unknown',
+                'generated': True
+            })
+
+    # Update session if provided
+    if session_id:
+        for session in intergroup_research_sessions:
+            if session['id'] == session_id:
+                session['intergroups_found'] = len(known) + len(generated)
+                session['updatedAt'] = datetime.now().isoformat()
+                break
+
+    return jsonify({
+        'success': True,
+        'state': state,
+        'stateName': state_name,
+        'known': known,
+        'generated': generated,
+        'total': len(known) + len(generated)
+    })
+
+
+@app.route('/api/intergroup-research/probe-stream', methods=['POST'])
+def probe_intergroup_stream():
+    """Stream probe results for an intergroup domain - tries multiple URL patterns"""
+    data = request.json
+    domain = data.get('domain', '')
+    name = data.get('name', '')
+    session_id = data.get('sessionId')
+
+    if not domain:
+        return jsonify({
+            'success': False,
+            'error': 'Domain is required'
+        }), 400
+
+    def generate():
+        results = []
+        notes = []
+        working_endpoints = []
+
+        yield f"data: {json.dumps({'type': 'start', 'domain': domain, 'name': name})}\n\n"
+
+        notes.append(f"Starting probe of {name} ({domain})")
+        yield f"data: {json.dumps({'type': 'note', 'note': notes[-1], 'notes': notes})}\n\n"
+        time.sleep(0.2)
+
+        # First, check if the domain is reachable
+        notes.append(f"Checking if {domain} is reachable...")
+        yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+
+        try:
+            base_response = requests.get(f'https://{domain}', timeout=10, headers={
+                'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0)'
+            })
+            notes.append(f"✓ Domain reachable (HTTP {base_response.status_code})")
+            yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+        except Exception as e:
+            notes.append(f"✗ Domain not reachable: {str(e)[:50]}")
+            yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+            yield f"data: {json.dumps({'type': 'complete', 'success': False, 'notes': notes, 'results': [], 'working': []})}\n\n"
+            return
+
+        time.sleep(0.3)
+
+        # Try each URL pattern
+        for pattern_name, pattern_config in INTERGROUP_URL_PATTERNS.items():
+            url = pattern_config['pattern'].format(domain=domain)
+            pattern_type = pattern_config['type']
+            description = pattern_config['description']
+
+            notes.append(f"Testing: {description}")
+            yield f"data: {json.dumps({'type': 'note', 'notes': notes, 'testing': url})}\n\n"
+
+            result = {
+                'pattern': pattern_name,
+                'url': url,
+                'type': pattern_type,
+                'description': description,
+                'status': 'unknown',
+                'details': {}
+            }
+
+            try:
+                response = requests.get(url, timeout=10, headers={
+                    'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0)',
+                    'Accept': 'application/json, text/html, */*'
+                })
+
+                result['httpStatus'] = response.status_code
+
+                if response.status_code == 200:
+                    content_type = response.headers.get('Content-Type', '')
+                    result['contentType'] = content_type
+
+                    # Try to parse as JSON
+                    if 'json' in content_type or pattern_type == 'tsml':
+                        try:
+                            json_data = response.json()
+                            if isinstance(json_data, list) and len(json_data) > 0:
+                                result['status'] = 'success'
+                                result['details'] = {
+                                    'meetingCount': len(json_data),
+                                    'sampleFields': list(json_data[0].keys())[:10] if json_data else [],
+                                    'dataType': 'json_array'
+                                }
+                                notes[-1] = f"✓ {description}: Found {len(json_data)} meetings (JSON)"
+                                working_endpoints.append({
+                                    'url': url,
+                                    'type': pattern_type,
+                                    'meetingCount': len(json_data),
+                                    'name': name
+                                })
+                            elif isinstance(json_data, dict):
+                                result['status'] = 'partial'
+                                result['details'] = {
+                                    'dataType': 'json_object',
+                                    'keys': list(json_data.keys())[:10]
+                                }
+                                notes[-1] = f"~ {description}: JSON object returned (needs analysis)"
+                            else:
+                                result['status'] = 'empty'
+                                notes[-1] = f"~ {description}: Empty or unexpected JSON"
+                        except json.JSONDecodeError:
+                            # Not JSON, check if it's HTML
+                            if 'html' in content_type or '<html' in response.text[:500].lower():
+                                result['status'] = 'html'
+                                result['details'] = {
+                                    'dataType': 'html',
+                                    'length': len(response.text),
+                                    'hasForm': '<form' in response.text.lower(),
+                                    'hasTable': '<table' in response.text.lower(),
+                                    'hasMeetingText': 'meeting' in response.text.lower()
+                                }
+                                if result['details']['hasMeetingText']:
+                                    notes[-1] = f"~ {description}: HTML page with meeting content (needs scraping)"
+                                else:
+                                    notes[-1] = f"~ {description}: HTML page (may not have meetings)"
+                            else:
+                                result['status'] = 'unknown'
+                                notes[-1] = f"? {description}: Unknown content type"
+                    else:
+                        # HTML content
+                        result['status'] = 'html'
+                        result['details'] = {
+                            'dataType': 'html',
+                            'length': len(response.text),
+                            'hasForm': '<form' in response.text.lower(),
+                            'hasTable': '<table' in response.text.lower(),
+                            'hasMeetingText': 'meeting' in response.text.lower()
+                        }
+                        if result['details']['hasMeetingText']:
+                            notes[-1] = f"~ {description}: HTML page with meeting content"
+                        else:
+                            notes[-1] = f"- {description}: HTML page (no meeting text found)"
+
+                elif response.status_code == 404:
+                    result['status'] = 'not_found'
+                    notes[-1] = f"✗ {description}: Not found (404)"
+                elif response.status_code in [401, 403]:
+                    result['status'] = 'forbidden'
+                    notes[-1] = f"✗ {description}: Access denied ({response.status_code})"
+                else:
+                    result['status'] = 'error'
+                    notes[-1] = f"✗ {description}: HTTP {response.status_code}"
+
+            except requests.exceptions.Timeout:
+                result['status'] = 'timeout'
+                notes[-1] = f"✗ {description}: Timeout"
+            except requests.exceptions.RequestException as e:
+                result['status'] = 'error'
+                result['error'] = str(e)[:100]
+                notes[-1] = f"✗ {description}: {str(e)[:30]}"
+
+            results.append(result)
+            yield f"data: {json.dumps({'type': 'note', 'notes': notes, 'result': result})}\n\n"
+            time.sleep(0.3)
+
+        # Summary
+        successful = [r for r in results if r['status'] == 'success']
+        partial = [r for r in results if r['status'] in ['partial', 'html']]
+
+        summary_note = f"Probe complete: {len(successful)} working endpoints"
+        if partial:
+            summary_note += f", {len(partial)} need analysis"
+        notes.append(summary_note)
+
+        yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+
+        # Update session stats if provided
+        if session_id:
+            for session in intergroup_research_sessions:
+                if session['id'] == session_id:
+                    session['endpoints_tested'] = session.get('endpoints_tested', 0) + len(results)
+                    session['working_sources'] = session.get('working_sources', 0) + len(successful)
+                    if not successful:
+                        session['failed_attempts'] = session.get('failed_attempts', 0) + 1
+                    session['updatedAt'] = datetime.now().isoformat()
+                    break
+
+        # Final result
+        yield f"data: {json.dumps({'type': 'complete', 'success': len(successful) > 0, 'domain': domain, 'name': name, 'notes': notes, 'results': results, 'working': working_endpoints})}\n\n"
+
+    return Response(generate(), mimetype='text/event-stream', headers={
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+    })
+
+
+@app.route('/api/intergroup-research/findings', methods=['GET'])
+def get_research_findings():
+    """Get all findings, optionally filtered by session"""
+    session_id = request.args.get('sessionId', type=int)
+    state = request.args.get('state')
+
+    findings = intergroup_research_findings.copy()
+
+    if session_id:
+        findings = [f for f in findings if f.get('sessionId') == session_id]
+    if state:
+        findings = [f for f in findings if f.get('state') == state]
+
+    return jsonify({
+        'success': True,
+        'findings': findings,
+        'total': len(findings)
+    })
+
+
+@app.route('/api/intergroup-research/findings', methods=['POST'])
+def add_research_finding():
+    """Add a new finding to a research session"""
+    data = request.json
+    session_id = data.get('sessionId')
+
+    finding = {
+        'id': len(intergroup_research_findings) + 1,
+        'sessionId': session_id,
+        'state': data.get('state', ''),
+        'intergroupName': data.get('intergroupName', ''),
+        'domain': data.get('domain', ''),
+        'url': data.get('url', ''),
+        'type': data.get('type', 'unknown'),  # tsml, bmlt, custom_html, unknown
+        'status': data.get('status', 'discovered'),  # discovered, verified, failed
+        'meetingCount': data.get('meetingCount', 0),
+        'details': data.get('details', {}),
+        'notes': data.get('notes', ''),
+        'createdAt': datetime.now().isoformat()
+    }
+
+    intergroup_research_findings.append(finding)
+
+    return jsonify({
+        'success': True,
+        'finding': finding
+    })
+
+
+@app.route('/api/intergroup-research/notes', methods=['GET'])
+def get_research_notes():
+    """Get all notes for a session"""
+    session_id = request.args.get('sessionId', type=int)
+
+    notes = intergroup_research_notes.copy()
+
+    if session_id:
+        notes = [n for n in notes if n.get('sessionId') == session_id]
+
+    # Sort by created date
+    notes.sort(key=lambda x: x.get('createdAt', ''))
+
+    return jsonify({
+        'success': True,
+        'notes': notes,
+        'total': len(notes)
+    })
+
+
+@app.route('/api/intergroup-research/notes', methods=['POST'])
+def add_research_note():
+    """Add a note to a research session - for learnings and reminders"""
+    data = request.json
+    session_id = data.get('sessionId')
+
+    note = {
+        'id': len(intergroup_research_notes) + 1,
+        'sessionId': session_id,
+        'type': data.get('type', 'general'),  # general, success, failure, reminder, learning
+        'title': data.get('title', ''),
+        'content': data.get('content', ''),
+        'relatedDomain': data.get('relatedDomain', ''),
+        'relatedUrl': data.get('relatedUrl', ''),
+        'tags': data.get('tags', []),
+        'createdAt': datetime.now().isoformat()
+    }
+
+    intergroup_research_notes.append(note)
+
+    return jsonify({
+        'success': True,
+        'note': note
+    })
+
+
+@app.route('/api/intergroup-research/notes/<int:note_id>', methods=['DELETE'])
+def delete_research_note(note_id):
+    """Delete a research note"""
+    global intergroup_research_notes
+
+    original_len = len(intergroup_research_notes)
+    intergroup_research_notes = [n for n in intergroup_research_notes if n['id'] != note_id]
+
+    if len(intergroup_research_notes) == original_len:
+        return jsonify({
+            'success': False,
+            'error': 'Note not found'
+        }), 404
+
+    return jsonify({
+        'success': True,
+        'message': 'Note deleted'
+    })
+
+
+@app.route('/api/intergroup-research/scripts', methods=['GET'])
+def get_research_scripts():
+    """Get all saved scripts, optionally filtered"""
+    session_id = request.args.get('sessionId', type=int)
+    state = request.args.get('state')
+
+    scripts = intergroup_research_scripts.copy()
+
+    if session_id:
+        scripts = [s for s in scripts if s.get('sessionId') == session_id]
+    if state:
+        scripts = [s for s in scripts if s.get('state') == state]
+
+    return jsonify({
+        'success': True,
+        'scripts': scripts,
+        'total': len(scripts)
+    })
+
+
+@app.route('/api/intergroup-research/scripts', methods=['POST'])
+def save_research_script():
+    """Save a scraping script for an intergroup"""
+    data = request.json
+    session_id = data.get('sessionId')
+
+    script = {
+        'id': len(intergroup_research_scripts) + 1,
+        'sessionId': session_id,
+        'state': data.get('state', ''),
+        'intergroupName': data.get('intergroupName', ''),
+        'domain': data.get('domain', ''),
+        'url': data.get('url', ''),
+        'scriptType': data.get('scriptType', 'python'),  # python, javascript
+        'feedType': data.get('feedType', 'custom'),  # tsml, bmlt, custom
+        'content': data.get('content', ''),
+        'description': data.get('description', ''),
+        'tested': data.get('tested', False),
+        'testResults': data.get('testResults', {}),
+        'createdAt': datetime.now().isoformat(),
+        'updatedAt': datetime.now().isoformat()
+    }
+
+    intergroup_research_scripts.append(script)
+
+    return jsonify({
+        'success': True,
+        'script': script
+    })
+
+
+@app.route('/api/intergroup-research/scripts/<int:script_id>', methods=['PUT'])
+def update_research_script(script_id):
+    """Update a saved script"""
+    data = request.json
+
+    for script in intergroup_research_scripts:
+        if script['id'] == script_id:
+            if 'content' in data:
+                script['content'] = data['content']
+            if 'description' in data:
+                script['description'] = data['description']
+            if 'tested' in data:
+                script['tested'] = data['tested']
+            if 'testResults' in data:
+                script['testResults'] = data['testResults']
+            script['updatedAt'] = datetime.now().isoformat()
+
+            return jsonify({
+                'success': True,
+                'script': script
+            })
+
+    return jsonify({
+        'success': False,
+        'error': 'Script not found'
+    }), 404
+
+
+@app.route('/api/intergroup-research/scripts/<int:script_id>', methods=['DELETE'])
+def delete_research_script(script_id):
+    """Delete a saved script"""
+    global intergroup_research_scripts
+
+    original_len = len(intergroup_research_scripts)
+    intergroup_research_scripts = [s for s in intergroup_research_scripts if s['id'] != script_id]
+
+    if len(intergroup_research_scripts) == original_len:
+        return jsonify({
+            'success': False,
+            'error': 'Script not found'
+        }), 404
+
+    return jsonify({
+        'success': True,
+        'message': 'Script deleted'
+    })
+
+
+@app.route('/api/intergroup-research/generate-scraper', methods=['POST'])
+def generate_custom_scraper():
+    """Generate a custom scraping script based on page analysis"""
+    data = request.json
+    url = data.get('url', '')
+    name = data.get('name', '')
+    state = data.get('state', '')
+    page_type = data.get('pageType', 'html')  # html, json, xml
+
+    if not url:
+        return jsonify({
+            'success': False,
+            'error': 'URL is required'
+        }), 400
+
+    state_name = US_STATE_NAMES.get(state, state)
+
+    # Generate a template script based on page type
+    if page_type == 'json' or 'tsml' in page_type.lower():
+        script = f'''#!/usr/bin/env python3
+"""
+Scraping script for: {name}
+URL: {url}
+State: {state_name} ({state})
+Type: JSON/TSML Feed
+Generated: {datetime.now().isoformat()}
+
+This script fetches meetings from a TSML-compatible JSON endpoint.
+"""
+
+import requests
+import json
+from datetime import datetime
+
+# Configuration
+FEED_URL = "{url}"
+FEED_NAME = "{name}"
+STATE = "{state}"
+
+# Request headers
+HEADERS = {{
+    'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0)',
+    'Accept': 'application/json'
+}}
+
+def fetch_meetings():
+    """Fetch meetings from the JSON feed"""
+    try:
+        response = requests.get(FEED_URL, headers=HEADERS, timeout=30)
+        response.raise_for_status()
+
+        meetings = response.json()
+
+        if not isinstance(meetings, list):
+            print(f"Warning: Expected array, got {{type(meetings)}}")
+            return []
+
+        print(f"Found {{len(meetings)}} meetings")
+
+        # Transform to standard format if needed
+        standardized = []
+        for m in meetings:
+            meeting = {{
+                'name': m.get('name', 'Unknown'),
+                'address': m.get('address', m.get('formatted_address', '')),
+                'city': m.get('city', ''),
+                'state': m.get('state', STATE),
+                'day': m.get('day', m.get('day_of_week', '')),
+                'time': m.get('time', m.get('start_time', '')),
+                'types': m.get('types', []),
+                'notes': m.get('notes', ''),
+                'location': m.get('location', m.get('location_notes', '')),
+                'source': FEED_NAME
+            }}
+            standardized.append(meeting)
+
+        return standardized
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching meetings: {{e}}")
+        return []
+
+if __name__ == '__main__':
+    meetings = fetch_meetings()
+    print(json.dumps(meetings[:5], indent=2))  # Show first 5
+'''
+    else:
+        # HTML scraping template
+        script = f'''#!/usr/bin/env python3
+"""
+Scraping script for: {name}
+URL: {url}
+State: {state_name} ({state})
+Type: HTML Scraper (Custom)
+Generated: {datetime.now().isoformat()}
+
+This script scrapes meetings from an HTML page.
+NOTE: This is a template - you'll need to customize the selectors
+based on the actual page structure.
+"""
+
+import requests
+from bs4 import BeautifulSoup
+import json
+import re
+from datetime import datetime
+
+# Configuration
+BASE_URL = "{url}"
+FEED_NAME = "{name}"
+STATE = "{state}"
+
+# Request headers
+HEADERS = {{
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+    'Accept': 'text/html,application/xhtml+xml'
+}}
+
+def fetch_page(url):
+    """Fetch and parse an HTML page"""
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=30)
+        response.raise_for_status()
+        return BeautifulSoup(response.text, 'html.parser')
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching page: {{e}}")
+        return None
+
+def parse_meetings(soup):
+    """
+    Parse meetings from the HTML.
+
+    TODO: Customize these selectors based on the actual page structure.
+    Common patterns to look for:
+    - Tables with meeting data (<table>, <tr>, <td>)
+    - Lists (<ul>, <li>) with meeting information
+    - Divs with specific classes (.meeting, .meeting-item, etc.)
+    - JSON embedded in script tags
+    """
+    meetings = []
+
+    # Example: Look for embedded JSON data
+    scripts = soup.find_all('script')
+    for script in scripts:
+        if script.string and 'meetings' in script.string.lower():
+            # Try to extract JSON from script tag
+            json_match = re.search(r'\\[\\s*\\{{.*?\\}}\\s*\\]', script.string, re.DOTALL)
+            if json_match:
+                try:
+                    data = json.loads(json_match.group())
+                    print(f"Found {{len(data)}} meetings in embedded JSON")
+                    return data
+                except json.JSONDecodeError:
+                    pass
+
+    # Example: Look for table rows
+    tables = soup.find_all('table')
+    for table in tables:
+        rows = table.find_all('tr')
+        for row in rows[1:]:  # Skip header row
+            cells = row.find_all(['td', 'th'])
+            if len(cells) >= 3:
+                meeting = {{
+                    'name': cells[0].get_text(strip=True),
+                    'day': cells[1].get_text(strip=True) if len(cells) > 1 else '',
+                    'time': cells[2].get_text(strip=True) if len(cells) > 2 else '',
+                    'address': cells[3].get_text(strip=True) if len(cells) > 3 else '',
+                    'state': STATE,
+                    'source': FEED_NAME
+                }}
+                meetings.append(meeting)
+
+    # Example: Look for meeting divs
+    meeting_divs = soup.find_all('div', class_=re.compile(r'meeting', re.I))
+    for div in meeting_divs:
+        name = div.find(['h2', 'h3', 'h4', '.name', '.title'])
+        meeting = {{
+            'name': name.get_text(strip=True) if name else 'Unknown',
+            'state': STATE,
+            'source': FEED_NAME
+        }}
+        # Add more field extraction based on page structure
+        meetings.append(meeting)
+
+    return meetings
+
+def scrape_meetings():
+    """Main scraping function"""
+    soup = fetch_page(BASE_URL)
+    if not soup:
+        return []
+
+    meetings = parse_meetings(soup)
+    print(f"Found {{len(meetings)}} meetings")
+
+    return meetings
+
+if __name__ == '__main__':
+    meetings = scrape_meetings()
+    print(json.dumps(meetings[:5], indent=2))  # Show first 5
+'''
+
+    return jsonify({
+        'success': True,
+        'script': script,
+        'scriptType': 'python',
+        'feedType': page_type
+    })
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') != 'production'
