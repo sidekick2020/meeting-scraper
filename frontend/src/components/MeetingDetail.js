@@ -1,5 +1,32 @@
 import React, { useState } from 'react';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import L from 'leaflet';
 import SourceDetailPanel from './SourceDetailPanel';
+
+// Custom marker icon for map preview
+const createPreviewMarkerIcon = () => {
+  return L.divIcon({
+    className: 'preview-marker',
+    html: `<div style="
+      background: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 3px solid #667eea;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    "><div style="
+      background: #667eea;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    "></div></div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+};
 
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -119,6 +146,32 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
         <div className={`detail-sidebar ${meeting ? 'open' : ''}`}>
           {meeting && (
             <>
+              {/* Map Preview Header */}
+              {meeting.latitude && meeting.longitude && (
+                <div className="sidebar-map-preview">
+                  <MapContainer
+                    center={[meeting.latitude, meeting.longitude]}
+                    zoom={15}
+                    scrollWheelZoom={false}
+                    dragging={false}
+                    zoomControl={false}
+                    doubleClickZoom={false}
+                    touchZoom={false}
+                    attributionControl={false}
+                    style={{ height: '100%', width: '100%' }}
+                  >
+                    <TileLayer
+                      url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                    />
+                    <Marker
+                      position={[meeting.latitude, meeting.longitude]}
+                      icon={createPreviewMarkerIcon()}
+                    />
+                  </MapContainer>
+                  <div className="sidebar-map-overlay" />
+                </div>
+              )}
+
               <div className="sidebar-detail-header">
                 <h2>{meeting.name}</h2>
                 <button className="sidebar-close" onClick={onClose}>
