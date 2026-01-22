@@ -4,3 +4,4 @@
 - Map automatically zooms to meeting location when clicking a card from the list
 - Network-adaptive batch sizes (5-20) for optimal performance
 - Filters (Today, Online, Meeting Type) now trigger server-side filtering for complete results
+- "Meetings in" header adjusts based on map zoom (neighborhood at high zoom, state at low zoom)
