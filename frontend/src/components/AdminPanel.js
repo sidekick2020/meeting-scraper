@@ -218,15 +218,11 @@ function AdminPanel({ onBackToPublic }) {
         setFeeds(feedList);
         // Reset visible count when feeds are refreshed
         setVisibleFeedCount(FEEDS_PER_PAGE);
-        // Default to feeds that need scraping (never scraped or > 7 days old)
-        const needsScrapeFeeds = feedList.filter(f => {
-          if (!f.lastScraped) return true;
-          const daysSinceLastScrape = (new Date() - new Date(f.lastScraped)) / (1000 * 60 * 60 * 24);
-          return daysSinceLastScrape > 7;
-        });
-        // If all feeds are up to date, select all; otherwise select only those needing scrape
-        setSelectedFeeds(needsScrapeFeeds.length > 0
-          ? needsScrapeFeeds.map(f => f.name)
+        // Default to feeds that have never been scraped
+        const neverScrapedFeeds = feedList.filter(f => !f.lastScraped);
+        // If there are never-scraped feeds, select those; otherwise select all
+        setSelectedFeeds(neverScrapedFeeds.length > 0
+          ? neverScrapedFeeds.map(f => f.name)
           : feedList.map(f => f.name)
         );
         // Cache the feeds
@@ -496,6 +492,11 @@ function AdminPanel({ onBackToPublic }) {
       return daysSinceLastScrape > 7;
     });
     setSelectedFeeds(needsScrapeFeeds.map(f => f.name));
+  };
+
+  const selectNeverScraped = () => {
+    const neverScrapedFeeds = feeds.filter(f => !f.lastScraped);
+    setSelectedFeeds(neverScrapedFeeds.map(f => f.name));
   };
 
   const saveConfiguration = (name) => {
@@ -1752,7 +1753,10 @@ function AdminPanel({ onBackToPublic }) {
         </div>
 
         <div className="feed-selector-actions">
-          <button onClick={selectNeedsScrape} className="btn btn-ghost btn-sm" disabled={isStartingScrape} title="Select sources that need to be scraped">
+          <button onClick={selectNeverScraped} className="btn btn-ghost btn-sm" disabled={isStartingScrape} title="Select sources that have never been scraped">
+            Never Scraped
+          </button>
+          <button onClick={selectNeedsScrape} className="btn btn-ghost btn-sm" disabled={isStartingScrape} title="Select sources that need to be scraped (never scraped or >7 days old)">
             Needs Scrape
           </button>
           <button onClick={selectAllFeeds} className="btn btn-ghost btn-sm" disabled={isStartingScrape}>
@@ -1855,7 +1859,7 @@ function AdminPanel({ onBackToPublic }) {
         </div>
 
         <div className="feed-selector-list">
-          {feedsLoading ? (
+          {feedsLoading && feeds.length === 0 ? (
             <div className="feed-selector-loading">
               <div className="feeds-loading-skeleton">
                 {[...Array(5)].map((_, i) => (
@@ -1870,7 +1874,7 @@ function AdminPanel({ onBackToPublic }) {
               </div>
               <div className="feeds-loading-message">Loading sources...</div>
             </div>
-          ) : feeds.length === 0 ? (
+          ) : !feedsLoading && feeds.length === 0 ? (
             <div className="feed-selector-empty">
               <p>No data sources available</p>
               <p className="hint">Check backend connection</p>
@@ -1905,6 +1909,12 @@ function AdminPanel({ onBackToPublic }) {
                     <div className="feeds-progress-bar">
                       <div className="feeds-progress-info">
                         <span>Showing {Math.min(visibleFeedCount, filteredFeeds.length)} of {filteredFeeds.length} sources</span>
+                        {feedsLoading && (
+                          <span className="feeds-refreshing-indicator">
+                            <span className="refresh-spinner"></span>
+                            Refreshing...
+                          </span>
+                        )}
                       </div>
                       <div className="feeds-progress-track">
                         <div
