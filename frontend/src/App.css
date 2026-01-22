@@ -7698,6 +7698,478 @@ a.sidebar-nav-item {
   animation-delay: 0.5s;
 }
 
+/* =====================================================
+   SKELETON LOADING - Coverage Analysis
+   ===================================================== */
+.skeleton-coverage-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.skeleton-summary-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.skeleton-summary-value {
+  height: 28px;
+  width: 60px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-summary-label {
+  height: 14px;
+  width: 100px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-coverage-table {
+  background: var(--card-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.skeleton-table-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.skeleton-table-header-cell {
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-table-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.skeleton-table-row:last-child {
+  border-bottom: none;
+}
+
+.skeleton-table-cell {
+  height: 16px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-table-cell.wide {
+  width: 80%;
+}
+
+.skeleton-table-cell.medium {
+  width: 60%;
+}
+
+.skeleton-table-cell.narrow {
+  width: 50%;
+}
+
+.skeleton-table-cell.badge {
+  width: 40px;
+  height: 22px;
+  border-radius: 12px;
+}
+
+/* Staggered animation for coverage skeleton */
+.skeleton-summary-card:nth-child(1) * { animation-delay: 0s; }
+.skeleton-summary-card:nth-child(2) * { animation-delay: 0.1s; }
+.skeleton-summary-card:nth-child(3) * { animation-delay: 0.2s; }
+.skeleton-summary-card:nth-child(4) * { animation-delay: 0.3s; }
+.skeleton-table-row:nth-child(1) * { animation-delay: 0s; }
+.skeleton-table-row:nth-child(2) * { animation-delay: 0.08s; }
+.skeleton-table-row:nth-child(3) * { animation-delay: 0.16s; }
+.skeleton-table-row:nth-child(4) * { animation-delay: 0.24s; }
+.skeleton-table-row:nth-child(5) * { animation-delay: 0.32s; }
+
+/* =====================================================
+   SKELETON LOADING - Tasks Panel
+   ===================================================== */
+.skeleton-tasks-container {
+  padding: 0 1rem 1rem 1rem;
+}
+
+.skeleton-tasks-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 0;
+  margin-bottom: 1rem;
+}
+
+.skeleton-tasks-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.skeleton-tasks-title {
+  height: 24px;
+  width: 160px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-tasks-subtitle {
+  height: 14px;
+  width: 280px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-tasks-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.skeleton-tasks-btn {
+  height: 38px;
+  width: 120px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-tasks-section {
+  margin-bottom: 2rem;
+}
+
+.skeleton-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.skeleton-section-title {
+  height: 18px;
+  width: 120px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-section-count {
+  height: 14px;
+  width: 140px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-dry-spots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.skeleton-dry-spot-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.skeleton-dry-spot-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.skeleton-dry-spot-state {
+  height: 20px;
+  width: 40px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-dry-spot-stats {
+  height: 14px;
+  width: 100px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-dry-spot-btn {
+  height: 32px;
+  width: 32px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-task-filters {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.skeleton-filter-btn {
+  height: 32px;
+  width: 80px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.skeleton-task-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.skeleton-task-checkbox {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  flex-shrink: 0;
+}
+
+.skeleton-task-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.skeleton-task-title {
+  height: 16px;
+  width: 70%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-task-meta {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.skeleton-task-tag {
+  height: 20px;
+  width: 40px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-task-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.skeleton-task-action-btn {
+  height: 28px;
+  width: 28px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+/* Staggered animation for tasks skeleton */
+.skeleton-dry-spot-card:nth-child(1) * { animation-delay: 0s; }
+.skeleton-dry-spot-card:nth-child(2) * { animation-delay: 0.1s; }
+.skeleton-dry-spot-card:nth-child(3) * { animation-delay: 0.15s; }
+.skeleton-dry-spot-card:nth-child(4) * { animation-delay: 0.2s; }
+.skeleton-task-card:nth-child(1) * { animation-delay: 0s; }
+.skeleton-task-card:nth-child(2) * { animation-delay: 0.1s; }
+.skeleton-task-card:nth-child(3) * { animation-delay: 0.15s; }
+
+/* =====================================================
+   SKELETON LOADING - Scrape History
+   ===================================================== */
+.skeleton-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.skeleton-history-entry {
+  background: var(--card-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.skeleton-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.skeleton-history-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.skeleton-history-status {
+  height: 22px;
+  width: 80px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-history-date {
+  height: 14px;
+  width: 140px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-history-stats {
+  display: flex;
+  gap: 1rem;
+}
+
+.skeleton-history-stat {
+  height: 14px;
+  width: 60px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-history-expand {
+  height: 20px;
+  width: 20px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+/* Staggered animation for history skeleton */
+.skeleton-history-entry:nth-child(1) * { animation-delay: 0s; }
+.skeleton-history-entry:nth-child(2) * { animation-delay: 0.1s; }
+.skeleton-history-entry:nth-child(3) * { animation-delay: 0.2s; }
+
+/* =====================================================
+   SKELETON LOADING - Feed Detail Panel
+   ===================================================== */
+.skeleton-feed-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.skeleton-feed-history-entry {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+  padding: 0.875rem;
+}
+
+.skeleton-feed-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.skeleton-feed-history-status {
+  height: 20px;
+  width: 70px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-feed-history-date {
+  height: 12px;
+  width: 100px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-feed-history-stats {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.skeleton-feed-history-stat {
+  height: 14px;
+  width: 50px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+/* Staggered animation for feed history skeleton */
+.skeleton-feed-history-entry:nth-child(1) * { animation-delay: 0s; }
+.skeleton-feed-history-entry:nth-child(2) * { animation-delay: 0.1s; }
+.skeleton-feed-history-entry:nth-child(3) * { animation-delay: 0.2s; }
+
 .users-loading,
 .users-empty {
   display: flex;

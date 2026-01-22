@@ -484,7 +484,21 @@ function FeedDetailPanel({ feed, isOpen, onClose }) {
             <div className="feed-section feed-history-section">
               <h4>Scrape History for This Source</h4>
               {isLoadingHistory ? (
-                <div className="feed-history-loading">Loading history...</div>
+                <div className="skeleton-feed-history-list">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="skeleton-feed-history-entry">
+                      <div className="skeleton-feed-history-header">
+                        <div className="skeleton-feed-history-status"></div>
+                        <div className="skeleton-feed-history-date"></div>
+                      </div>
+                      <div className="skeleton-feed-history-stats">
+                        <div className="skeleton-feed-history-stat"></div>
+                        <div className="skeleton-feed-history-stat"></div>
+                        <div className="skeleton-feed-history-stat"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : feedHistory.length === 0 ? (
                 <div className="feed-history-empty">
                   <p>No scrape history for this source yet.</p>

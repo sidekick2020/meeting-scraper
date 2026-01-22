@@ -80,11 +80,40 @@ function CoverageAnalysis() {
   if (loading) {
     return (
       <div className="coverage-analysis">
-        <h3>Coverage Analysis</h3>
-        <div className="coverage-loading">
-          <div className="loading-spinner"></div>
-          <p>Loading coverage data...</p>
-          <p className="loading-hint">Analyzing state-by-state meeting coverage</p>
+        <div className="coverage-header">
+          <h3>US Coverage Analysis</h3>
+        </div>
+
+        {/* Skeleton Summary Cards */}
+        <div className="skeleton-coverage-summary">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="skeleton-summary-card">
+              <div className="skeleton-summary-value"></div>
+              <div className="skeleton-summary-label"></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Skeleton Table */}
+        <div className="skeleton-coverage-table">
+          <div className="skeleton-table-header">
+            <div className="skeleton-table-header-cell"></div>
+            <div className="skeleton-table-header-cell"></div>
+            <div className="skeleton-table-header-cell"></div>
+            <div className="skeleton-table-header-cell"></div>
+            <div className="skeleton-table-header-cell"></div>
+            <div className="skeleton-table-header-cell"></div>
+          </div>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="skeleton-table-row">
+              <div className="skeleton-table-cell wide"></div>
+              <div className="skeleton-table-cell medium"></div>
+              <div className="skeleton-table-cell narrow"></div>
+              <div className="skeleton-table-cell badge"></div>
+              <div className="skeleton-table-cell narrow"></div>
+              <div className="skeleton-table-cell narrow"></div>
+            </div>
+          ))}
         </div>
       </div>
     );
