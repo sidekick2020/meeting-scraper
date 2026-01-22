@@ -352,7 +352,10 @@ function ClusterMarker({ cluster, onClusterClick }) {
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 // Component to handle map panning to a target location
-function MapPanHandler({ targetLocation, onPanComplete }) {
+// Note: onPanComplete is intentionally not called here because MapDataLoader
+// already handles the moveend event and triggers data fetching. Calling both
+// would cause duplicate API requests and slow data loading.
+function MapPanHandler({ targetLocation }) {
   const map = useMap();
   const lastLocationRef = useRef(null);
 
@@ -364,26 +367,10 @@ function MapPanHandler({ targetLocation, onPanComplete }) {
         lastLocationRef.current = locationKey;
         const zoom = targetLocation.zoom || 12;
         map.setView([targetLocation.lat, targetLocation.lng], zoom, { animate: true });
-
-        // Notify parent after pan completes
-        setTimeout(() => {
-          if (onPanComplete) {
-            const bounds = map.getBounds();
-            const center = map.getCenter();
-            onPanComplete({
-              north: bounds.getNorth(),
-              south: bounds.getSouth(),
-              east: bounds.getEast(),
-              west: bounds.getWest(),
-              zoom: map.getZoom(),
-              center_lat: center.lat,
-              center_lng: center.lng
-            });
-          }
-        }, 300);
+        // The moveend event will be handled by MapDataLoader which triggers onBoundsChange
       }
     }
-  }, [map, targetLocation, onPanComplete]);
+  }, [map, targetLocation]);
 
   return null;
 }
@@ -561,7 +548,7 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
           onBoundsChange={onBoundsChange}
         />
 
-        <MapPanHandler targetLocation={targetLocation} onPanComplete={onBoundsChange} />
+        <MapPanHandler targetLocation={targetLocation} />
 
         {/* Show state-level bubbles at very low zoom */}
         {showStateLevel && effectiveStateData.states.map((state) => (
