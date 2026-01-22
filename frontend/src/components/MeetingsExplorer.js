@@ -162,7 +162,7 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
   const { getCache, setCache } = useDataCache();
 
   // Parse SDK context for connection status
-  const { connectionStatus: parseConnectionStatus, config: parseConfig } = useParse();
+  const { connectionStatus: parseConnectionStatus, isConnectionReady, config: parseConfig } = useParse();
 
   // Initialize state from cache if available
   const cachedMeetings = getCache(CACHE_KEYS.MEETINGS);
@@ -623,10 +623,18 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
     initNetworkSpeed();
   }, []);
 
-  // Initial data fetch - run only once on mount, skip if cached
+  // Initial data fetch - run only once after connection is established, skip if cached
   // Note: Backend config status now comes from ParseContext (no separate fetch needed)
   useEffect(() => {
     if (initialFetchDoneRef.current) return;
+
+    // Wait for connection status to resolve before fetching
+    // This prevents fetch attempts before the backend connection is verified
+    if (!isConnectionReady) {
+      // Connection still initializing - wait for it to resolve
+      return;
+    }
+
     initialFetchDoneRef.current = true;
 
     // If we have cached meetings, don't fetch on initial load
@@ -635,7 +643,7 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
     }
 
     fetchMeetings();
-  }, [fetchMeetings, cachedMeetings]);
+  }, [fetchMeetings, cachedMeetings, isConnectionReady]);
 
   // Infinite scroll - load more meetings when sentinel becomes visible
   useEffect(() => {

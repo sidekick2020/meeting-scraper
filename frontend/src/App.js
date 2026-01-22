@@ -62,7 +62,7 @@ function SignInModal({ onClose }) {
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
-  const { connectionStatus } = useParse();
+  const { connectionStatus, isConnectionReady } = useParse();
   const [currentView, setCurrentView] = useState('public'); // 'public' or 'admin'
   const [showSignIn, setShowSignIn] = useState(false);
   const [isBackendReady, setIsBackendReady] = useState(false);
@@ -96,10 +96,10 @@ function AppContent() {
 
   // Backend is ready when Parse connection check completes (success, error, or not configured)
   React.useEffect(() => {
-    if (connectionStatus === 'connected' || connectionStatus === 'error' || connectionStatus === 'not_configured') {
+    if (isConnectionReady) {
       setIsBackendReady(true);
     }
-  }, [connectionStatus]);
+  }, [isConnectionReady]);
 
   // Check if user just signed in
   React.useEffect(() => {

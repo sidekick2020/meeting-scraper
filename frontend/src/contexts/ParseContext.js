@@ -126,6 +126,12 @@ export function ParseProvider({ children }) {
     return await Parse.Cloud.run(functionName, params);
   }, []);
 
+  // Connection is resolved when we know the final state (success, error, or not configured)
+  // This allows components to wait for connection check to complete before making API calls
+  const isConnectionReady = connectionStatus === 'connected' ||
+                            connectionStatus === 'error' ||
+                            connectionStatus === 'not_configured';
+
   const value = {
     // The Parse SDK instance (use for advanced operations)
     Parse: isInitialized ? Parse : null,
@@ -134,6 +140,7 @@ export function ParseProvider({ children }) {
     isReady,
     isInitialized,
     connectionStatus,
+    isConnectionReady, // True when connection check is complete (regardless of result)
     error,
 
     // Helper functions for common operations
