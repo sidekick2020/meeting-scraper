@@ -119,6 +119,9 @@ function AdminPanel({ onBackToPublic }) {
   // Sources search and filter state
   const [sourceSearchQuery, setSourceSearchQuery] = useState('');
   const [sourceLastScrapeFilter, setSourceLastScrapeFilter] = useState('');
+  const [sourceStateFilter, setSourceStateFilter] = useState('');
+  const [sourceSortColumn, setSourceSortColumn] = useState('name');
+  const [sourceSortDirection, setSourceSortDirection] = useState('asc');
   const [expandedFeed, setExpandedFeed] = useState(null);
   // Progressive feed loading state
   const [feedsLoading, setFeedsLoading] = useState(!cachedFeeds?.data);
@@ -921,7 +924,10 @@ function AdminPanel({ onBackToPublic }) {
           return date.toLocaleDateString();
         };
 
-        // Filter sources based on search and last scrape filter
+        // Get unique states from feeds for filter dropdown
+        const sourceStates = [...new Set(feeds.map(f => f.state).filter(Boolean))].sort();
+
+        // Filter sources based on search, state filter, and last scrape filter
         const filteredSources = feeds.filter(feed => {
           // Search filter
           if (sourceSearchQuery) {
@@ -929,6 +935,10 @@ function AdminPanel({ onBackToPublic }) {
             const matchesName = feed.name.toLowerCase().includes(query);
             const matchesState = feed.state?.toLowerCase().includes(query);
             if (!matchesName && !matchesState) return false;
+          }
+          // State filter
+          if (sourceStateFilter && feed.state !== sourceStateFilter) {
+            return false;
           }
           // Last scrape filter
           if (sourceLastScrapeFilter) {
@@ -953,11 +963,65 @@ function AdminPanel({ onBackToPublic }) {
           return true;
         });
 
-        const hasSourceFilters = sourceSearchQuery || sourceLastScrapeFilter;
+        // Sort filtered sources
+        const sortedSources = [...filteredSources].sort((a, b) => {
+          let comparison = 0;
+          switch (sourceSortColumn) {
+            case 'name':
+              comparison = a.name.localeCompare(b.name);
+              break;
+            case 'state':
+              comparison = (a.state || '').localeCompare(b.state || '');
+              break;
+            case 'lastScraped':
+              const dateA = a.lastScraped ? new Date(a.lastScraped).getTime() : 0;
+              const dateB = b.lastScraped ? new Date(b.lastScraped).getTime() : 0;
+              comparison = dateA - dateB;
+              break;
+            case 'meetingCount':
+              comparison = (a.meetingCount || 0) - (b.meetingCount || 0);
+              break;
+            default:
+              comparison = 0;
+          }
+          return sourceSortDirection === 'asc' ? comparison : -comparison;
+        });
+
+        const hasSourceFilters = sourceSearchQuery || sourceLastScrapeFilter || sourceStateFilter;
 
         const clearSourceFilters = () => {
           setSourceSearchQuery('');
           setSourceLastScrapeFilter('');
+          setSourceStateFilter('');
+        };
+
+        const handleSourceSort = (column) => {
+          if (sourceSortColumn === column) {
+            setSourceSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+          } else {
+            setSourceSortColumn(column);
+            setSourceSortDirection('asc');
+          }
+        };
+
+        const SortIcon = ({ column }) => {
+          if (sourceSortColumn !== column) {
+            return (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sort-icon sort-icon-inactive">
+                <path d="M7 15l5 5 5-5"/>
+                <path d="M7 9l5-5 5 5"/>
+              </svg>
+            );
+          }
+          return sourceSortDirection === 'asc' ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sort-icon">
+              <path d="M7 14l5-5 5 5"/>
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sort-icon">
+              <path d="M7 10l5 5 5-5"/>
+            </svg>
+          );
         };
 
         return (
@@ -974,7 +1038,7 @@ function AdminPanel({ onBackToPublic }) {
                 </svg>
                 <input
                   type="text"
-                  placeholder="Search sources by name or state..."
+                  placeholder="Search sources..."
                   value={sourceSearchQuery}
                   onChange={(e) => setSourceSearchQuery(e.target.value)}
                 />
@@ -993,90 +1057,136 @@ function AdminPanel({ onBackToPublic }) {
               </div>
               <select
                 className="sources-filter"
+                value={sourceStateFilter}
+                onChange={(e) => setSourceStateFilter(e.target.value)}
+              >
+                <option value="">All States</option>
+                {sourceStates.map(state => (
+                  <option key={state} value={state}>{state}</option>
+                ))}
+              </select>
+              <select
+                className="sources-filter"
                 value={sourceLastScrapeFilter}
                 onChange={(e) => setSourceLastScrapeFilter(e.target.value)}
               >
-                <option value="">All Last Scrape</option>
+                <option value="">All Status</option>
                 <option value="today">Scraped Today</option>
                 <option value="week">Scraped This Week</option>
-                <option value="stale">Needs Refresh (7+ days)</option>
+                <option value="stale">Needs Refresh</option>
                 <option value="never">Never Scraped</option>
               </select>
               {hasSourceFilters && (
                 <button className="btn btn-ghost btn-sm" onClick={clearSourceFilters}>
-                  Clear Filters
+                  Clear
                 </button>
               )}
             </div>
             <div className="sources-count">
-              {filteredSources.length} of {feeds.length} source{feeds.length !== 1 ? 's' : ''}
+              {sortedSources.length} of {feeds.length} source{feeds.length !== 1 ? 's' : ''}
             </div>
-            <div className="sources-list">
-              {feeds.length === 0 ? (
-                <div className="sources-empty">
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
-                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-                  </svg>
-                  <p>Loading sources...</p>
-                </div>
-              ) : filteredSources.length === 0 ? (
-                <div className="sources-empty">
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <circle cx="11" cy="11" r="8"/>
-                    <path d="M21 21l-4.35-4.35"/>
-                  </svg>
-                  <p>No sources match your filters</p>
-                  <button className="btn btn-ghost btn-sm" onClick={clearSourceFilters}>
-                    Clear Filters
-                  </button>
-                </div>
-              ) : (
-                filteredSources.map((feed, index) => {
-                  const isStale = !feed.lastScraped ||
-                    (new Date() - new Date(feed.lastScraped)) > (7 * 24 * 60 * 60 * 1000);
-                  return (
-                    <div
-                      key={index}
-                      className="source-card source-card-clickable"
-                      onClick={() => setSelectedSource(feed)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => e.key === 'Enter' && setSelectedSource(feed)}
-                    >
-                      <div className="source-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <circle cx="12" cy="12" r="10"/>
-                          <path d="M2 12h20"/>
-                          <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
-                        </svg>
-                      </div>
-                      <div className="source-info">
-                        <h3>{feed.name}</h3>
-                        <div className="source-meta">
-                          <span className="source-state">{feed.state}</span>
-                          <span className="source-meta-divider">·</span>
-                          <span className={`source-last-scraped ${isStale ? 'stale' : ''}`}>
+
+            {feeds.length === 0 ? (
+              <div className="sources-empty">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                  <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                  <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                </svg>
+                <p>Loading sources...</p>
+              </div>
+            ) : sortedSources.length === 0 ? (
+              <div className="sources-empty">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <p>No sources match your filters</p>
+                <button className="btn btn-ghost btn-sm" onClick={clearSourceFilters}>
+                  Clear Filters
+                </button>
+              </div>
+            ) : (
+              <div className="sources-table-wrapper">
+                <table className="sources-table">
+                  <thead>
+                    <tr>
+                      <th
+                        className={`sortable ${sourceSortColumn === 'name' ? 'sorted' : ''}`}
+                        onClick={() => handleSourceSort('name')}
+                      >
+                        <span>Name</span>
+                        <SortIcon column="name" />
+                      </th>
+                      <th
+                        className={`sortable ${sourceSortColumn === 'state' ? 'sorted' : ''}`}
+                        onClick={() => handleSourceSort('state')}
+                      >
+                        <span>State</span>
+                        <SortIcon column="state" />
+                      </th>
+                      <th
+                        className={`sortable ${sourceSortColumn === 'lastScraped' ? 'sorted' : ''}`}
+                        onClick={() => handleSourceSort('lastScraped')}
+                      >
+                        <span>Last Run</span>
+                        <SortIcon column="lastScraped" />
+                      </th>
+                      <th
+                        className={`sortable ${sourceSortColumn === 'meetingCount' ? 'sorted' : ''}`}
+                        onClick={() => handleSourceSort('meetingCount')}
+                      >
+                        <span>Meetings</span>
+                        <SortIcon column="meetingCount" />
+                      </th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedSources.map((feed, index) => {
+                      const isStale = !feed.lastScraped ||
+                        (new Date() - new Date(feed.lastScraped)) > (7 * 24 * 60 * 60 * 1000);
+                      return (
+                        <tr
+                          key={index}
+                          className="sources-table-row"
+                          onClick={() => setSelectedSource(feed)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => e.key === 'Enter' && setSelectedSource(feed)}
+                        >
+                          <td className="source-name-cell">
+                            <div className="source-name-content">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="source-icon-small">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M2 12h20"/>
+                                <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+                              </svg>
+                              <span>{feed.name}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="source-state-badge">{feed.state}</span>
+                          </td>
+                          <td className={`source-last-run ${isStale ? 'stale' : ''}`}>
                             {formatSourceLastScraped(feed.lastScraped)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="source-status">
-                        <span className={`status-badge ${isStale ? 'status-stale' : 'status-active'}`}>
-                          {isStale ? 'Needs Refresh' : 'Active'}
-                        </span>
-                      </div>
-                      <div className="source-arrow">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="9,18 15,12 9,6"/>
-                        </svg>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                          </td>
+                          <td className="source-meetings-cell">
+                            {feed.meetingCount > 0 ? feed.meetingCount.toLocaleString() : '—'}
+                          </td>
+                          <td>
+                            <span className={`status-badge-small ${isStale ? 'status-stale' : 'status-active'}`}>
+                              {isStale ? 'Needs Refresh' : 'Active'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
             <div className="sources-footer">
               <p className="sources-note">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
