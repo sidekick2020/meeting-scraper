@@ -4,7 +4,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 
 function LoadingOverlay({ onReady }) {
   const [logs, setLogs] = useState([]);
-  const [connectionStatus, setConnectionStatus] = useState('initializing'); // initializing, connecting, checking_api, ready, error
+  const [connectionStatus, setConnectionStatus] = useState('connecting');
 
   const addLog = useCallback((message, type = 'info') => {
     const timestamp = new Date().toLocaleTimeString('en-US', {
@@ -16,108 +16,58 @@ function LoadingOverlay({ onReady }) {
     setLogs(prev => [...prev, { timestamp, message, type }]);
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
+  const checkBackendConnection = useCallback(async () => {
+    setLogs([]);
+    setConnectionStatus('connecting');
 
-    const checkBackendConnection = async () => {
-      addLog('Initializing application...', 'info');
+    const timestamp = new Date().toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    setLogs([{ timestamp, message: 'Initializing application...', type: 'info' }]);
 
-      // Small delay for visual feedback
-      await new Promise(resolve => setTimeout(resolve, 300));
+    try {
+      // Single check - verify backend is up and get config status
+      const configResponse = await fetch(`${BACKEND_URL}/api/config`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(10000)
+      });
 
-      if (!mounted) return;
-
-      addLog('Checking backend connection...', 'info');
-      setConnectionStatus('connecting');
-
-      try {
-        // First, check if backend is reachable
-        const statusResponse = await fetch(`${BACKEND_URL}/api/status`, {
-          method: 'GET',
-          signal: AbortSignal.timeout(10000)
-        });
-
-        if (!mounted) return;
-
-        if (statusResponse.ok) {
-          addLog('Backend connection established', 'success');
-
-          // Check API version
-          setConnectionStatus('checking_api');
-          addLog('Verifying API status...', 'info');
-
-          const versionResponse = await fetch(`${BACKEND_URL}/api/version`, {
-            method: 'GET',
-            signal: AbortSignal.timeout(5000)
-          });
-
-          if (!mounted) return;
-
-          if (versionResponse.ok) {
-            const versionData = await versionResponse.json();
-            addLog(`API version: ${versionData.version || 'unknown'}`, 'success');
-          }
-
-          // Check configuration
-          addLog('Checking database configuration...', 'info');
-          const configResponse = await fetch(`${BACKEND_URL}/api/config`, {
-            method: 'GET',
-            signal: AbortSignal.timeout(5000)
-          });
-
-          if (!mounted) return;
-
-          if (configResponse.ok) {
-            const configData = await configResponse.json();
-            if (configData.configured) {
-              addLog('Database configured and ready', 'success');
-            } else {
-              addLog('Database not configured - some features may be limited', 'warning');
-            }
-          }
-
-          addLog('Application ready', 'success');
-          setConnectionStatus('ready');
-
-          // Small delay to show the success message before transitioning
-          await new Promise(resolve => setTimeout(resolve, 500));
-
-          if (mounted && onReady) {
-            onReady();
-          }
+      if (configResponse.ok) {
+        const configData = await configResponse.json();
+        if (configData.configured) {
+          addLog('Parse keys configured', 'success');
         } else {
-          throw new Error(`Backend returned status ${statusResponse.status}`);
-        }
-      } catch (error) {
-        if (!mounted) return;
-
-        if (error.name === 'TimeoutError' || error.name === 'AbortError') {
-          addLog('Connection timed out - backend may be starting up', 'warning');
-        } else if (error.message.includes('fetch')) {
-          addLog('Unable to reach backend server', 'error');
-        } else {
-          addLog(`Connection error: ${error.message}`, 'error');
+          addLog('Parse keys not configured - setup required', 'warning');
         }
 
-        setConnectionStatus('error');
-        addLog('Retrying connection in 3 seconds...', 'info');
+        addLog('Application ready', 'success');
+        setConnectionStatus('ready');
 
-        // Retry after delay
-        setTimeout(() => {
-          if (mounted) {
-            setLogs([]);
-            checkBackendConnection();
-          }
-        }, 3000);
+        if (onReady) {
+          onReady();
+        }
+      } else {
+        throw new Error(`Backend returned status ${configResponse.status}`);
       }
-    };
+    } catch (error) {
+      if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+        addLog('Connection timed out', 'error');
+      } else if (error.message.includes('fetch')) {
+        addLog('Unable to reach backend server', 'error');
+      } else {
+        addLog(`Connection error: ${error.message}`, 'error');
+      }
 
-    checkBackendConnection();
-
-    return () => {
-      mounted = false;
-    };
+      setConnectionStatus('error');
+    }
   }, [addLog, onReady]);
+
+  useEffect(() => {
+    checkBackendConnection();
+  }, [checkBackendConnection]);
 
   const getLogIcon = (type) => {
     switch (type) {
@@ -151,7 +101,7 @@ function LoadingOverlay({ onReady }) {
               <span className="loading-log-message">{log.message}</span>
             </div>
           ))}
-          {connectionStatus !== 'ready' && connectionStatus !== 'error' && (
+          {connectionStatus === 'connecting' && (
             <div className="loading-log-entry loading-log-pending">
               <span className="loading-log-timestamp">
                 {new Date().toLocaleTimeString('en-US', {
@@ -166,6 +116,11 @@ function LoadingOverlay({ onReady }) {
             </div>
           )}
         </div>
+        {connectionStatus === 'error' && (
+          <button className="loading-retry-button" onClick={checkBackendConnection}>
+            Retry Connection
+          </button>
+        )}
       </div>
     </div>
   );
