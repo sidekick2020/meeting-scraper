@@ -16,8 +16,13 @@ permissions:
   contents: write
 
 jobs:
+  # Build ARM64 and Intel in parallel using matrix strategy
   build-mac:
     runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [arm64, x64]
+      fail-fast: false
 
     steps:
       - name: Checkout code
@@ -40,6 +45,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - name: Cache Electron binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/electron
+          key: electron-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('desktop/package.json') }}
+          restore-keys: |
+            electron-${{ runner.os }}-${{ matrix.arch }}-
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('desktop/package.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
 
       - name: Install dependencies
         working-directory: desktop
@@ -75,18 +96,9 @@ jobs:
           # Verify
           security find-identity -v $KEYCHAIN_PATH
 
-      - name: Build Mac App (Apple Silicon)
+      - name: Build Mac App (${{ matrix.arch }})
         working-directory: desktop
-        run: npm run build
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-
-      - name: Build Mac App (Intel)
-        working-directory: desktop
-        run: npm run build:intel
+        run: electron-builder --mac --${{ matrix.arch }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -96,6 +108,42 @@ jobs:
       - name: List built files
         working-directory: desktop/dist
         run: ls -la
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-${{ matrix.arch }}
+          path: desktop/dist/*.dmg
+          retention-days: 1
+
+  # Collect artifacts from parallel builds and upload to release
+  release:
+    needs: build-mac
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            VERSION="${TAG#v}"
+            VERSION="${VERSION#mac-v}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Download all DMG artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: dmg-*
+          merge-multiple: true
+
+      - name: List downloaded files
+        run: ls -la dist/
 
       - name: Upload DMGs to Release
         uses: softprops/action-gh-release@v2
@@ -120,5 +168,5 @@ jobs:
             - Native Mac app for Meeting Scraper
             - Connects to live production data
           files: |
-            desktop/dist/*.dmg
+            dist/*.dmg
           fail_on_unmatched_files: true
