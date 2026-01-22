@@ -141,3 +141,25 @@ This project has two distinct version concepts:
 2. **Application Versions** (`1.5.0`, `1.6.0`): Git tags representing releases. Shown in Release History UI.
 
 Don't confuse these - adding a CHANGELOG entry for v1.6.0 doesn't create a new API version.
+
+## Mac Build Tags
+
+When providing mac build tag commands (tags matching `v*` or `mac-v*`), **always include the GitHub Actions link** to view the build progress:
+
+```
+**View build progress:** https://github.com/sidekick2020/meeting-scraper/actions/workflows/build-desktop.yml
+```
+
+The "Build Desktop App" workflow runs on:
+- Tags matching `v*` (e.g., `v1.24.0`)
+- Tags matching `mac-v*` (e.g., `mac-v1.24.0`)
+- Manual workflow dispatch
+
+Example format when providing tag commands:
+
+```
+git tag -a v1.24.0 -m "Release v1.24.0 - Summary"
+git push origin v1.24.0
+
+**View build progress:** https://github.com/sidekick2020/meeting-scraper/actions/workflows/build-desktop.yml
+```
