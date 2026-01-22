@@ -1,9 +1,10 @@
 const { notarize } = require('@electron/notarize');
 
-// Timeout for notarization (25 minutes - allows time for retry within 45 min job limit)
-const NOTARIZE_TIMEOUT_MS = 25 * 60 * 1000;
+// Timeout for notarization (40 minutes - Apple's service can be slow)
+const NOTARIZE_TIMEOUT_MS = 40 * 60 * 1000;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 30 * 1000; // 30 seconds between retries
+const PROGRESS_INTERVAL_MS = 60 * 1000; // Log every 1 minute
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -22,14 +23,18 @@ async function notarizeWithRetry(appPath, credentials, attempt = 1) {
   console.log(`🔐 Notarization attempt ${attempt}/${MAX_RETRIES + 1}...`);
   console.log(`   App: ${appPath}`);
   console.log(`   Timeout: ${NOTARIZE_TIMEOUT_MS / 1000 / 60} minutes`);
+  console.log(`   Started at: ${new Date().toISOString()}`);
 
   const startTime = Date.now();
 
-  // Log progress every 2 minutes
+  // Log progress every minute with detailed status
   const progressInterval = setInterval(() => {
-    const elapsed = Math.floor((Date.now() - startTime) / 1000 / 60);
-    console.log(`   ⏳ Notarization in progress... (${elapsed} min elapsed)`);
-  }, 2 * 60 * 1000);
+    const elapsedMs = Date.now() - startTime;
+    const elapsedMin = Math.floor(elapsedMs / 1000 / 60);
+    const elapsedSec = Math.floor((elapsedMs / 1000) % 60);
+    const remainingMin = Math.ceil((NOTARIZE_TIMEOUT_MS - elapsedMs) / 1000 / 60);
+    console.log(`   ⏳ Notarization in progress... ${elapsedMin}m ${elapsedSec}s elapsed (${remainingMin}m remaining until timeout)`);
+  }, PROGRESS_INTERVAL_MS);
 
   try {
     await withTimeout(
@@ -44,12 +49,20 @@ async function notarizeWithRetry(appPath, credentials, attempt = 1) {
     );
 
     clearInterval(progressInterval);
-    const duration = Math.floor((Date.now() - startTime) / 1000 / 60);
-    console.log(`✅ Notarization complete! (took ${duration} minutes)`);
+    const durationMs = Date.now() - startTime;
+    const durationMin = Math.floor(durationMs / 1000 / 60);
+    const durationSec = Math.floor((durationMs / 1000) % 60);
+    console.log(`✅ Notarization complete!`);
+    console.log(`   Duration: ${durationMin}m ${durationSec}s`);
+    console.log(`   Finished at: ${new Date().toISOString()}`);
     return true;
   } catch (error) {
     clearInterval(progressInterval);
-    console.error(`❌ Notarization attempt ${attempt} failed: ${error.message}`);
+    const durationMs = Date.now() - startTime;
+    const durationMin = Math.floor(durationMs / 1000 / 60);
+    const durationSec = Math.floor((durationMs / 1000) % 60);
+    console.error(`❌ Notarization attempt ${attempt} failed after ${durationMin}m ${durationSec}s`);
+    console.error(`   Error: ${error.message}`);
 
     if (attempt <= MAX_RETRIES) {
       console.log(`   Retrying in ${RETRY_DELAY_MS / 1000} seconds...`);
@@ -87,6 +100,12 @@ exports.default = async function notarizing(context) {
   console.log('═══════════════════════════════════════════════════');
   console.log('  🍎 Apple Notarization');
   console.log('═══════════════════════════════════════════════════');
+  console.log('');
+  console.log(`📋 Configuration:`);
+  console.log(`   Apple ID: ${process.env.APPLE_ID.substring(0, 3)}***`);
+  console.log(`   Team ID: ${process.env.APPLE_TEAM_ID}`);
+  console.log(`   Max retries: ${MAX_RETRIES}`);
+  console.log(`   Timeout per attempt: ${NOTARIZE_TIMEOUT_MS / 1000 / 60} minutes`);
   console.log('');
 
   await notarizeWithRetry(appPath, {
