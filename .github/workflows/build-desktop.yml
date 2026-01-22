@@ -79,6 +79,7 @@ jobs:
     needs: setup
     if: needs.setup.outputs.build_mode == 'universal'
     runs-on: macos-latest
+    timeout-minutes: 45  # Prevent infinite hangs (notarization typically takes 10-30 min)
 
     steps:
       - name: Checkout code
@@ -89,18 +90,22 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Cache node_modules
+      - name: Cache npm and node_modules
         uses: actions/cache@v4
         with:
-          path: desktop/node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('desktop/package.json') }}
+          path: |
+            ~/.npm
+            desktop/node_modules
+          key: npm-${{ runner.os }}-${{ hashFiles('desktop/package-lock.json', 'desktop/package.json') }}
           restore-keys: |
-            node-modules-${{ runner.os }}-
+            npm-${{ runner.os }}-
 
       - name: Cache Electron binaries
         uses: actions/cache@v4
         with:
-          path: ~/Library/Caches/electron
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
           key: electron-${{ runner.os }}-universal-${{ hashFiles('desktop/package.json') }}
           restore-keys: |
             electron-${{ runner.os }}-universal-
@@ -108,7 +113,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: desktop
-        run: npm install
+        run: npm ci --prefer-offline
 
       - name: Update package.json version
         working-directory: desktop
@@ -156,6 +161,7 @@ jobs:
     needs: setup
     if: needs.setup.outputs.build_mode == 'separate'
     runs-on: macos-latest
+    timeout-minutes: 45  # Prevent infinite hangs
     strategy:
       matrix:
         arch: [arm64, x64]
@@ -170,18 +176,22 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Cache node_modules
+      - name: Cache npm and node_modules
         uses: actions/cache@v4
         with:
-          path: desktop/node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('desktop/package.json') }}
+          path: |
+            ~/.npm
+            desktop/node_modules
+          key: npm-${{ runner.os }}-${{ hashFiles('desktop/package-lock.json', 'desktop/package.json') }}
           restore-keys: |
-            node-modules-${{ runner.os }}-
+            npm-${{ runner.os }}-
 
       - name: Cache Electron binaries
         uses: actions/cache@v4
         with:
-          path: ~/Library/Caches/electron
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
           key: electron-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('desktop/package.json') }}
           restore-keys: |
             electron-${{ runner.os }}-${{ matrix.arch }}-
@@ -189,7 +199,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: desktop
-        run: npm install
+        run: npm ci --prefer-offline
 
       - name: Update package.json version
         working-directory: desktop
