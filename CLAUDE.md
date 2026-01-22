@@ -67,9 +67,10 @@ echo '**Feature Name**: Description
 
 **Claude cannot push git tags** due to authentication restrictions. Claude's git credentials only allow pushing to branches matching `claude/*`.
 
-After the PR is merged, Claude should provide tag commands:
+After the PR is merged, Claude should provide tag commands (always include fetch first):
 
 ```bash
+git fetch origin main
 git tag -a vX.Y.Z <commit-hash> -m "Release vX.Y.Z - Summary"
 git push origin vX.Y.Z
 ```
@@ -107,6 +108,7 @@ The following version is ready to be tagged and pushed:
 
 **Run these commands to publish the release:**
 
+git fetch origin main
 git tag -a v1.6.0 3c419bf -m "Release v1.6.0 - API Versioning with Changelog"
 git push origin v1.6.0
 ```
