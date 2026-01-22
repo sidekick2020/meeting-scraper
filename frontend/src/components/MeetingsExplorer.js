@@ -241,6 +241,8 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
   const reverseGeocodeTimeoutRef = useRef(null);
   // Flag to track if map movement is from programmatic pan (vs user drag)
   const isProgrammaticPanRef = useRef(false);
+  // Track meeting count from map for list/map sync
+  const [mapMeetingCount, setMapMeetingCount] = useState(0);
 
   // Theme detection for logo switching
   const [currentTheme, setCurrentTheme] = useState(
@@ -287,6 +289,7 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
   const thumbnailRequestsRef = useRef(new Set());
   const initialFetchDoneRef = useRef(false);
   const meetingsRef = useRef(cachedMeetings?.data || []);
+  const loadMoreSentinelRef = useRef(null);
 
   // Fetch thumbnail for a single meeting
   const fetchThumbnail = useCallback(async (meetingId) => {
@@ -639,6 +642,32 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
 
     fetchMeetings();
   }, [fetchMeetings, cachedMeetings]);
+
+  // Infinite scroll - load more meetings when sentinel becomes visible
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting && hasMore && !isLoadingMore && !isLoading) {
+          loadMoreMeetings();
+        }
+      },
+      {
+        root: null,
+        rootMargin: '200px',
+        threshold: 0,
+      }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMore, isLoadingMore, isLoading, loadMoreMeetings]);
 
   // Cache meetings data when it changes
   useEffect(() => {
@@ -1979,6 +2008,7 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
                 targetLocation={targetLocation}
                 filters={mapFilters}
                 onBoundsChange={handleMapBoundsChange}
+                onMapMeetingCount={setMapMeetingCount}
               />
               {isLoadingMore && (
                 <div className="map-loading-overlay">
@@ -2016,7 +2046,7 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
                 Try Again
               </button>
             </div>
-          ) : filteredMeetings.length === 0 && !isLoading && !isLoadingMore && !hasMore ? (
+          ) : filteredMeetings.length === 0 && mapMeetingCount === 0 && !isLoading && !isLoadingMore && !hasMore ? (
             <div className="list-empty">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="11" cy="11" r="8"/>
@@ -2024,6 +2054,20 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
               </svg>
               <h3>No meetings found</h3>
               <p>Try adjusting your filters or search terms</p>
+              {hasActiveFilters && (
+                <button className="btn btn-secondary" onClick={clearFilters}>
+                  Clear all filters
+                </button>
+              )}
+            </div>
+          ) : filteredMeetings.length === 0 && mapMeetingCount > 0 && !isLoading && !isLoadingMore ? (
+            <div className="list-empty list-empty-map-has-data">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+              <h3>{mapMeetingCount.toLocaleString()} meetings on map</h3>
+              <p>Zoom in on the map to see meetings in the list, or adjust your filters</p>
               {hasActiveFilters && (
                 <button className="btn btn-secondary" onClick={clearFilters}>
                   Clear all filters
@@ -2121,7 +2165,12 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
                 )}
               </div>
 
-              {/* Load More Button with Progress */}
+              {/* Sentinel element for infinite scroll detection */}
+              {hasMore && !isLoading && (
+                <div ref={loadMoreSentinelRef} className="infinite-scroll-sentinel" aria-hidden="true" />
+              )}
+
+              {/* Load More Button with Progress - shown as fallback */}
               {hasMore && (
                 <div className="load-more-container">
                   {isLoadingMore && loadingProgress.total > 0 && (

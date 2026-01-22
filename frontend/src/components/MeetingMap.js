@@ -375,7 +375,7 @@ function MapPanHandler({ targetLocation }) {
   return null;
 }
 
-function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetLocation, filters, onBoundsChange }) {
+function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetLocation, filters, onBoundsChange, onMapMeetingCount }) {
   const [mapData, setMapData] = useState({ clusters: [], meetings: [], total: 0, mode: 'clustered' });
   const [stateData, setStateData] = useState({ states: [], total: 0 });
   const [currentZoom, setCurrentZoom] = useState(5);
@@ -502,6 +502,21 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
       !isNaN(m.latitude) && !isNaN(m.longitude)),
     [effectiveMapData.meetings]
   );
+
+  // Report meeting count back to parent for list/map sync
+  useEffect(() => {
+    if (!onMapMeetingCount) return;
+
+    let count = 0;
+    if (showIndividualMeetings) {
+      count = validMeetings.length;
+    } else if (showStateLevel) {
+      count = effectiveStateData.total || 0;
+    } else {
+      count = effectiveMapData.total || 0;
+    }
+    onMapMeetingCount(count);
+  }, [onMapMeetingCount, showIndividualMeetings, showStateLevel, validMeetings.length, effectiveStateData.total, effectiveMapData.total]);
 
   return (
     <div className="meeting-map-container">
