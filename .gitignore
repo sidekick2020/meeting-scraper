@@ -13,9 +13,10 @@ dist/
 .env.local
 .env.*.local
 
-# IDE
+# IDE and AI tools
 .idea/
 .vscode/
+.claude/
 *.swp
 *.swo
 
