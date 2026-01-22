@@ -3,7 +3,7 @@ import { useParse } from '../contexts/ParseContext';
 
 function LoadingOverlay({ onReady }) {
   const [logs, setLogs] = useState([]);
-  const { isInitialized, connectionStatus, config, error } = useParse();
+  const { isInitialized, connectionStatus, isConnectionReady, config, error } = useParse();
 
   const addLog = useCallback((message, type = 'info') => {
     const timestamp = new Date().toLocaleTimeString('en-US', {
@@ -81,7 +81,7 @@ function LoadingOverlay({ onReady }) {
     }
   };
 
-  const isLoading = connectionStatus === 'connecting' || connectionStatus === 'unknown';
+  const isLoading = !isConnectionReady;
   const hasError = connectionStatus === 'error' && !isInitialized;
 
   return (
