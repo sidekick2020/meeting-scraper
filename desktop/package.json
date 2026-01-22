@@ -33,8 +33,10 @@
           "arch": ["arm64"]
         }
       ],
+      "identity": null,
       "hardenedRuntime": false,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "signIgnore": [".*"]
     },
     "dmg": {
       "title": "Meeting Scraper",

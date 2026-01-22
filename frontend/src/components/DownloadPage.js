@@ -318,9 +318,13 @@ const DownloadPage = () => {
                 <li>Download the DMG file above</li>
                 <li>Open the downloaded .dmg file</li>
                 <li>Drag Meeting Scraper to your Applications folder</li>
-                <li>Open Meeting Scraper from Applications</li>
-                <li>If prompted, go to System Preferences → Security & Privacy and click "Open Anyway"</li>
+                <li><strong>Important:</strong> Right-click the app and select "Open" (don't double-click)</li>
+                <li>Click "Open" in the security dialog that appears</li>
               </ol>
+              <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(251, 191, 36, 0.1)', borderRadius: '8px', borderLeft: '3px solid #f59e0b' }}>
+                <strong style={{ color: '#f59e0b' }}>Note:</strong>
+                <span style={{ color: '#94a3b8' }}> Since this app isn't from the App Store, macOS requires you to right-click and select "Open" the first time. After that, it opens normally.</span>
+              </div>
             </div>
 
             <div style={styles.sectionCard}>
