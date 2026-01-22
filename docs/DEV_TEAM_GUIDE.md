@@ -1,167 +1,205 @@
-# Dev Team Guide: Building Fast with Claude Code
+# 🚀 Dev Team Guide: Building Fast with Claude Code
 
-**Project:** Sober Sidekick Meeting Finder
-**Production Site:** [meetings.sobersidekick.com](https://meetings.sobersidekick.com)
-**Built with:** 54 PRs, 230+ commits, powered by Claude Code
+> *"The key isn't that Claude writes perfect code—it's that the iteration cycle is so fast that you can ship, test, and refine continuously."*
 
 ---
 
-## What We Built
-
-A comprehensive 12-step meeting finder aggregating AA, NA, and Al-Anon meetings from across the United States. In just weeks, we shipped a full-stack application with:
-
-- **React frontend** with interactive maps (Leaflet)
-- **Python/Flask backend** with automated data scraping
-- **Back4app database** integration
-- **Mobile SDK documentation** for iOS and Android
+|  |  |
+|--|--|
+| 🌐 **Production** | [meetings.sobersidekick.com](https://meetings.sobersidekick.com) |
+| 📊 **Stats** | 54 PRs · 230+ commits · Weeks not months |
+| 🛠️ **Stack** | React + Flask + Back4app |
 
 ---
 
-## Admin Console Access
+## ⚠️ Important: Admin Access
 
-**URL:** [meetings.sobersidekick.com](https://meetings.sobersidekick.com) → Click **"Admin"** button (top-right)
-
-**Login:** Google Sign-In with an authorized account. Contact your administrator to add your Google account to the allowed users list.
-
----
-
-## Feature Overview
-
-### Consumer Features (Public Directory)
-| Feature | Description |
-|---------|-------------|
-| **Interactive Map** | Clustered markers, zoom-to-state, heatmap visualization |
-| **Advanced Search** | Multi-day selection, meeting type filters, location autocomplete |
-| **Meeting Cards** | Airbnb-style cards with static map images |
-| **Meeting Details** | Navigate (Google Maps) and Join Meeting buttons |
-| **Mobile Responsive** | Works on all devices |
-
-### Admin Features (Dashboard)
-| Feature | Description |
-|---------|-------------|
-| **Data Scraper** | One-click scraping from 50+ regional feeds |
-| **Coverage Analysis** | State-by-state heatmaps and statistics |
-| **Meeting Directory** | Search, filter, and edit meetings |
-| **User Management** | Invite team members, assign roles |
-| **Scrape History** | Per-source audit trail with timestamps |
-| **API Versioning** | Switch between stable/beta API versions |
-| **Deployment Indicator** | Real-time frontend/backend deployment status |
+> **🛑 Do not perform any admin operations without onboarding from me first.**
+>
+> The admin console controls live production data for thousands of meetings. Before you:
+> - Run any scrape operations
+> - Edit or delete meetings
+> - Manage users or permissions
+> - Change any settings
+>
+> **Schedule a 15-minute walkthrough with me.** I'll show you the ropes and make sure you're set up for success.
 
 ---
 
-## How to Ship Fast with Claude Code
+## 🔐 Admin Console Login
 
-### 1. Start with Clear, Specific Prompts
+| Step | Action |
+|------|--------|
+| 1️⃣ | Go to [meetings.sobersidekick.com](https://meetings.sobersidekick.com) |
+| 2️⃣ | Click the **"Admin"** button (top-right corner) |
+| 3️⃣ | Sign in with your **Google account** |
+| 4️⃣ | If access denied → Ask me to add your email to the allowed list |
+
+---
+
+## 📱 What Users See (Public Features)
+
+The public-facing meeting finder that helps people in recovery:
+
+| Feature | What it does |
+|---------|--------------|
+| 🗺️ **Interactive Map** | Clustered markers that expand on zoom, state-level heatmaps showing meeting density |
+| 🔍 **Smart Search** | Pick multiple days, filter by 13 meeting types, location autocomplete with recent searches |
+| 🃏 **Meeting Cards** | Beautiful Airbnb-style cards with mini static maps for each location |
+| 📍 **Quick Actions** | "Navigate" opens Google Maps directions; "Join Meeting" opens video call links |
+| 📱 **Mobile Ready** | Fully responsive—works great on phones and tablets |
+
+---
+
+## 🛠️ What Admins See (Dashboard Features)
+
+The control center for managing meeting data:
+
+| Feature | What it does |
+|---------|--------------|
+| ⚡ **Data Scraper** | One-click import from 50+ regional AA/NA feeds across the US |
+| 📈 **Coverage Analysis** | Interactive state heatmaps, population-weighted stats, gap identification |
+| 📋 **Meeting Directory** | Search, filter, bulk edit—manage thousands of meetings efficiently |
+| 👥 **User Management** | Invite team members via email, assign Standard or Admin roles |
+| 📜 **Scrape History** | Full audit trail—who scraped what, when, with per-source breakdowns |
+| 🔄 **API Versioning** | Toggle between stable and beta API versions in Settings |
+| 🚦 **Deploy Status** | Real-time indicator when frontend or backend is deploying |
+
+---
+
+## 💡 How to Ship Fast with Claude Code
+
+### 1. Write Clear, Specific Prompts
 
 ```
-Good: "Add a loading overlay with darkened background that shows
-       timestamped status logs while connecting to the backend"
+✅ Good: "Add a loading overlay with darkened background that shows
+         timestamped status logs while connecting to the backend"
 
-Bad:  "Make the loading better"
+❌ Bad:  "Make the loading better"
 ```
 
-Real example from our commit history: The loading overlay feature was implemented in a single PR with a clear description of the visual design (darkened backdrop, blur effect, timestamped logs, auto-retry).
+The more specific you are about the *what* and the *how*, the better the result.
 
-### 2. Use Feature Branches Liberally
+---
 
-Every PR in this project followed the pattern `claude/<feature>-<session-id>`:
-- `claude/add-loading-overlay-WCAPa`
-- `claude/state-coverage-heatmap-r2Nlt`
-- `claude/simplify-scrape-workflow-7jMoQ`
+### 2. Use Feature Branches
 
-This keeps main clean and makes it easy to review isolated changes.
+Every PR follows the pattern: `claude/<feature>-<session-id>`
 
-### 3. Break Down Complex Work
+```
+claude/add-loading-overlay-WCAPa
+claude/state-coverage-heatmap-r2Nlt
+claude/simplify-scrape-workflow-7jMoQ
+```
 
-Instead of: "Build an admin dashboard"
+This keeps `main` clean and makes code review straightforward.
 
-Try:
-1. "Add Google Sign-In authentication"
-2. "Create a meeting directory with search"
-3. "Add coverage analysis with state statistics"
-4. "Implement the data scraper with progress logs"
+---
 
-### 4. Iterate in Small PRs
+### 3. Break Down Big Features
 
-Our changelog shows the pattern:
-- v1.5.0 → Efficient heatmap view
-- v1.5.1 → Light mode improvements
-- v1.5.2 → Admin directory filters
-- v1.5.3 → State bubble click-to-filter
-- v1.5.4 → Script generation for tasks
+| ❌ Instead of... | ✅ Try this... |
+|-----------------|----------------|
+| "Build an admin dashboard" | 1. "Add Google Sign-In authentication" |
+| | 2. "Create a meeting directory with search" |
+| | 3. "Add coverage analysis with state statistics" |
+| | 4. "Implement the data scraper with progress logs" |
 
-Each release is small and focused. Ship often.
+Smaller tasks = faster feedback = better results.
+
+---
+
+### 4. Ship Small, Ship Often
+
+Our version history tells the story:
+
+```
+v1.5.0 → Efficient heatmap view
+v1.5.1 → Light mode improvements
+v1.5.2 → Admin directory filters
+v1.5.3 → State bubble click-to-filter
+v1.5.4 → Script generation for tasks
+```
+
+Each release is focused. Don't bundle unrelated changes.
+
+---
 
 ### 5. Let Claude Read First
 
-Claude Code works best when it reads existing code before making changes. When you say:
-- "Fix the search bar" → Claude reads MeetingsExplorer.js first
-- "Add a new API endpoint" → Claude reads app.py first
+Claude works best when it understands existing code before making changes:
 
-This ensures changes fit the existing patterns and style.
+- *"Fix the search bar"* → Claude reads `MeetingsExplorer.js` first
+- *"Add a new API endpoint"* → Claude reads `app.py` first
 
-### 6. Use the Changelog Fragments System
-
-We created a system specifically to avoid merge conflicts:
-
-```bash
-# Create a fragment instead of editing CHANGELOG.md directly
-echo '**Feature Name**: Description' > changelog/unreleased/features/my-feature.md
-```
-
-Fragments are auto-compiled on release. See `CLAUDE.md` for details.
-
-### 7. Review Claude's PRs Like Any Other
-
-Claude generates descriptive PR summaries with test plans. Review them critically:
-- Check the diff
-- Test the feature
-- Request changes if needed
+This ensures new code matches existing patterns and style.
 
 ---
 
-## Quick Start for New Team Members
+### 6. Use Changelog Fragments
+
+We avoid merge conflicts with a fragment system:
 
 ```bash
-# Clone and run locally
+# Create a fragment instead of editing CHANGELOG.md
+echo '**My Feature**: What it does' > changelog/unreleased/features/my-feature.md
+```
+
+Fragments auto-compile on release. See `CLAUDE.md` for details.
+
+---
+
+### 7. Review Like Any Other PR
+
+Claude generates PR summaries with test plans. Treat them like any code review:
+
+- ✅ Read the diff carefully
+- ✅ Test the feature locally
+- ✅ Request changes if something's off
+
+---
+
+## 🏃 Quick Start
+
+```bash
+# Clone the repo
 git clone https://github.com/sidekick2020/meeting-scraper.git
 cd meeting-scraper
 
-# Backend (terminal 1)
+# Terminal 1: Backend
 cd backend && pip install -r requirements.txt && python app.py
 
-# Frontend (terminal 2)
+# Terminal 2: Frontend
 cd frontend && npm install && npm start
 ```
 
-Open http://localhost:3000 and configure Back4app credentials in Settings.
+Open **http://localhost:3000** → Configure Back4app credentials in Settings.
 
 ---
 
-## Key Files to Know
+## 📁 Key Files
 
-| File | Purpose |
-|------|---------|
-| `frontend/src/components/AdminPanel.js` | Main admin dashboard |
+| File | What it's for |
+|------|---------------|
+| `frontend/src/components/AdminPanel.js` | Main admin dashboard UI |
 | `frontend/src/components/MeetingsExplorer.js` | Public meeting browser |
 | `backend/app.py` | Flask API server |
-| `backend/scraper.py` | Meeting feed scraper |
+| `backend/scraper.py` | Meeting feed scraper logic |
 | `CLAUDE.md` | Instructions for Claude Code sessions |
 
 ---
 
-## The Results
+## 📚 Resources
 
-By using Claude Code effectively, we achieved:
-- **54 merged PRs** in rapid succession
-- **230+ commits** with clear, descriptive messages
-- **Full-stack features** shipped in hours, not days
-- **Consistent code style** across the entire codebase
-
-The key isn't that Claude writes perfect code—it's that the iteration cycle is so fast that you can ship, test, and refine continuously.
+| Link | Description |
+|------|-------------|
+| [Production Site](https://meetings.sobersidekick.com) | Live application |
+| [API Docs](https://meetings.sobersidekick.com/docs) | Developer documentation |
+| [GitHub Repo](https://github.com/sidekick2020/meeting-scraper) | Source code & issues |
 
 ---
 
-**Questions?** Check the [/docs endpoint](https://meetings.sobersidekick.com/docs) or open an issue on GitHub.
-
-*Built with care by Sober Sidekick — You're Never Alone.*
+<p align="center">
+  <strong>Built with ❤️ by Sober Sidekick</strong><br>
+  <em>You're Never Alone.</em>
+</p>
