@@ -1,0 +1,11 @@
+**Intergroup Research Panel**: Deep research tool for discovering meeting data sources across states
+- New "Research" section in admin panel with 50% expandable split view
+- Session-based research that tracks progress, notes, findings, and scripts per state
+- Intergroup discovery with known directories and generated URL patterns
+- Streaming probe system that tests multiple endpoint patterns (TSML, REST API, custom HTML)
+- Automatic endpoint verification with meeting count detection
+- Note-taking system to document successes, failures, learnings, and reminders
+- Script generation for both JSON/TSML feeds and custom HTML scrapers
+- Script library with copy-to-clipboard and syntax highlighting
+- History view showing research statistics by state
+- Designed to learn from failures and adapt approaches for different intergroup systems
