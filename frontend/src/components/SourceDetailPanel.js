@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5001';
 
 // Source feed metadata - maps feed names to their details
 const feedMetadata = {
@@ -29,16 +31,57 @@ const stateNames = {
 };
 
 function SourceDetailPanel({ meeting, isOpen, onClose }) {
-  if (!meeting) return null;
+  const [scrapeHistory, setScrapeHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
 
-  const sourceFeed = meeting.sourceFeed || 'Unknown Source';
-  const sourceInfo = feedMetadata[sourceFeed] || {
+  const sourceFeed = meeting?.sourceFeed || 'Unknown Source';
+  const sourceInfo = meeting ? (feedMetadata[sourceFeed] || {
     type: meeting.meetingType || 'Unknown',
     format: 'Unknown',
     state: meeting.state || 'Unknown',
     region: meeting.region || 'Unknown',
     url: null
+  }) : {};
+
+  // Fetch scrape history when panel opens and source is known
+  useEffect(() => {
+    if (isOpen && meeting?.sourceFeed && historyExpanded) {
+      fetchScrapeHistory(meeting.sourceFeed);
+    }
+  }, [isOpen, meeting?.sourceFeed, historyExpanded]);
+
+  // Reset state when panel closes
+  useEffect(() => {
+    if (!isOpen) {
+      setScrapeHistory([]);
+      setHistoryExpanded(false);
+      setHistoryError(null);
+    }
+  }, [isOpen]);
+
+  const fetchScrapeHistory = async (feedName) => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const encodedFeedName = encodeURIComponent(feedName);
+      const response = await fetch(`${BACKEND_URL}/api/history/feed/${encodedFeedName}`);
+      if (response.ok) {
+        const data = await response.json();
+        setScrapeHistory(data.history || []);
+      } else {
+        setHistoryError('Failed to load history');
+      }
+    } catch (error) {
+      console.error('Error fetching scrape history:', error);
+      setHistoryError('Failed to load history');
+    } finally {
+      setHistoryLoading(false);
+    }
   };
+
+  if (!meeting) return null;
 
   const formatDate = (date) => {
     if (!date) return 'Not available';
@@ -345,6 +388,92 @@ function SourceDetailPanel({ meeting, isOpen, onClose }) {
               )}
             </div>
           )}
+
+          {/* Scrape History Section */}
+          <div className="source-section source-history-section">
+            <button
+              className={`source-history-toggle ${historyExpanded ? 'expanded' : ''}`}
+              onClick={() => setHistoryExpanded(!historyExpanded)}
+            >
+              <div className="source-history-toggle-content">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span>Scrape History</span>
+              </div>
+              <svg
+                className="source-history-chevron"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+
+            {historyExpanded && (
+              <div className="source-history-content">
+                {historyLoading ? (
+                  <div className="source-history-loading">
+                    <div className="source-history-spinner"></div>
+                    <span>Loading history...</span>
+                  </div>
+                ) : historyError ? (
+                  <div className="source-history-error">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="12" y1="8" x2="12" y2="12"/>
+                      <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <span>{historyError}</span>
+                  </div>
+                ) : scrapeHistory.length === 0 ? (
+                  <div className="source-history-empty">
+                    <span>No scrape history available for this source</span>
+                  </div>
+                ) : (
+                  <div className="source-history-list">
+                    {scrapeHistory.map((entry, idx) => (
+                      <div key={entry.id || idx} className="source-history-entry">
+                        <div className="source-history-date">
+                          <span className={`source-history-status ${entry.status || 'completed'}`}>
+                            {entry.status === 'in_progress' ? 'In Progress' : 'Completed'}
+                          </span>
+                          <span className="source-history-timestamp">
+                            {formatDate(entry.completed_at || entry.started_at)}
+                          </span>
+                        </div>
+                        <div className="source-history-stats">
+                          <div className="source-history-stat">
+                            <span className="stat-value found">{entry.found || 0}</span>
+                            <span className="stat-label">Found</span>
+                          </div>
+                          <div className="source-history-stat">
+                            <span className="stat-value saved">{entry.saved || 0}</span>
+                            <span className="stat-label">Saved</span>
+                          </div>
+                          <div className="source-history-stat">
+                            <span className="stat-value duplicates">{entry.duplicates || 0}</span>
+                            <span className="stat-label">Dupes</span>
+                          </div>
+                          {(entry.errors || 0) > 0 && (
+                            <div className="source-history-stat">
+                              <span className="stat-value errors">{entry.errors}</span>
+                              <span className="stat-label">Errors</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Data Quality Indicators */}
           <div className="source-section source-quality">
