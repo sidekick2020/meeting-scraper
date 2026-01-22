@@ -283,6 +283,8 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
 
       if (response.ok) {
         fetchUsers(true); // Force refresh
+        setUserSuccess('Permission updated successfully');
+        setTimeout(() => setUserSuccess(''), 3000);
       } else {
         const data = await response.json();
         setUserError(data.error || 'Failed to update permissions');
