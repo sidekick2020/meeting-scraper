@@ -1148,8 +1148,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
               // Medium zoom: show city + state
               locationName = state ? `${city}, ${state}` : city;
             } else if (mapZoom >= 7 && (county || state)) {
-              // Low-medium zoom: show county or state
-              locationName = county || state;
+              // Low-medium zoom: show county with state
+              locationName = county && state ? `${county}, ${state}` : (county || state);
             } else if (state) {
               // Low zoom: show state or country
               locationName = country && country !== 'United States' ? `${state}, ${country}` : state;
