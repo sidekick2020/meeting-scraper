@@ -3,6 +3,14 @@ import MeetingMap from './MeetingMap';
 import MeetingDetail from './MeetingDetail';
 import ThemeToggle from './ThemeToggle';
 import { useDataCache } from '../contexts/DataCacheContext';
+import {
+  measureNetworkSpeed,
+  calculateBatchSize,
+  calculateParallelRequests,
+  updateSpeedFromRequest,
+  getNetworkInfo,
+  categorizeSpeed,
+} from '../utils/networkSpeed';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -198,11 +206,16 @@ function MeetingsExplorer({ onAdminClick }) {
   const daysDropdownRef = useRef(null);
   const typesDropdownRef = useRef(null);
 
-  // Pagination - restore total from cache
+  // Pagination with adaptive batch sizing - restore total from cache
   const [totalMeetings, setTotalMeetings] = useState(cachedTotal?.data || 0);
   const [currentPage, setCurrentPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const PAGE_SIZE = 50;
+
+  // Network-adaptive batch loading state
+  const [batchSize, setBatchSize] = useState(50); // Default, will be updated based on network
+  const [networkSpeed, setNetworkSpeed] = useState(null);
+  const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0, percentage: 0 });
+  const networkInitializedRef = useRef(false);
 
   // Map bounds for dynamic loading
   const [mapBounds, setMapBounds] = useState(null);
@@ -301,8 +314,54 @@ function MeetingsExplorer({ onAdminClick }) {
     }
   }, [fetchThumbnail]);
 
+  // Build URL with filters for meeting fetch
+  const buildMeetingsUrl = useCallback((currentBatchSize, skip, bounds, stateFilter, filters) => {
+    let url = `${BACKEND_URL}/api/meetings?limit=${currentBatchSize}&skip=${skip}`;
+
+    // Add bounds parameters if provided (including center for distance-based sorting)
+    if (bounds) {
+      url += `&north=${bounds.north}&south=${bounds.south}&east=${bounds.east}&west=${bounds.west}`;
+      // Add center coordinates for prioritizing results by proximity
+      if (bounds.center_lat !== undefined && bounds.center_lng !== undefined) {
+        url += `&center_lat=${bounds.center_lat}&center_lng=${bounds.center_lng}`;
+      }
+    }
+
+    // Add state filter if provided (from param or filters object)
+    if (stateFilter && stateFilter.length > 0) {
+      url += `&state=${encodeURIComponent(stateFilter[0])}`;
+    } else if (filters.state) {
+      url += `&state=${encodeURIComponent(filters.state)}`;
+    }
+
+    // Add day filter
+    if (filters.day !== undefined && filters.day !== null) {
+      url += `&day=${filters.day}`;
+    }
+
+    // Add type filter
+    if (filters.type) {
+      url += `&type=${encodeURIComponent(filters.type)}`;
+    }
+
+    // Add city filter
+    if (filters.city) {
+      url += `&city=${encodeURIComponent(filters.city)}`;
+    }
+
+    // Add online/hybrid filters
+    if (filters.online) {
+      url += `&online=true`;
+    }
+    if (filters.hybrid) {
+      url += `&hybrid=true`;
+    }
+
+    return url;
+  }, []);
+
   const fetchMeetings = useCallback(async (options = {}) => {
-    const { bounds = null, loadMore = false, stateFilter = null, reset = false, filters = {} } = options;
+    const { bounds = null, loadMore = false, stateFilter = null, reset = false, filters = {}, bulkLoad = false } = options;
 
     if (loadMore) {
       setIsLoadingMore(true);
@@ -314,57 +373,133 @@ function MeetingsExplorer({ onAdminClick }) {
     setError(null);
 
     try {
+      // Get current network-optimized batch size
+      const currentBatchSize = batchSize;
+
       // Use ref for skip to avoid dependency on meetings.length
       const skip = loadMore ? meetingsRef.current.length : 0;
-      let url = `${BACKEND_URL}/api/meetings?limit=${PAGE_SIZE}&skip=${skip}`;
 
-      // Add bounds parameters if provided (including center for distance-based sorting)
-      if (bounds) {
-        url += `&north=${bounds.north}&south=${bounds.south}&east=${bounds.east}&west=${bounds.west}`;
-        // Add center coordinates for prioritizing results by proximity
-        if (bounds.center_lat !== undefined && bounds.center_lng !== undefined) {
-          url += `&center_lat=${bounds.center_lat}&center_lng=${bounds.center_lng}`;
+      // For bulk loading, use parallel requests if network is fast enough
+      if (bulkLoad && networkSpeed) {
+        const parallelCount = calculateParallelRequests(networkSpeed);
+
+        if (parallelCount > 1) {
+          // Fetch multiple batches in parallel
+          const batchPromises = [];
+          for (let i = 0; i < parallelCount; i++) {
+            const batchSkip = skip + (i * currentBatchSize);
+            const url = buildMeetingsUrl(currentBatchSize, batchSkip, bounds, stateFilter, filters);
+            const startTime = performance.now();
+            batchPromises.push(
+              fetch(url).then(async (response) => {
+                const endTime = performance.now();
+                if (response.ok) {
+                  const data = await response.json();
+                  // Update network speed estimate based on actual performance
+                  const responseSize = JSON.stringify(data).length;
+                  updateSpeedFromRequest(responseSize, endTime - startTime);
+                  return { skip: batchSkip, data };
+                }
+                return { skip: batchSkip, data: { meetings: [], total: 0 } };
+              }).catch(() => ({ skip: batchSkip, data: { meetings: [], total: 0 } }))
+            );
+          }
+
+          const results = await Promise.all(batchPromises);
+          // Sort by skip to maintain order
+          results.sort((a, b) => a.skip - b.skip);
+
+          // Combine all results
+          const allNewMeetings = [];
+          let total = 0;
+          results.forEach(({ data }) => {
+            allNewMeetings.push(...(data.meetings || []));
+            total = Math.max(total, data.total || 0);
+          });
+
+          setTotalMeetings(total);
+          const totalLoaded = skip + allNewMeetings.length;
+          setHasMore(totalLoaded < total);
+
+          // Update progress
+          setLoadingProgress({
+            loaded: totalLoaded,
+            total,
+            percentage: total > 0 ? Math.round((totalLoaded / total) * 100) : 0
+          });
+
+          if (loadMore) {
+            setMeetings(prev => {
+              const existingIds = new Set(prev.map(m => m.objectId));
+              const uniqueNew = allNewMeetings.filter(m => !existingIds.has(m.objectId));
+              const updated = [...prev, ...uniqueNew];
+              meetingsRef.current = updated;
+              return updated;
+            });
+            setCurrentPage(prev => prev + parallelCount);
+          } else {
+            meetingsRef.current = allNewMeetings;
+            setMeetings(allNewMeetings);
+            setCurrentPage(0);
+
+            if (bounds) {
+              const cities = [...new Set(allNewMeetings.map(m => m.city).filter(Boolean))].sort();
+              setAvailableCities(cities);
+            }
+          }
+
+          // Extract unique values (only on initial load without bounds)
+          if (!bounds && !loadMore) {
+            const states = [...new Set(allNewMeetings.map(m => m.state).filter(Boolean))].sort();
+            setAvailableStates(states);
+
+            const cities = [...new Set(allNewMeetings.map(m => m.city).filter(Boolean))].sort();
+            setAvailableCities(cities);
+
+            const allTypes = Object.keys(MEETING_TYPES).filter(t => t !== 'Other');
+            allTypes.push('Other');
+            setAvailableTypes(allTypes);
+
+            const formats = [...new Set(allNewMeetings.map(m => m.format).filter(Boolean))].sort();
+            setAvailableFormats(formats);
+          }
+
+          setIsLoading(false);
+          setIsLoadingMore(false);
+          return;
         }
       }
 
-      // Add state filter if provided (from param or filters object)
-      if (stateFilter && stateFilter.length > 0) {
-        url += `&state=${encodeURIComponent(stateFilter[0])}`;
-      } else if (filters.state) {
-        url += `&state=${encodeURIComponent(filters.state)}`;
-      }
-
-      // Add day filter
-      if (filters.day !== undefined && filters.day !== null) {
-        url += `&day=${filters.day}`;
-      }
-
-      // Add type filter
-      if (filters.type) {
-        url += `&type=${encodeURIComponent(filters.type)}`;
-      }
-
-      // Add city filter
-      if (filters.city) {
-        url += `&city=${encodeURIComponent(filters.city)}`;
-      }
-
-      // Add online/hybrid filters
-      if (filters.online) {
-        url += `&online=true`;
-      }
-      if (filters.hybrid) {
-        url += `&hybrid=true`;
-      }
-
+      // Standard single batch fetch
+      const url = buildMeetingsUrl(currentBatchSize, skip, bounds, stateFilter, filters);
+      const startTime = performance.now();
       const response = await fetch(url);
+      const endTime = performance.now();
+
       if (response.ok) {
         const data = await response.json();
         const newMeetings = data.meetings || [];
         const total = data.total || newMeetings.length;
 
+        // Update network speed estimate based on actual performance
+        const responseSize = JSON.stringify(data).length;
+        updateSpeedFromRequest(responseSize, endTime - startTime);
+
+        // Update batch size based on new speed estimate
+        const networkInfo = getNetworkInfo();
+        if (networkInfo.batchSize !== currentBatchSize) {
+          setBatchSize(networkInfo.batchSize);
+        }
+
         setTotalMeetings(total);
         setHasMore(skip + newMeetings.length < total);
+
+        // Update progress
+        setLoadingProgress({
+          loaded: skip + newMeetings.length,
+          total,
+          percentage: total > 0 ? Math.round(((skip + newMeetings.length) / total) * 100) : 0
+        });
 
         if (loadMore) {
           // Append new meetings
@@ -418,7 +553,7 @@ function MeetingsExplorer({ onAdminClick }) {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [PAGE_SIZE]);
+  }, [batchSize, networkSpeed, buildMeetingsUrl]);
 
   const loadMoreMeetings = useCallback(() => {
     if (!isLoadingMore && hasMore) {
@@ -435,10 +570,12 @@ function MeetingsExplorer({ onAdminClick }) {
       if (showOnlineOnly) filters.online = true;
       if (showHybridOnly) filters.hybrid = true;
       if (selectedCity) filters.city = selectedCity;
+      if (selectedFormat) filters.format = selectedFormat;
 
-      fetchMeetings({ loadMore: true, bounds: mapBounds, filters });
+      // Use bulk loading with parallel requests for faster loading
+      fetchMeetings({ loadMore: true, bounds: mapBounds, filters, bulkLoad: true });
     }
-  }, [fetchMeetings, isLoadingMore, hasMore, mapBounds, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity]);
+  }, [fetchMeetings, isLoadingMore, hasMore, mapBounds, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity, selectedFormat]);
 
   // Check backend configuration status
   const checkBackendConfig = useCallback(async () => {
@@ -458,6 +595,27 @@ function MeetingsExplorer({ onAdminClick }) {
     } catch (err) {
       setConfigStatus('unreachable');
     }
+  }, []);
+
+  // Initialize network speed detection
+  useEffect(() => {
+    if (networkInitializedRef.current) return;
+    networkInitializedRef.current = true;
+
+    const initNetworkSpeed = async () => {
+      try {
+        const speed = await measureNetworkSpeed();
+        setNetworkSpeed(speed);
+        const optimalBatch = calculateBatchSize(speed);
+        setBatchSize(optimalBatch);
+        console.log(`Network speed: ${speed.toFixed(2)} Mbps, using batch size: ${optimalBatch}`);
+      } catch (err) {
+        console.warn('Failed to measure network speed, using default batch size');
+        setBatchSize(50);
+      }
+    };
+
+    initNetworkSpeed();
   }, []);
 
   // Initial data fetch - run only once on mount, skip if cached
@@ -812,6 +970,15 @@ function MeetingsExplorer({ onAdminClick }) {
             group: 'places'
           }));
           setLocationResults(locations);
+
+          // Auto-pan to the first result immediately
+          if (locations.length > 0) {
+            setTargetLocation({
+              lat: locations[0].lat,
+              lng: locations[0].lon,
+              zoom: 12
+            });
+          }
         }
       } catch (error) {
         console.error('Location search error:', error);
@@ -1107,13 +1274,14 @@ function MeetingsExplorer({ onAdminClick }) {
     if (showOnlineOnly) filters.online = true;
     if (showHybridOnly) filters.hybrid = true;
     if (selectedCity) filters.city = selectedCity;
+    if (selectedFormat) filters.format = selectedFormat;
 
     // Always fetch meetings when map moves - reset to first page
     // Don't clear meetingsRef here - let fetchMeetings update it when new data arrives
     // This keeps the old data visible while loading
     setCurrentPage(0);
     fetchMeetings({ bounds, reset: true, filters });
-  }, [fetchMeetings, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity]);
+  }, [fetchMeetings, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity, selectedFormat]);
 
   // Build filters object to pass to the map
   const mapFilters = useMemo(() => {
@@ -1147,8 +1315,12 @@ function MeetingsExplorer({ onAdminClick }) {
     if (selectedCity) {
       filters.city = selectedCity;
     }
+    // Pass format filter
+    if (selectedFormat) {
+      filters.format = selectedFormat;
+    }
     return filters;
-  }, [showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity]);
+  }, [showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity, selectedFormat]);
 
   return (
     <div className="airbnb-explorer">
@@ -1823,9 +1995,22 @@ function MeetingsExplorer({ onAdminClick }) {
                 ))}
               </div>
 
-              {/* Load More Button */}
+              {/* Load More Button with Progress */}
               {hasMore && (
                 <div className="load-more-container">
+                  {isLoadingMore && loadingProgress.total > 0 && (
+                    <div className="loading-progress">
+                      <div className="loading-progress-bar">
+                        <div
+                          className="loading-progress-fill"
+                          style={{ width: `${loadingProgress.percentage}%` }}
+                        />
+                      </div>
+                      <span className="loading-progress-text">
+                        {loadingProgress.loaded} of {loadingProgress.total} ({loadingProgress.percentage}%)
+                      </span>
+                    </div>
+                  )}
                   <button
                     className="btn btn-secondary load-more-btn"
                     onClick={loadMoreMeetings}
@@ -1834,7 +2019,7 @@ function MeetingsExplorer({ onAdminClick }) {
                     {isLoadingMore ? (
                       <>
                         <span className="loading-spinner-small"></span>
-                        Loading...
+                        Loading {batchSize} meetings...
                       </>
                     ) : (
                       <>
@@ -1845,6 +2030,17 @@ function MeetingsExplorer({ onAdminClick }) {
                       </>
                     )}
                   </button>
+                  {networkSpeed && (
+                    <div className="network-info">
+                      <span className={`network-speed-indicator ${categorizeSpeed(networkSpeed)}`}>
+                        {categorizeSpeed(networkSpeed) === 'very-fast' ? 'Fast connection' :
+                         categorizeSpeed(networkSpeed) === 'fast' ? 'Good connection' :
+                         categorizeSpeed(networkSpeed) === 'medium' ? 'Moderate connection' :
+                         'Slow connection'}
+                      </span>
+                      <span className="batch-size-info">Batch: {batchSize}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </>
