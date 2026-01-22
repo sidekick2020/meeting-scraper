@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -209,6 +209,7 @@ function FeedDetailPanel({ feed, isOpen, onClose }) {
   const [feedHistory, setFeedHistory] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const historyRef = useRef(null);
 
   const fetchFeedHistory = useCallback(async (feedName) => {
     setIsLoadingHistory(true);
@@ -240,6 +241,16 @@ function FeedDetailPanel({ feed, isOpen, onClose }) {
       setFeedHistory([]);
     }
   }, [isOpen]);
+
+  // Scroll to history section when it's shown
+  useEffect(() => {
+    if (showHistory && historyRef.current) {
+      // Small delay to ensure the section is rendered
+      setTimeout(() => {
+        historyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [showHistory]);
 
   const formatDate = (isoString) => {
     if (!isoString) return 'N/A';
@@ -481,7 +492,7 @@ function FeedDetailPanel({ feed, isOpen, onClose }) {
 
           {/* Scrape History Section */}
           {showHistory && (
-            <div className="feed-section feed-history-section">
+            <div ref={historyRef} className="feed-section feed-history-section">
               <h4>Scrape History for This Source</h4>
               {isLoadingHistory ? (
                 <div className="skeleton-feed-history-list">
