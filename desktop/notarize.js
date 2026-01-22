@@ -7,6 +7,12 @@ exports.default = async function notarizing(context) {
     return;
   }
 
+  // Skip notarization if SKIP_NOTARIZATION env var is set (for test builds)
+  if (process.env.SKIP_NOTARIZATION === 'true') {
+    console.log('⚡ Skipping notarization (SKIP_NOTARIZATION=true)');
+    return;
+  }
+
   if (!process.env.APPLE_ID || !process.env.APPLE_APP_SPECIFIC_PASSWORD || !process.env.APPLE_TEAM_ID) {
     console.log('Skipping notarization: missing credentials');
     return;
@@ -15,7 +21,8 @@ exports.default = async function notarizing(context) {
   const appName = context.packager.appInfo.productFilename;
   const appPath = `${appOutDir}/${appName}.app`;
 
-  console.log(`Notarizing ${appPath}...`);
+  console.log(`🔐 Notarizing ${appPath}...`);
+  console.log('This may take 10-30 minutes...');
 
   await notarize({
     appPath,
@@ -24,5 +31,5 @@ exports.default = async function notarizing(context) {
     teamId: process.env.APPLE_TEAM_ID,
   });
 
-  console.log('Notarization complete!');
+  console.log('✅ Notarization complete!');
 };
