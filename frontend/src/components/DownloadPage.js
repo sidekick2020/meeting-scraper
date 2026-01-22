@@ -319,7 +319,6 @@ const DownloadPage = () => {
                 <li>Open the downloaded .dmg file</li>
                 <li>Drag Meeting Scraper to your Applications folder</li>
                 <li>Open Meeting Scraper from Applications</li>
-                <li>If prompted, go to System Preferences → Security & Privacy and click "Open Anyway"</li>
               </ol>
             </div>
 
