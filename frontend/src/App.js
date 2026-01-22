@@ -56,6 +56,8 @@ function SignInModal({ onClose }) {
   );
 }
 
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
+
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
   const [currentView, setCurrentView] = useState('public'); // 'public' or 'admin'
@@ -77,6 +79,24 @@ function AppContent() {
   const handleBackendReady = () => {
     setIsBackendReady(true);
   };
+
+  // Preload backend connection in background while on public view
+  React.useEffect(() => {
+    if (currentView === 'public' && !isBackendReady) {
+      fetch(`${BACKEND_URL}/api/config`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(10000)
+      })
+        .then(response => {
+          if (response.ok) {
+            setIsBackendReady(true);
+          }
+        })
+        .catch(() => {
+          // Silently fail - user will see LoadingOverlay when they access admin
+        });
+    }
+  }, [currentView, isBackendReady]);
 
   // Check if user just signed in
   React.useEffect(() => {
