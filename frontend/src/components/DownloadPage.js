@@ -322,6 +322,24 @@ const DownloadPage = () => {
               </ol>
             </div>
 
+            <div style={{...styles.sectionCard, background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)'}}>
+              <h3 style={{...styles.sectionTitle, color: '#fbbf24'}}>macOS Security Warning</h3>
+              <p style={{color: '#94a3b8', marginBottom: '12px', lineHeight: '1.6'}}>
+                When you first open the app, macOS may show a warning that says: <em>"Apple could not verify 'Meeting Scraper' is free of malware"</em>
+              </p>
+              <p style={{color: '#94a3b8', marginBottom: '16px', lineHeight: '1.6'}}>
+                This happens because the app is distributed outside the Mac App Store. To open it:
+              </p>
+              <ol style={styles.list}>
+                <li><strong>Right-click</strong> (or Control-click) on Meeting Scraper in your Applications folder</li>
+                <li>Select <strong>"Open"</strong> from the context menu</li>
+                <li>Click <strong>"Open"</strong> in the dialog that appears</li>
+              </ol>
+              <p style={{color: '#64748b', marginTop: '16px', fontSize: '0.9rem', lineHeight: '1.6'}}>
+                You only need to do this once. After that, the app will open normally.
+              </p>
+            </div>
+
             <div style={styles.sectionCard}>
               <h3 style={styles.sectionTitle}>System Requirements</h3>
               <ul style={styles.list}>
