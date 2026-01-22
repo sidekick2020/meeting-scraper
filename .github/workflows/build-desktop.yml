@@ -3,21 +3,158 @@ name: Build Desktop App
 on:
   push:
     tags:
-      - 'v*'
-      - 'mac-v*'
+      - 'v*'        # Release builds (with notarization)
+      - 'mac-v*'    # Test builds (skip notarization for speed)
   workflow_dispatch:
     inputs:
       version:
         description: 'Version (e.g., 1.0.0)'
         required: false
         default: '1.0.0'
+      build_mode:
+        description: 'Build mode'
+        required: false
+        default: 'universal'
+        type: choice
+        options:
+          - universal
+          - separate
+      skip_notarization:
+        description: 'Skip notarization (faster test builds)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
 
+env:
+  # Skip notarization for mac-v* tags (test builds) or if explicitly requested
+  SKIP_NOTARIZATION: ${{ startsWith(github.ref, 'refs/tags/mac-v') || github.event.inputs.skip_notarization == 'true' }}
+
 jobs:
-  # Build ARM64 and Intel in parallel using matrix strategy
-  build-mac:
+  # Determine build strategy
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      build_mode: ${{ steps.config.outputs.build_mode }}
+      version: ${{ steps.config.outputs.version }}
+      skip_notarization: ${{ steps.config.outputs.skip_notarization }}
+    steps:
+      - name: Configure build
+        id: config
+        run: |
+          # Determine version
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            VERSION="${TAG#v}"
+            VERSION="${VERSION#mac-v}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Determine build mode (default to universal for faster builds)
+          if [ "${{ github.event.inputs.build_mode }}" != "" ]; then
+            BUILD_MODE="${{ github.event.inputs.build_mode }}"
+          else
+            BUILD_MODE="universal"
+          fi
+          echo "build_mode=$BUILD_MODE" >> $GITHUB_OUTPUT
+
+          # Determine if we should skip notarization
+          if [[ "${{ github.ref }}" == refs/tags/mac-v* ]] || [ "${{ github.event.inputs.skip_notarization }}" = "true" ]; then
+            echo "skip_notarization=true" >> $GITHUB_OUTPUT
+            echo "⚡ Notarization will be SKIPPED (test build)"
+          else
+            echo "skip_notarization=false" >> $GITHUB_OUTPUT
+            echo "🔐 Notarization will be performed (release build)"
+          fi
+
+          echo "Version: $VERSION"
+          echo "Build mode: $BUILD_MODE"
+
+  # Universal build - single binary for both architectures (fastest)
+  build-universal:
+    needs: setup
+    if: needs.setup.outputs.build_mode == 'universal'
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: desktop/node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('desktop/package.json') }}
+          restore-keys: |
+            node-modules-${{ runner.os }}-
+
+      - name: Cache Electron binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/electron
+          key: electron-${{ runner.os }}-universal-${{ hashFiles('desktop/package.json') }}
+          restore-keys: |
+            electron-${{ runner.os }}-universal-
+            electron-${{ runner.os }}-
+
+      - name: Install dependencies
+        working-directory: desktop
+        run: npm install
+
+      - name: Update package.json version
+        working-directory: desktop
+        run: npm version ${{ needs.setup.outputs.version }} --no-git-tag-version --allow-same-version
+
+      - name: Import Code Signing Certificate
+        env:
+          MAC_CERTIFICATE: ${{ secrets.MAC_CERTIFICATE }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          echo "$MAC_CERTIFICATE" | base64 --decode > $RUNNER_TEMP/certificate.p12
+          security import $RUNNER_TEMP/certificate.p12 -P "$MAC_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH login.keychain
+          security find-identity -v $KEYCHAIN_PATH
+
+      - name: Build Universal Mac App
+        working-directory: desktop
+        run: npx electron-builder --mac --universal
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SKIP_NOTARIZATION: ${{ needs.setup.outputs.skip_notarization }}
+
+      - name: List built files
+        working-directory: desktop/dist
+        run: ls -la
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-universal
+          path: desktop/dist/*.dmg
+          retention-days: 1
+
+  # Separate builds - ARM64 and Intel in parallel (larger downloads, but architecture-specific)
+  build-separate:
+    needs: setup
+    if: needs.setup.outputs.build_mode == 'separate'
     runs-on: macos-latest
     strategy:
       matrix:
@@ -28,23 +165,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Get version
-        id: get_version
-        run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-            VERSION="${TAG#v}"
-            VERSION="${VERSION#mac-v}"
-          else
-            VERSION="${{ github.event.inputs.version }}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: desktop/node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('desktop/package.json') }}
+          restore-keys: |
+            node-modules-${{ runner.os }}-
 
       - name: Cache Electron binaries
         uses: actions/cache@v4
@@ -53,14 +185,7 @@ jobs:
           key: electron-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('desktop/package.json') }}
           restore-keys: |
             electron-${{ runner.os }}-${{ matrix.arch }}-
-
-      - name: Cache npm dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: npm-${{ runner.os }}-${{ hashFiles('desktop/package.json') }}
-          restore-keys: |
-            npm-${{ runner.os }}-
+            electron-${{ runner.os }}-
 
       - name: Install dependencies
         working-directory: desktop
@@ -68,32 +193,22 @@ jobs:
 
       - name: Update package.json version
         working-directory: desktop
-        run: |
-          npm version ${{ steps.get_version.outputs.version }} --no-git-tag-version --allow-same-version
+        run: npm version ${{ needs.setup.outputs.version }} --no-git-tag-version --allow-same-version
 
       - name: Import Code Signing Certificate
         env:
           MAC_CERTIFICATE: ${{ secrets.MAC_CERTIFICATE }}
           MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
         run: |
-          # Create temp keychain
           KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
           KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
-
-          # Create and configure keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
-          # Import certificate
           echo "$MAC_CERTIFICATE" | base64 --decode > $RUNNER_TEMP/certificate.p12
           security import $RUNNER_TEMP/certificate.p12 -P "$MAC_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
-          # Add to search list
           security list-keychain -d user -s $KEYCHAIN_PATH login.keychain
-
-          # Verify
           security find-identity -v $KEYCHAIN_PATH
 
       - name: Build Mac App (${{ matrix.arch }})
@@ -104,6 +219,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SKIP_NOTARIZATION: ${{ needs.setup.outputs.skip_notarization }}
 
       - name: List built files
         working-directory: desktop/dist
@@ -116,25 +232,13 @@ jobs:
           path: desktop/dist/*.dmg
           retention-days: 1
 
-  # Collect artifacts from parallel builds and upload to release
+  # Collect artifacts and upload to release
   release:
-    needs: build-mac
+    needs: [setup, build-universal, build-separate]
+    if: always() && (needs.build-universal.result == 'success' || needs.build-separate.result == 'success')
     runs-on: ubuntu-latest
 
     steps:
-      - name: Get version
-        id: get_version
-        run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-            VERSION="${TAG#v}"
-            VERSION="${VERSION#mac-v}"
-          else
-            VERSION="${{ github.event.inputs.version }}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
       - name: Download all DMG artifacts
         uses: actions/download-artifact@v4
         with:
@@ -145,28 +249,39 @@ jobs:
       - name: List downloaded files
         run: ls -la dist/
 
+      - name: Determine release notes
+        id: notes
+        run: |
+          if [ "${{ needs.setup.outputs.skip_notarization }}" = "true" ]; then
+            echo "suffix=⚠️ **Test Build** - Not notarized. Users may see Gatekeeper warnings." >> $GITHUB_OUTPUT
+          else
+            echo "suffix=✅ **Signed and Notarized** - Ready for distribution." >> $GITHUB_OUTPUT
+          fi
+
       - name: Upload DMGs to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: "Meeting Scraper v${{ steps.get_version.outputs.version }}"
+          name: "Meeting Scraper v${{ needs.setup.outputs.version }}"
           body: |
-            ## Meeting Scraper Desktop App v${{ steps.get_version.outputs.version }}
+            ## Meeting Scraper Desktop App v${{ needs.setup.outputs.version }}
+
+            ${{ steps.notes.outputs.suffix }}
 
             ### Downloads
-            - **Apple Silicon (M1/M2/M3)**: `Meeting-Scraper-*-arm64.dmg`
-            - **Intel Mac**: `Meeting-Scraper-*-x64.dmg`
+            - **Universal (Apple Silicon + Intel)**: `Meeting-Scraper-*-universal.dmg`
+            - **Apple Silicon only (M1/M2/M3)**: `Meeting-Scraper-*-arm64.dmg`
+            - **Intel only**: `Meeting-Scraper-*-x64.dmg`
 
             ### Installation
-            1. Download the DMG for your Mac type
+            1. Download the DMG for your Mac
             2. Open the DMG file
             3. Drag Meeting Scraper to Applications
             4. Open from Applications
 
             ### What's New
-            - Signed and notarized for seamless installation
             - Native Mac app for Meeting Scraper
             - Connects to live production data
           files: |
             dist/*.dmg
-          fail_on_unmatched_files: true
+          fail_on_unmatched_files: false

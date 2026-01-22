@@ -1,4 +1,5 @@
-**Optimized Mac Build Workflow**: Reduced build time by ~50% through parallel architecture builds
-- ARM64 and Intel builds now run in parallel instead of sequentially
-- Added Electron binary caching to speed up subsequent builds
-- Added npm dependency caching for faster installs
+**Optimized Mac Build Workflow**: Significantly faster Mac builds with multiple improvements
+- Universal binary option: Single build for both Apple Silicon and Intel (one notarization instead of two)
+- Conditional notarization: `mac-v*` tags skip notarization for fast test builds (~5 min vs ~30 min)
+- Improved caching: Direct node_modules caching for faster installs
+- Workflow dispatch options: Choose build mode and skip notarization manually
