@@ -16,7 +16,7 @@
     "start": "react-scripts start",
     "prebuild": "node scripts/generate-version.js",
     "build": "react-scripts build",
-    "postbuild": "mkdir -p build/docs && cp build/index.html build/docs/index.html",
+    "postbuild": "mkdir -p build/docs build/download && cp build/index.html build/docs/index.html && cp build/index.html build/download/index.html",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
