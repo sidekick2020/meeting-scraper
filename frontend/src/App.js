@@ -7,6 +7,7 @@ import MeetingsExplorer from './components/MeetingsExplorer';
 import AdminPanel from './components/AdminPanel';
 import DeploymentIndicator from './components/DeploymentIndicator';
 import DevDocs from './components/DevDocs';
+import DownloadPage from './components/DownloadPage';
 import LoadingOverlay from './components/LoadingOverlay';
 
 function SignInModal({ onClose }) {
@@ -130,6 +131,7 @@ function App() {
         <AuthProvider>
           <Routes>
             <Route path="/docs" element={<DocsPage />} />
+            <Route path="/download" element={<DownloadPage />} />
             <Route path="/*" element={<AppContent />} />
           </Routes>
         </AuthProvider>

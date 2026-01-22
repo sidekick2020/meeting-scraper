@@ -32,6 +32,10 @@ services:
       - type: rewrite
         source: /docs/*
         destination: /index.html
+      # Download page route
+      - type: rewrite
+        source: /download
+        destination: /index.html
       # Catch-all for all other SPA routes
       - type: rewrite
         source: /*
