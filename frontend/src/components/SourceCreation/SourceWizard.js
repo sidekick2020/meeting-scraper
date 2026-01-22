@@ -133,6 +133,14 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
     setCurrentStep('test');
   };
 
+  // Skip to manual entry
+  const skipToManualEntry = () => {
+    setSourceName('');
+    setSourceUrl('');
+    setFeedType('auto');
+    setCurrentStep('test');
+  };
+
   // Placeholder: Test source
   const testSource = async () => {
     if (!sourceUrl) return;
@@ -372,6 +380,27 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
           )}
         </div>
       )}
+
+      {/* Manual Entry Option */}
+      <div className="manual-entry-section">
+        <div className="manual-entry-divider">
+          <span>or</span>
+        </div>
+        <button
+          className="btn btn-ghost manual-entry-btn"
+          onClick={skipToManualEntry}
+          disabled={!selectedState || isDiscovering}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+          Enter Source Details Manually
+        </button>
+        <p className="manual-entry-hint">
+          Already have a feed URL? Skip discovery and enter the details directly.
+        </p>
+      </div>
     </div>
   );
 

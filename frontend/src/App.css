@@ -19058,6 +19058,62 @@ a.sidebar-nav-item {
   color: var(--accent-primary);
 }
 
+/* Manual Entry Section */
+.manual-entry-section {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+}
+
+.manual-entry-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.manual-entry-divider::before,
+.manual-entry-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-light);
+}
+
+.manual-entry-divider span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.manual-entry-btn {
+  width: 100%;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  border: 1px dashed var(--border-light);
+  border-radius: 0.5rem;
+  transition: all 0.15s ease;
+}
+
+.manual-entry-btn:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: rgba(47, 93, 255, 0.05);
+}
+
+.manual-entry-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.manual-entry-hint {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 /* Test Step */
 .source-form {
   margin-bottom: 1.5rem;
