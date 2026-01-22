@@ -8416,7 +8416,9 @@ a.sidebar-nav-item {
 /* Load More Container */
 .load-more-container {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
   padding: 2rem 0;
   margin-top: 1rem;
 }
@@ -8442,6 +8444,82 @@ a.sidebar-nav-item {
   border-top-color: var(--accent-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
+}
+
+/* Loading Progress Bar */
+.loading-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 300px;
+}
+
+.loading-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--surface-secondary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.loading-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), #10b981);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.loading-progress-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Network Speed Indicators */
+.network-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
+
+.network-speed-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  background: var(--surface-secondary);
+}
+
+.network-speed-indicator::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.network-speed-indicator.very-fast::before,
+.network-speed-indicator.fast::before {
+  background: #10b981;
+}
+
+.network-speed-indicator.medium::before {
+  background: #f59e0b;
+}
+
+.network-speed-indicator.slow::before,
+.network-speed-indicator.very-slow::before {
+  background: #ef4444;
+}
+
+.batch-size-info {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  background: var(--surface-secondary);
 }
 
 /* Mobile Responsive Filter Modal */
