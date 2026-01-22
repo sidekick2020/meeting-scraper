@@ -169,6 +169,7 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
   const fetchHeatmapData = useCallback(async (forceRefresh = false) => {
     const bounds = map.getBounds();
     const zoom = map.getZoom();
+    const center = map.getCenter();
 
     // At very low zoom, we use pre-fetched state data, no need to fetch clusters
     if (zoom < STATE_ZOOM_THRESHOLD) {
@@ -186,14 +187,14 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
       hybrid: currentFilters.hybrid
     });
 
-    // Create a cache key to avoid duplicate fetches
-    const cacheKey = `${zoom}-${bounds.getNorth().toFixed(2)}-${bounds.getSouth().toFixed(2)}-${bounds.getEast().toFixed(2)}-${bounds.getWest().toFixed(2)}-${filterStr}`;
+    // Create a cache key to avoid duplicate fetches (include center for prioritization)
+    const cacheKey = `${zoom}-${bounds.getNorth().toFixed(2)}-${bounds.getSouth().toFixed(2)}-${bounds.getEast().toFixed(2)}-${bounds.getWest().toFixed(2)}-${center.lat.toFixed(3)}-${center.lng.toFixed(3)}-${filterStr}`;
     if (!forceRefresh && lastFetchRef.current === cacheKey) return;
     lastFetchRef.current = cacheKey;
 
     try {
       onLoadingChange?.(true);
-      let url = `${BACKEND_URL}/api/meetings/heatmap?zoom=${zoom}&north=${bounds.getNorth()}&south=${bounds.getSouth()}&east=${bounds.getEast()}&west=${bounds.getWest()}`;
+      let url = `${BACKEND_URL}/api/meetings/heatmap?zoom=${zoom}&north=${bounds.getNorth()}&south=${bounds.getSouth()}&east=${bounds.getEast()}&west=${bounds.getWest()}&center_lat=${center.lat}&center_lng=${center.lng}`;
 
       // Add filter parameters
       if (currentFilters.day !== undefined && currentFilters.day !== null) {
@@ -235,16 +236,19 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
     const handleMoveEnd = () => {
       const zoom = map.getZoom();
       const bounds = map.getBounds();
+      const center = map.getCenter();
       onZoomChange(zoom);
 
-      // Notify parent of bounds change for meeting list sync
+      // Notify parent of bounds change for meeting list sync (include center for prioritization)
       if (onBoundsChange) {
         onBoundsChange({
           north: bounds.getNorth(),
           south: bounds.getSouth(),
           east: bounds.getEast(),
           west: bounds.getWest(),
-          zoom: zoom
+          zoom: zoom,
+          center_lat: center.lat,
+          center_lng: center.lng
         });
       }
 
@@ -365,12 +369,15 @@ function MapPanHandler({ targetLocation, onPanComplete }) {
         setTimeout(() => {
           if (onPanComplete) {
             const bounds = map.getBounds();
+            const center = map.getCenter();
             onPanComplete({
               north: bounds.getNorth(),
               south: bounds.getSouth(),
               east: bounds.getEast(),
               west: bounds.getWest(),
-              zoom: map.getZoom()
+              zoom: map.getZoom(),
+              center_lat: center.lat,
+              center_lng: center.lng
             });
           }
         }, 300);

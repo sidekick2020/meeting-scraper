@@ -2,6 +2,7 @@ import os
 import time
 import json
 import threading
+import math
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
@@ -3837,6 +3838,9 @@ def get_meetings():
         south = request.args.get('south', type=float)
         east = request.args.get('east', type=float)
         west = request.args.get('west', type=float)
+        # Center point for distance-based sorting
+        center_lat = request.args.get('center_lat', type=float)
+        center_lng = request.args.get('center_lng', type=float)
 
         # Build where clause
         where = {}
@@ -3880,6 +3884,20 @@ def get_meetings():
         if response.status_code == 200:
             data = response.json()
             results = data.get("results", [])
+
+            # Sort results by distance from center point if provided
+            if center_lat is not None and center_lng is not None and results:
+                def distance_from_center(meeting):
+                    lat = meeting.get('latitude')
+                    lng = meeting.get('longitude')
+                    if lat is None or lng is None:
+                        return float('inf')
+                    # Use simple Euclidean distance adjusted for longitude compression
+                    lat_diff = lat - center_lat
+                    lng_diff = (lng - center_lng) * math.cos(math.radians(center_lat))
+                    return lat_diff * lat_diff + lng_diff * lng_diff
+
+                results.sort(key=distance_from_center)
 
             # Get total count for pagination (separate count query)
             total = len(results)
@@ -3931,6 +3949,9 @@ def get_meetings_heatmap():
         south = request.args.get('south', type=float)
         east = request.args.get('east', type=float)
         west = request.args.get('west', type=float)
+        # Center point for distance-based sorting
+        center_lat = request.args.get('center_lat', type=float)
+        center_lng = request.args.get('center_lng', type=float)
         # Filter parameters
         day_filter = request.args.get('day', type=int)
         type_filter = request.args.get('type')
@@ -3996,6 +4017,22 @@ def get_meetings_heatmap():
             if response.status_code == 200:
                 data = response.json()
                 meetings = data.get("results", [])
+
+                # Sort meetings by distance from center point if provided
+                if center_lat is not None and center_lng is not None and meetings:
+                    def distance_from_center(meeting):
+                        lat = meeting.get('latitude')
+                        lng = meeting.get('longitude')
+                        if lat is None or lng is None:
+                            return float('inf')
+                        # Use simple Euclidean distance (sufficient for small areas at high zoom)
+                        # Adjust for longitude compression at latitude
+                        lat_diff = lat - center_lat
+                        lng_diff = (lng - center_lng) * math.cos(math.radians(center_lat))
+                        return lat_diff * lat_diff + lng_diff * lng_diff
+
+                    meetings.sort(key=distance_from_center)
+
                 return jsonify({
                     "clusters": [],
                     "meetings": meetings,
