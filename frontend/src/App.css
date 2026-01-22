@@ -3749,6 +3749,118 @@ a.sidebar-nav-item {
   font-size: 0.875rem;
 }
 
+.sources-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.sources-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+  flex: 1;
+  min-width: 200px;
+  max-width: 400px;
+}
+
+.sources-search svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.sources-search input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.sources-search input::placeholder {
+  color: var(--text-muted);
+}
+
+.sources-search:focus-within {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.search-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  transition: all 0.15s ease;
+}
+
+.search-clear-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.sources-filter {
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  min-width: 160px;
+}
+
+.sources-filter:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.sources-count {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.source-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.source-meta-divider {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.source-last-scraped {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.source-last-scraped.stale {
+  color: #f59e0b;
+}
+
+.status-badge.status-stale {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
 .sources-list {
   display: flex;
   flex-direction: column;
@@ -13040,6 +13152,44 @@ a.sidebar-nav-item {
 /* Light Mode: Sources Hint */
 [data-theme="light"] .sources-hint {
   color: #4b5563;
+}
+
+/* Light Mode: Sources Search and Filter */
+[data-theme="light"] .sources-search {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+[data-theme="light"] .sources-search input {
+  color: #111827;
+}
+
+[data-theme="light"] .sources-search input::placeholder {
+  color: #6b7280;
+}
+
+[data-theme="light"] .sources-search:focus-within {
+  border-color: #1a4fd8;
+  box-shadow: 0 0 0 2px rgba(26, 79, 216, 0.1);
+}
+
+[data-theme="light"] .sources-search svg {
+  color: #6b7280;
+}
+
+[data-theme="light"] .sources-filter {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #111827;
+}
+
+[data-theme="light"] .sources-filter:focus {
+  border-color: #1a4fd8;
+  box-shadow: 0 0 0 2px rgba(26, 79, 216, 0.1);
+}
+
+[data-theme="light"] .search-clear-btn:hover {
+  background: #e5e7eb;
 }
 
 /* Light Mode: Badge for Unknown Types */
