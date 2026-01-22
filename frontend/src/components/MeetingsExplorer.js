@@ -1242,6 +1242,22 @@ function MeetingsExplorer({ onAdminClick }) {
     fetchMeetings({ stateFilter: selectedStates.length > 0 ? selectedStates : undefined });
   };
 
+  // Handle city dropdown selection - pans map immediately
+  const handleCityChange = (city) => {
+    setSelectedCity(city);
+    if (city) {
+      // Find a meeting with coordinates for this city to pan the map
+      const meetingWithCoords = meetings.find(m => m.city === city && m.latitude && m.longitude);
+      if (meetingWithCoords) {
+        setTargetLocation({
+          lat: meetingWithCoords.latitude,
+          lng: meetingWithCoords.longitude,
+          zoom: 12
+        });
+      }
+    }
+  };
+
   // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -1777,7 +1793,7 @@ function MeetingsExplorer({ onAdminClick }) {
           {selectedStates.length > 0 && (
             <select
               value={selectedCity}
-              onChange={(e) => setSelectedCity(e.target.value)}
+              onChange={(e) => handleCityChange(e.target.value)}
               className="filter-chip-select"
             >
               <option value="">All Cities</option>
@@ -2211,7 +2227,7 @@ function MeetingsExplorer({ onAdminClick }) {
                   {selectedStates.length > 0 && (
                     <select
                       value={selectedCity}
-                      onChange={(e) => setSelectedCity(e.target.value)}
+                      onChange={(e) => handleCityChange(e.target.value)}
                       className="filter-select"
                     >
                       <option value="">All Cities</option>
