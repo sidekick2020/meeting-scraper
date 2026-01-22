@@ -1,6 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 
+const dayAbbrev = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Meeting type definitions with icons
+const MEETING_TYPES = {
+  'AA': { name: 'Alcoholics Anonymous', shortName: 'Alcohol' },
+  'NA': { name: 'Narcotics Anonymous', shortName: 'Narcotics' },
+  'CA': { name: 'Cocaine Anonymous', shortName: 'Cocaine' },
+  'MA': { name: 'Marijuana Anonymous', shortName: 'Marijuana' },
+  'OA': { name: 'Overeaters Anonymous', shortName: 'Overeating' },
+  'GA': { name: 'Gamblers Anonymous', shortName: 'Gambling' },
+  'Al-Anon': { name: 'Al-Anon Family Groups', shortName: 'Family Support' },
+  'SLAA': { name: 'Sex & Love Addicts Anonymous', shortName: 'Sex & Love' },
+  'HA': { name: 'Heroin Anonymous', shortName: 'Heroin' },
+  'SA': { name: 'Sexaholics Anonymous', shortName: 'Sex Addiction' },
+  'CMA': { name: 'Crystal Meth Anonymous', shortName: 'Meth' },
+  'ACA': { name: 'Adult Children of Alcoholics', shortName: 'Adult Children' },
+  'Other': { name: 'Other Programs', shortName: 'Other' },
+};
+
 // Hamburger toggle button component - can be used in headers
 export function SidebarToggleButton({ isOpen, onClick, className = '' }) {
   return (
@@ -28,7 +47,13 @@ export function SidebarToggleButton({ isOpen, onClick, className = '' }) {
   );
 }
 
-function PublicSidebar({ onAdminClick, isOpen: externalIsOpen, onToggle }) {
+function PublicSidebar({
+  onAdminClick,
+  isOpen: externalIsOpen,
+  onToggle,
+  // Mobile navigation props
+  mobileNav = null
+}) {
   // Use external state if provided, otherwise manage internally
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isControlled = externalIsOpen !== undefined;
@@ -37,6 +62,9 @@ function PublicSidebar({ onAdminClick, isOpen: externalIsOpen, onToggle }) {
 
   const { toggleTheme, isDark } = useTheme();
   const sidebarRef = useRef(null);
+
+  // Expand/collapse state for mobile nav sections
+  const [expandedSection, setExpandedSection] = useState(null);
 
   // Close sidebar when clicking outside
   useEffect(() => {
@@ -117,6 +145,245 @@ function PublicSidebar({ onAdminClick, isOpen: externalIsOpen, onToggle }) {
         </div>
 
         <div className="public-sidebar-content">
+          {/* Mobile Navigation - Search & Filters (only shown when mobileNav is provided) */}
+          {mobileNav && (
+            <>
+              {/* Search Section */}
+              <div className="public-sidebar-section mobile-nav-section">
+                <div className="public-sidebar-section-title">Search</div>
+                <div className="mobile-search-input">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search locations..."
+                    value={mobileNav.searchQuery || ''}
+                    onChange={(e) => mobileNav.onSearchChange?.(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && mobileNav.onSearchSubmit?.()}
+                  />
+                  {mobileNav.searchQuery && (
+                    <button
+                      className="mobile-search-clear"
+                      onClick={() => mobileNav.onSearchChange?.('')}
+                      aria-label="Clear search"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Filters */}
+              <div className="public-sidebar-section mobile-nav-section">
+                <div className="public-sidebar-section-title">Quick Filters</div>
+                <div className="mobile-quick-filters">
+                  <button
+                    className={`mobile-filter-chip ${mobileNav.showTodayOnly ? 'active' : ''}`}
+                    onClick={() => mobileNav.onTodayToggle?.()}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                      <line x1="16" y1="2" x2="16" y2="6"/>
+                      <line x1="8" y1="2" x2="8" y2="6"/>
+                      <line x1="3" y1="10" x2="21" y2="10"/>
+                      <circle cx="12" cy="15" r="2" fill="currentColor"/>
+                    </svg>
+                    <span>Today</span>
+                  </button>
+                  <button
+                    className={`mobile-filter-chip ${mobileNav.showOnlineOnly ? 'active' : ''}`}
+                    onClick={() => mobileNav.onOnlineToggle?.()}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="2" y="3" width="20" height="14" rx="2"/>
+                      <path d="M8 21h8"/>
+                      <path d="M12 17v4"/>
+                    </svg>
+                    <span>Online</span>
+                  </button>
+                  <button
+                    className={`mobile-filter-chip ${mobileNav.showHybridOnly ? 'active' : ''}`}
+                    onClick={() => mobileNav.onHybridToggle?.()}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                      <rect x="16" y="11" width="6" height="8" rx="1"/>
+                    </svg>
+                    <span>Hybrid</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Days Filter */}
+              <div className="public-sidebar-section mobile-nav-section">
+                <button
+                  className="public-sidebar-expand-header"
+                  onClick={() => setExpandedSection(expandedSection === 'days' ? null : 'days')}
+                >
+                  <div className="expand-header-left">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                      <line x1="16" y1="2" x2="16" y2="6"/>
+                      <line x1="8" y1="2" x2="8" y2="6"/>
+                      <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    <span>Days</span>
+                    {mobileNav.selectedDays?.length > 0 && (
+                      <span className="filter-count">{mobileNav.selectedDays.length}</span>
+                    )}
+                  </div>
+                  <svg className={`expand-chevron ${expandedSection === 'days' ? 'expanded' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </button>
+                {expandedSection === 'days' && (
+                  <div className="mobile-filter-content">
+                    <div className="mobile-days-grid">
+                      {dayAbbrev.map((day, index) => (
+                        <button
+                          key={day}
+                          className={`mobile-day-chip ${mobileNav.selectedDays?.includes(index) ? 'selected' : ''}`}
+                          onClick={() => mobileNav.onDayToggle?.(index)}
+                        >
+                          {day}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mobile-day-presets">
+                      <button onClick={() => mobileNav.onDaysPreset?.([1, 2, 3, 4, 5])}>Weekdays</button>
+                      <button onClick={() => mobileNav.onDaysPreset?.([0, 6])}>Weekends</button>
+                      <button onClick={() => mobileNav.onDaysPreset?.([0, 1, 2, 3, 4, 5, 6])}>All</button>
+                      {mobileNav.selectedDays?.length > 0 && (
+                        <button className="clear-btn" onClick={() => mobileNav.onDaysPreset?.([])}>Clear</button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Meeting Types Filter */}
+              <div className="public-sidebar-section mobile-nav-section">
+                <button
+                  className="public-sidebar-expand-header"
+                  onClick={() => setExpandedSection(expandedSection === 'types' ? null : 'types')}
+                >
+                  <div className="expand-header-left">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <span>Meeting Type</span>
+                    {mobileNav.selectedTypes?.length > 0 && (
+                      <span className="filter-count">{mobileNav.selectedTypes.length}</span>
+                    )}
+                  </div>
+                  <svg className={`expand-chevron ${expandedSection === 'types' ? 'expanded' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </button>
+                {expandedSection === 'types' && (
+                  <div className="mobile-filter-content">
+                    <div className="mobile-types-list">
+                      {(mobileNav.availableTypes || Object.keys(MEETING_TYPES)).map(type => (
+                        <button
+                          key={type}
+                          className={`mobile-type-item ${mobileNav.selectedTypes?.includes(type) ? 'selected' : ''}`}
+                          onClick={() => mobileNav.onTypeToggle?.(type)}
+                        >
+                          <span className="type-name">{type}</span>
+                          <span className="type-full-name">{MEETING_TYPES[type]?.name || type}</span>
+                          {mobileNav.selectedTypes?.includes(type) && (
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    {mobileNav.selectedTypes?.length > 0 && (
+                      <button className="mobile-clear-filter" onClick={() => mobileNav.onClearTypes?.()}>
+                        Clear Types
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* States Filter */}
+              {mobileNav.availableStates?.length > 0 && (
+                <div className="public-sidebar-section mobile-nav-section">
+                  <button
+                    className="public-sidebar-expand-header"
+                    onClick={() => setExpandedSection(expandedSection === 'states' ? null : 'states')}
+                  >
+                    <div className="expand-header-left">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                        <circle cx="12" cy="10" r="3"/>
+                      </svg>
+                      <span>State</span>
+                      {mobileNav.selectedStates?.length > 0 && (
+                        <span className="filter-count">{mobileNav.selectedStates.length}</span>
+                      )}
+                    </div>
+                    <svg className={`expand-chevron ${expandedSection === 'states' ? 'expanded' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </button>
+                  {expandedSection === 'states' && (
+                    <div className="mobile-filter-content">
+                      <div className="mobile-states-list">
+                        {mobileNav.availableStates.map(state => (
+                          <button
+                            key={state}
+                            className={`mobile-state-item ${mobileNav.selectedStates?.includes(state) ? 'selected' : ''}`}
+                            onClick={() => mobileNav.onStateToggle?.(state)}
+                          >
+                            <span>{state}</span>
+                            {mobileNav.selectedStates?.includes(state) && (
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="20 6 9 17 4 12"/>
+                              </svg>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      {mobileNav.selectedStates?.length > 0 && (
+                        <button className="mobile-clear-filter" onClick={() => mobileNav.onClearStates?.()}>
+                          Clear States
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Clear All Filters */}
+              {mobileNav.hasActiveFilters && (
+                <div className="public-sidebar-section mobile-nav-section">
+                  <button
+                    className="mobile-clear-all-filters"
+                    onClick={() => mobileNav.onClearAllFilters?.()}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                    <span>Clear All Filters</span>
+                  </button>
+                </div>
+              )}
+
+              <div className="mobile-nav-divider" />
+            </>
+          )}
+
           {/* Theme Toggle */}
           <div className="public-sidebar-section">
             <div className="public-sidebar-section-title">Appearance</div>

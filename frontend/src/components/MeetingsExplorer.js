@@ -171,7 +171,7 @@ const MeetingTypeIcon = ({ type, size = 16 }) => {
   return iconMap[iconKey] || iconMap.circle;
 };
 
-function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
+function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   // Data cache context for persisting data across navigation
   const { getCache, setCache } = useDataCache();
 
@@ -924,7 +924,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
     setSelectedCity('');
   }, [selectedStates, meetings]);
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setSearchQuery('');
     setSelectedStates([]);
     setSelectedCity('');
@@ -935,7 +935,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
     setShowHybridOnly(false);
     setSelectedFormat('');
     setSelectedAccessibility([]);
-  };
+  }, []);
 
   // Toggle functions for multi-select
   const toggleDay = (day) => {
@@ -992,6 +992,76 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
   };
 
   const hasActiveFilters = searchQuery || selectedStates.length > 0 || selectedCity || selectedDays.length > 0 || selectedTypes.length > 0 || showOnlineOnly || showTodayOnly || showHybridOnly || selectedFormat || selectedAccessibility.length > 0;
+
+  // Expose mobile navigation state to parent for sidebar menu
+  useEffect(() => {
+    if (onMobileNavChange) {
+      onMobileNavChange({
+        // Search
+        searchQuery,
+        onSearchChange: setSearchQuery,
+        onSearchSubmit: () => {
+          // Trigger search/filter update
+          setCurrentPage(0);
+        },
+        // Quick filters
+        showTodayOnly,
+        onTodayToggle: () => setShowTodayOnly(prev => !prev),
+        showOnlineOnly,
+        onOnlineToggle: () => setShowOnlineOnly(prev => !prev),
+        showHybridOnly,
+        onHybridToggle: () => setShowHybridOnly(prev => !prev),
+        // Days
+        selectedDays,
+        onDayToggle: (dayIndex) => {
+          setSelectedDays(prev =>
+            prev.includes(dayIndex)
+              ? prev.filter(d => d !== dayIndex)
+              : [...prev, dayIndex]
+          );
+        },
+        onDaysPreset: (days) => setSelectedDays(days),
+        // Types
+        selectedTypes,
+        availableTypes,
+        onTypeToggle: (type) => {
+          setSelectedTypes(prev =>
+            prev.includes(type)
+              ? prev.filter(t => t !== type)
+              : [...prev, type]
+          );
+        },
+        onClearTypes: () => setSelectedTypes([]),
+        // States
+        selectedStates,
+        availableStates,
+        onStateToggle: (state) => {
+          setSelectedStates(prev =>
+            prev.includes(state)
+              ? prev.filter(s => s !== state)
+              : [...prev, state]
+          );
+        },
+        onClearStates: () => setSelectedStates([]),
+        // Clear all
+        hasActiveFilters,
+        onClearAllFilters: clearFilters,
+      });
+    }
+  }, [
+    onMobileNavChange,
+    searchQuery,
+    showTodayOnly,
+    showOnlineOnly,
+    showHybridOnly,
+    selectedDays,
+    selectedTypes,
+    availableTypes,
+    selectedStates,
+    availableStates,
+    hasActiveFilters,
+    clearFilters
+  ]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
