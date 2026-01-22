@@ -1379,72 +1379,87 @@ function AdminPanel({ onBackToPublic }) {
         <DevDocs onClose={() => setShowDocs(false)} />
       )}
 
+      {/* Scrape Choice Sidebar Overlay */}
       {showScrapeChoiceModal && (
-        <div className="modal-overlay">
-          <div className="modal scrape-choice-modal">
-            {scrapingState.is_running ? (
-              <>
-                <h2>Scraper Currently Running</h2>
-                <p className="scrape-choice-info">
-                  A scrape is currently in progress.
-                </p>
-                <div className="scrape-choice-stats">
-                  <div className="stat-item">
-                    <span className="stat-value">{scrapingState.total_found}</span>
-                    <span className="stat-label">found</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-value">{scrapingState.total_saved}</span>
-                    <span className="stat-label">saved</span>
-                  </div>
-                </div>
-                <p className="scrape-choice-question">What would you like to do?</p>
-                <div className="scrape-choice-buttons">
-                  <button onClick={() => { stopScraping(); setShowScrapeChoiceModal(false); }} className="btn btn-danger">
-                    Stop Current Scrape
-                  </button>
-                  <button onClick={() => { stopScraping(); setShouldAbandonOld(true); setShowScrapeChoiceModal(false); setShowFeedSelector(true); }} className="btn btn-secondary">
-                    Cancel &amp; Start New
-                  </button>
-                  <button onClick={() => setShowScrapeChoiceModal(false)} className="btn btn-ghost">
-                    Keep Running
-                  </button>
-                </div>
-              </>
-            ) : unfinishedScrape ? (
-              <>
-                <h2>Unfinished Scrape Detected</h2>
-                <p className="scrape-choice-info">
-                  There's an unfinished scrape from{' '}
-                  <strong>{new Date(unfinishedScrape.started_at).toLocaleString()}</strong>
-                </p>
-                <div className="scrape-choice-stats">
-                  <div className="stat-item">
-                    <span className="stat-value">{unfinishedScrape.feeds_processed}</span>
-                    <span className="stat-label">of {unfinishedScrape.total_feeds || 3} feeds</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-value">{unfinishedScrape.total_saved}</span>
-                    <span className="stat-label">meetings saved</span>
-                  </div>
-                </div>
-                <p className="scrape-choice-question">What would you like to do?</p>
-                <div className="scrape-choice-buttons">
-                  <button onClick={resumeScraping} className="btn btn-primary">
-                    Resume Previous Scrape
-                  </button>
-                  <button onClick={() => { setShouldAbandonOld(true); setShowScrapeChoiceModal(false); setShowFeedSelector(true); }} className="btn btn-secondary">
-                    Start New Scrape
-                  </button>
-                  <button onClick={() => setShowScrapeChoiceModal(false)} className="btn btn-ghost">
-                    Cancel
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </div>
-        </div>
+        <div className="sidebar-overlay" onClick={() => setShowScrapeChoiceModal(false)} />
       )}
+
+      {/* Scrape Choice Sidebar */}
+      <div className={`scrape-choice-sidebar ${showScrapeChoiceModal ? 'open' : ''}`}>
+        <div className="scrape-choice-sidebar-header">
+          <h2>{scrapingState.is_running ? 'Scraper Running' : 'Unfinished Scrape'}</h2>
+          <button
+            className="sidebar-close-btn"
+            onClick={() => setShowScrapeChoiceModal(false)}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <div className="scrape-choice-sidebar-content">
+          {scrapingState.is_running ? (
+            <>
+              <p className="scrape-choice-info">
+                A scrape is currently in progress.
+              </p>
+              <div className="scrape-choice-stats">
+                <div className="stat-item">
+                  <span className="stat-value">{scrapingState.total_found}</span>
+                  <span className="stat-label">found</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-value">{scrapingState.total_saved}</span>
+                  <span className="stat-label">saved</span>
+                </div>
+              </div>
+              <p className="scrape-choice-question">What would you like to do?</p>
+              <div className="scrape-choice-buttons">
+                <button onClick={() => { stopScraping(); setShowScrapeChoiceModal(false); }} className="btn btn-danger">
+                  Stop Current Scrape
+                </button>
+                <button onClick={() => { stopScraping(); setShouldAbandonOld(true); setShowScrapeChoiceModal(false); setShowFeedSelector(true); }} className="btn btn-secondary">
+                  Cancel &amp; Start New
+                </button>
+                <button onClick={() => setShowScrapeChoiceModal(false)} className="btn btn-ghost">
+                  Keep Running
+                </button>
+              </div>
+            </>
+          ) : unfinishedScrape ? (
+            <>
+              <p className="scrape-choice-info">
+                There's an unfinished scrape from{' '}
+                <strong>{new Date(unfinishedScrape.started_at).toLocaleString()}</strong>
+              </p>
+              <div className="scrape-choice-stats">
+                <div className="stat-item">
+                  <span className="stat-value">{unfinishedScrape.feeds_processed}</span>
+                  <span className="stat-label">of {unfinishedScrape.total_feeds || 3} feeds</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-value">{unfinishedScrape.total_saved}</span>
+                  <span className="stat-label">meetings saved</span>
+                </div>
+              </div>
+              <p className="scrape-choice-question">What would you like to do?</p>
+              <div className="scrape-choice-buttons">
+                <button onClick={resumeScraping} className="btn btn-primary">
+                  Resume Previous Scrape
+                </button>
+                <button onClick={() => { setShouldAbandonOld(true); setShowScrapeChoiceModal(false); setShowFeedSelector(true); }} className="btn btn-secondary">
+                  Start New Scrape
+                </button>
+                <button onClick={() => setShowScrapeChoiceModal(false)} className="btn btn-ghost">
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : null}
+        </div>
+      </div>
 
       {/* Feed Selector Sidebar */}
       <div className={`feed-selector-sidebar ${showFeedSelector ? 'open' : ''}`}>
