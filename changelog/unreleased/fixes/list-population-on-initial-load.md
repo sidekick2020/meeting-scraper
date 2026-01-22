@@ -1,0 +1,1 @@
+**Fix meeting list not populating on initial page load**: The meeting list now correctly loads and displays meetings when the page first loads, instead of showing "X meetings on map" with an empty list until user interaction.
