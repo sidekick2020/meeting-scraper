@@ -144,25 +144,24 @@ Don't confuse these - adding a CHANGELOG entry for v1.6.0 doesn't create a new A
 
 ## Mac Build Tags
 
-When providing mac build tag commands (tags matching `v*` or `mac-v*`), **always include the GitHub Actions link** to view the build progress:
+When providing mac build tag commands (tags matching `v*` or `mac-v*`), follow these requirements:
 
-```
-**View build progress:** https://github.com/sidekick2020/meeting-scraper/actions/workflows/build-desktop.yml
-```
+1. **Always check existing tags first** by running `git fetch --tags && git tag -l "v*" --sort=-v:refname | head -5` to find the latest version
+2. **Generate a new unused version number** - increment from the highest existing tag (e.g., if v1.24.0 exists, use v1.25.0 or mac-v1.25.0)
+3. **Always include a fetch command** before tagging to ensure the latest commits are available
+4. **Always include the GitHub Actions link** to view the build progress
 
 The "Build Desktop App" workflow runs on:
-- Tags matching `v*` (e.g., `v1.24.0`)
-- Tags matching `mac-v*` (e.g., `mac-v1.24.0`)
+- Tags matching `v*` (e.g., `v1.25.0`)
+- Tags matching `mac-v*` (e.g., `mac-v1.25.0`)
 - Manual workflow dispatch
-
-**Always include a fetch command** before tagging to ensure the latest commits are available:
 
 Example format when providing tag commands:
 
 ```
 git fetch origin <branch-name>
-git tag -a v1.24.0 <commit-hash> -m "Release v1.24.0 - Summary"
-git push origin v1.24.0
+git tag -a mac-v1.25.0 <commit-hash> -m "Release mac-v1.25.0 - Summary"
+git push origin mac-v1.25.0
 
 **View build progress:** https://github.com/sidekick2020/meeting-scraper/actions/workflows/build-desktop.yml
 ```
