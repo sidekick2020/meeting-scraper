@@ -10022,6 +10022,50 @@ a.sidebar-nav-item {
   font-size: 0.7rem;
 }
 
+/* Subtle refresh indicator - shows when cached data is displayed while fetching fresh */
+.map-refresh-indicator {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--border-light);
+  border-radius: 1rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  opacity: 0.9;
+  animation: fadeInRefresh 0.2s ease-out;
+}
+
+@keyframes fadeInRefresh {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 0.9;
+    transform: translateY(0);
+  }
+}
+
+[data-theme="dark"] .map-refresh-indicator {
+  background: rgba(30, 30, 35, 0.85);
+}
+
+/* Tiny spinner for refresh indicator */
+.loading-spinner.tiny {
+  width: 12px;
+  height: 12px;
+  border-width: 1.5px;
+}
+
 .loading-spinner-mini {
   width: 14px;
   height: 14px;

@@ -2,10 +2,41 @@ import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 const STATE_ZOOM_THRESHOLD = 6;   // Below this, show state-level bubbles
 const DETAIL_ZOOM_THRESHOLD = 13; // Above this, show individual meetings
+
+// Cache configuration for heatmap data
+const HEATMAP_CACHE_TTL = 3 * 60 * 1000; // 3 minutes - balance freshness with performance
+const HEATMAP_CACHE_PREFIX = 'heatmap:';
+
+// Generate a region-based cache key that groups nearby requests
+// This improves cache hit rates by rounding coordinates to grid cells
+const generateHeatmapCacheKey = (zoom, bounds, filters) => {
+  // Grid size varies by zoom level - larger areas at low zoom
+  const gridSize = zoom <= 6 ? 5 : zoom <= 9 ? 2 : zoom <= 11 ? 1 : 0.5;
+
+  // Round bounds to grid to increase cache hits for nearby views
+  const roundedNorth = Math.ceil(bounds.north / gridSize) * gridSize;
+  const roundedSouth = Math.floor(bounds.south / gridSize) * gridSize;
+  const roundedEast = Math.ceil(bounds.east / gridSize) * gridSize;
+  const roundedWest = Math.floor(bounds.west / gridSize) * gridSize;
+
+  // Include filters in cache key
+  const filterStr = JSON.stringify({
+    day: filters?.day,
+    type: filters?.type,
+    state: filters?.state,
+    city: filters?.city,
+    online: filters?.online,
+    hybrid: filters?.hybrid,
+    format: filters?.format
+  });
+
+  return `${HEATMAP_CACHE_PREFIX}z${zoom}:${roundedNorth},${roundedSouth},${roundedEast},${roundedWest}:${filterStr}`;
+};
 
 // Fix for default marker icons in React-Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -150,12 +181,13 @@ function HeatmapLayer({ clusters }) {
 }
 
 // Component to handle map movement events and fetch data
-function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadingChange, filters, onBoundsChange }) {
+function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadingChange, filters, onBoundsChange, cacheContext }) {
   const map = useMap();
   const fetchTimeoutRef = useRef(null);
   const lastFetchRef = useRef(null);
   const stateDataFetchedRef = useRef(false);
   const filtersRef = useRef(filters);
+  const pendingFetchRef = useRef(null);
 
   // Fetch state-level data (cached, very fast)
   const fetchStateData = useCallback(async () => {
@@ -193,19 +225,41 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
 
     // Build filter string for cache key
     const currentFilters = filtersRef.current || {};
-    const filterStr = JSON.stringify({
-      day: currentFilters.day,
-      type: currentFilters.type,
-      state: currentFilters.state,
-      city: currentFilters.city,
-      online: currentFilters.online,
-      hybrid: currentFilters.hybrid
-    });
 
-    // Create a cache key to avoid duplicate fetches (include center for prioritization)
-    const cacheKey = `${zoom}-${bounds.getNorth().toFixed(2)}-${bounds.getSouth().toFixed(2)}-${bounds.getEast().toFixed(2)}-${bounds.getWest().toFixed(2)}-${center.lat.toFixed(3)}-${center.lng.toFixed(3)}-${filterStr}`;
-    if (!forceRefresh && lastFetchRef.current === cacheKey) return;
-    lastFetchRef.current = cacheKey;
+    // Create request identifier for deduplication
+    const requestKey = `${zoom}-${bounds.getNorth().toFixed(2)}-${bounds.getSouth().toFixed(2)}-${bounds.getEast().toFixed(2)}-${bounds.getWest().toFixed(2)}-${center.lat.toFixed(3)}-${center.lng.toFixed(3)}`;
+    if (!forceRefresh && lastFetchRef.current === requestKey) return;
+    lastFetchRef.current = requestKey;
+
+    // Generate cache key for persistent storage
+    const persistentCacheKey = generateHeatmapCacheKey(zoom, {
+      north: bounds.getNorth(),
+      south: bounds.getSouth(),
+      east: bounds.getEast(),
+      west: bounds.getWest()
+    }, currentFilters);
+
+    // Check cache first - show cached data immediately
+    if (cacheContext) {
+      const cached = cacheContext.getCache(persistentCacheKey);
+      if (cached?.data) {
+        // Immediately show cached data (stale-while-revalidate pattern)
+        onDataLoaded(cached.data, true); // true indicates this is from cache
+
+        // If data is fresh (not stale), we're done
+        if (!cached.isStale && !forceRefresh) {
+          onLoadingChange?.(false);
+          return;
+        }
+        // Otherwise, continue to fetch fresh data in background
+      }
+    }
+
+    // Cancel any pending fetch for this region
+    if (pendingFetchRef.current) {
+      pendingFetchRef.current.abort();
+    }
+    pendingFetchRef.current = new AbortController();
 
     try {
       onLoadingChange?.(true);
@@ -234,18 +288,30 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
         url += `&format=${encodeURIComponent(currentFilters.format)}`;
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        signal: pendingFetchRef.current.signal
+      });
 
       if (response.ok) {
         const data = await response.json();
-        onDataLoaded(data);
+
+        // Cache the fresh data
+        if (cacheContext) {
+          cacheContext.setCache(persistentCacheKey, data, HEATMAP_CACHE_TTL);
+        }
+
+        onDataLoaded(data, false); // false indicates this is fresh data
       }
     } catch (error) {
+      if (error.name === 'AbortError') {
+        // Request was cancelled, ignore
+        return;
+      }
       console.error('Error fetching heatmap data:', error);
     } finally {
       onLoadingChange?.(false);
     }
-  }, [map, onDataLoaded, onLoadingChange]);
+  }, [map, onDataLoaded, onLoadingChange, cacheContext]);
 
   useEffect(() => {
     const handleMoveEnd = () => {
@@ -409,6 +475,10 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
   const [stateData, setStateData] = useState({ states: [], total: 0 });
   const [currentZoom, setCurrentZoom] = useState(5);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false); // True when showing cached data while fetching fresh
+
+  // Get cache context for persistent heatmap caching
+  const cacheContext = useDataCache();
 
   // Cache previous valid data to show during loading transitions
   const prevMapDataRef = useRef(null);
@@ -419,7 +489,7 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
   const [isTransitioning, setIsTransitioning] = useState(false);
   const transitionTimeoutRef = useRef(null);
 
-  const handleDataLoaded = useCallback((data) => {
+  const handleDataLoaded = useCallback((data, isFromCache = false) => {
     // Only update if we have valid data
     if (data && (data.clusters?.length > 0 || data.meetings?.length > 0 || data.total > 0)) {
       prevMapDataRef.current = data;
@@ -433,6 +503,14 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
       heatmapClustersRef.current = [];
     }
     setMapData(data);
+
+    // Update refreshing state - if we got cached data, we're refreshing in background
+    if (isFromCache) {
+      setIsRefreshing(true);
+    } else {
+      setIsRefreshing(false);
+    }
+
     // Clear transition state when new data arrives
     setIsTransitioning(false);
     if (transitionTimeoutRef.current) {
@@ -465,6 +543,9 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
     // When starting to load, mark as transitioning to preserve heatmap
     if (loading) {
       setIsTransitioning(true);
+    } else {
+      // When loading completes, clear the refreshing indicator
+      setIsRefreshing(false);
     }
     setIsLoading(loading);
   }, []);
@@ -552,7 +633,7 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
       <div className="map-header">
         <h3>Meeting Locations</h3>
         <span className="map-stats">
-          {isLoading ? (
+          {isLoading && !mapData.clusters?.length && !mapData.meetings?.length && !stateData.states?.length ? (
             'Loading...'
           ) : showIndividualMeetings ? (
             `${validMeetings.length} meetings in view`
@@ -583,6 +664,7 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
           onLoadingChange={handleLoadingChange}
           filters={filters}
           onBoundsChange={onBoundsChange}
+          cacheContext={cacheContext}
         />
 
         <MapPanHandler targetLocation={targetLocation} />
@@ -651,10 +733,19 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
         })}
       </MapContainer>
 
-      {isLoading && (
+      {/* Show full loading overlay only when we have no data to show */}
+      {isLoading && !mapData.clusters?.length && !mapData.meetings?.length && !stateData.states?.length && (
         <div className="map-loading-overlay">
           <div className="loading-spinner small"></div>
           <span>Loading map data...</span>
+        </div>
+      )}
+
+      {/* Show subtle refresh indicator when we have cached data and are updating */}
+      {isRefreshing && (mapData.clusters?.length > 0 || mapData.meetings?.length > 0) && (
+        <div className="map-refresh-indicator">
+          <div className="loading-spinner tiny"></div>
+          <span>Updating...</span>
         </div>
       )}
 
