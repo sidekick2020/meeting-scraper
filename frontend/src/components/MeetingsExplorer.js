@@ -808,6 +808,15 @@ function MeetingsExplorer({ onAdminClick }) {
             group: 'places'
           }));
           setLocationResults(locations);
+
+          // Auto-pan to the first result immediately
+          if (locations.length > 0) {
+            setTargetLocation({
+              lat: locations[0].lat,
+              lng: locations[0].lon,
+              zoom: 12
+            });
+          }
         }
       } catch (error) {
         console.error('Location search error:', error);
