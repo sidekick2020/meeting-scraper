@@ -71,13 +71,13 @@ After the PR is merged, Claude should provide tag commands.
 
 **IMPORTANT**: Always check the latest existing tag first to determine the next version number:
 ```bash
-git fetch origin main
+git fetch origin --tags
 git tag -l --sort=-v:refname | head -5
 ```
 
 Then provide the tag commands with the correct incremented version:
 ```bash
-git fetch origin main
+git fetch origin --tags
 git tag -a vX.Y.Z <commit-hash> -m "Release vX.Y.Z - Summary"
 git push origin vX.Y.Z
 ```
@@ -115,7 +115,7 @@ The following version is ready to be tagged and pushed:
 
 **Run these commands to publish the release:**
 
-git fetch origin main
+git fetch origin --tags
 git tag -a v1.6.0 3c419bf -m "Release v1.6.0 - API Versioning with Changelog"
 git push origin v1.6.0
 ```
@@ -127,7 +127,7 @@ Suggest a new version tag when:
 - **Minor (X.Y.0)**: New features, significant enhancements
 - **Major (X.0.0)**: Breaking changes, major rewrites
 
-**CRITICAL**: Always run `git fetch origin main && git tag -l --sort=-v:refname | head -5` to find the latest version tag before suggesting a new version number. Increment from the highest existing tag, NOT from CHANGELOG.md (which may be outdated).
+**CRITICAL**: Always run `git fetch origin --tags && git tag -l --sort=-v:refname | head -5` to find the latest version tag before suggesting a new version number. Increment from the highest existing tag, NOT from CHANGELOG.md (which may be outdated). Note: `git fetch origin main` does NOT fetch tags - you MUST use `--tags` flag.
 
 ## Commit Message Format
 
