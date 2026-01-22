@@ -1178,6 +1178,11 @@ function MeetingsExplorer({ onAdminClick }) {
 
     // If it's a Nominatim place, pan/zoom map to that location and set filters
     if (suggestion.type === 'nominatim' && suggestion.lat && suggestion.lon) {
+      // Clear the search query since we're using city/state filters instead
+      // The full Nominatim display name (e.g., "Los Angeles, Los Angeles County")
+      // doesn't match meeting city fields, so we rely on geographic filters
+      setSearchQuery('');
+
       // Set target location to pan/zoom the map
       setTargetLocation({
         lat: suggestion.lat,
