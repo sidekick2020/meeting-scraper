@@ -1323,6 +1323,14 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
       setTargetLocation(null);
     }
 
+    // If it's a recent search, geocode and pan to the location
+    if (suggestion.type === 'recent') {
+      // Mark as programmatic pan so handleBoundsChange doesn't clear filters
+      isProgrammaticPanRef.current = true;
+      // Geocode the search string and pan the map
+      geocodeAndPanMap(suggestion.value, selectedStates.length === 1 ? selectedStates[0] : null);
+    }
+
     // If it's a Nominatim place, pan/zoom map to that location and set filters
     if (suggestion.type === 'nominatim' && suggestion.lat && suggestion.lon) {
       // Clear the search query since we're using city/state filters instead
