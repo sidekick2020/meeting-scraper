@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import MeetingMap from './MeetingMap';
 import MeetingDetail from './MeetingDetail';
-import ThemeToggle from './ThemeToggle';
 import { SidebarToggleButton } from './PublicSidebar';
 import { useDataCache } from '../contexts/DataCacheContext';
 import { useParse } from '../contexts/ParseContext';
@@ -157,7 +156,7 @@ const MeetingTypeIcon = ({ type, size = 16 }) => {
   return iconMap[iconKey] || iconMap.circle;
 };
 
-function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
+function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
   // Data cache context for persisting data across navigation
   const { getCache, setCache } = useDataCache();
 
@@ -1857,12 +1856,6 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
           </button>
         </div>
 
-        <div className="airbnb-header-right">
-          <ThemeToggle />
-          <button className="btn btn-ghost admin-link" onClick={onAdminClick}>
-            Admin
-          </button>
-        </div>
       </header>
 
       {/* Secondary Filter Bar */}
