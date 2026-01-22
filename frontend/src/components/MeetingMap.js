@@ -280,7 +280,21 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
     // Initial fetch for clusters/meetings
     fetchHeatmapData(false);
 
-    // Don't call onBoundsChange on initial mount - wait for user interaction or programmatic pan
+    // Trigger onBoundsChange on initial mount to populate the meeting list
+    if (onBoundsChange) {
+      const bounds = map.getBounds();
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      onBoundsChange({
+        north: bounds.getNorth(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        west: bounds.getWest(),
+        zoom: zoom,
+        center_lat: center.lat,
+        center_lng: center.lng
+      });
+    }
 
     map.on('moveend', handleMoveEnd);
     map.on('zoomend', handleMoveEnd);
