@@ -46,6 +46,32 @@ function AdminPanel({ onBackToPublic }) {
 
   const [isConnected, setIsConnected] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuTimeoutRef = useRef(null);
+
+  // Handlers for user menu hover with delay to prevent accidental closing
+  const handleUserMenuEnter = useCallback(() => {
+    if (userMenuTimeoutRef.current) {
+      clearTimeout(userMenuTimeoutRef.current);
+      userMenuTimeoutRef.current = null;
+    }
+    setShowUserMenu(true);
+  }, []);
+
+  const handleUserMenuLeave = useCallback(() => {
+    userMenuTimeoutRef.current = setTimeout(() => {
+      setShowUserMenu(false);
+    }, 150); // 150ms delay before closing
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (userMenuTimeoutRef.current) {
+        clearTimeout(userMenuTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const [activeSection, setActiveSection] = useState('scraper');
   const [scrapingState, setScrapingState] = useState(cachedScrapingState?.data || {
     is_running: false,
@@ -1142,8 +1168,8 @@ function AdminPanel({ onBackToPublic }) {
 
           <div
             className="sidebar-profile"
-            onMouseEnter={() => setShowUserMenu(true)}
-            onMouseLeave={() => setShowUserMenu(false)}
+            onMouseEnter={handleUserMenuEnter}
+            onMouseLeave={handleUserMenuLeave}
           >
             {user?.picture ? (
               <img src={user.picture} alt="" className="profile-avatar" />
