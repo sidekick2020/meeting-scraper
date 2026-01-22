@@ -40,6 +40,21 @@ const createCustomIcon = (color = '#2f5dff') => {
   });
 };
 
+// Highlighted marker icon for hovered meetings (larger with pulse animation)
+const createHighlightedIcon = (color = '#2f5dff') => {
+  return L.divIcon({
+    className: 'custom-marker highlighted-marker',
+    html: `<div class="highlighted-marker-outer">
+      <div class="highlighted-marker-pulse" style="border-color: ${color};"></div>
+      <div class="highlighted-marker-inner" style="border-color: ${color};">
+        <div class="highlighted-marker-dot" style="background: ${color};"></div>
+      </div>
+    </div>`,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+  });
+};
+
 // Cluster marker icon with count
 const createClusterIcon = (count) => {
   const size = count > 100 ? 50 : count > 50 ? 44 : count > 20 ? 38 : count > 10 ? 32 : 26;
@@ -375,7 +390,7 @@ function MapPanHandler({ targetLocation }) {
   return null;
 }
 
-function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetLocation, filters, onBoundsChange, onMapMeetingCount }) {
+function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetLocation, filters, onBoundsChange, onMapMeetingCount, hoveredMeeting }) {
   const [mapData, setMapData] = useState({ clusters: [], meetings: [], total: 0, mode: 'clustered' });
   const [stateData, setStateData] = useState({ states: [], total: 0 });
   const [currentZoom, setCurrentZoom] = useState(5);
@@ -581,11 +596,16 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
         ))}
 
         {/* Show individual meeting markers at higher zoom levels */}
-        {showIndividualMeetings && validMeetings.map((meeting, index) => (
+        {showIndividualMeetings && validMeetings.map((meeting, index) => {
+          const isHovered = hoveredMeeting?.objectId === meeting.objectId;
+          const color = meeting.isOnline || meeting.isHybrid ? '#22c55e' : '#667eea';
+          const icon = isHovered ? createHighlightedIcon(color) : createCustomIcon(color);
+          return (
           <Marker
             key={meeting.objectId || index}
             position={[meeting.latitude, meeting.longitude]}
-            icon={createCustomIcon(meeting.isOnline || meeting.isHybrid ? '#22c55e' : '#667eea')}
+            icon={icon}
+            zIndexOffset={isHovered ? 1000 : 0}
             eventHandlers={{
               click: () => onSelectMeeting && onSelectMeeting(meeting),
             }}
@@ -613,7 +633,8 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
               </div>
             </Popup>
           </Marker>
-        ))}
+          );
+        })}
       </MapContainer>
 
       {isLoading && (

@@ -32,6 +32,21 @@ const MEETINGS_CACHE_TTL = 10 * 60 * 1000;
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const dayAbbrev = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+// Calculate distance between two lat/lng points using Haversine formula
+// Returns distance in miles
+const calculateDistance = (lat1, lng1, lat2, lng2) => {
+  if (!lat1 || !lng1 || !lat2 || !lng2) return Infinity;
+  const R = 3959; // Earth's radius in miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
 // Meeting type definitions with icons and full names
 const MEETING_TYPES = {
   'AA': { name: 'Alcoholics Anonymous', shortName: 'Alcohol', icon: 'bottle' },
@@ -878,6 +893,15 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
       filtered = filtered.filter(m =>
         selectedAccessibility.every(key => m[key] === true)
       );
+    }
+
+    // Sort by distance from map center if we have a center point
+    if (mapBounds?.center_lat && mapBounds?.center_lng) {
+      filtered.sort((a, b) => {
+        const distA = calculateDistance(mapBounds.center_lat, mapBounds.center_lng, a.latitude, a.longitude);
+        const distB = calculateDistance(mapBounds.center_lat, mapBounds.center_lng, b.latitude, b.longitude);
+        return distA - distB;
+      });
     }
 
     setFilteredMeetings(filtered);
@@ -2278,6 +2302,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
                 filters={mapFilters}
                 onBoundsChange={handleMapBoundsChange}
                 onMapMeetingCount={setMapMeetingCount}
+                hoveredMeeting={hoveredMeeting}
               />
               {(isLoading || isLoadingMore) && (
                 <div className={`map-loading-indicator ${isLoading && !isLoadingMore ? 'subtle' : ''}`}>
