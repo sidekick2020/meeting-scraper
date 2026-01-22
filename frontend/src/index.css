@@ -9,4 +9,6 @@ body {
   background: linear-gradient(135deg, #f5f7ff 0%, #eaefff 100%);
   min-height: 100vh;
   color: var(--text-primary);
+  overflow-x: hidden;
+  max-width: 100vw;
 }
