@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import Parse from 'parse';
 
 const ParseContext = createContext(null);
@@ -16,10 +16,11 @@ const PARSE_SERVER_URL = process.env.REACT_APP_PARSE_SERVER_URL || 'https://pars
  * - Parse is ready immediately when components mount
  * - No race conditions with useEffect-based initialization
  * - Queries can be made from the first render
- * - Connection is established early, reducing perceived latency
+ * - No unnecessary connection test delays app startup
  */
 let isInitialized = false;
 let initializationError = null;
+let initialConnectionStatus = 'not_configured';
 
 function initializeParse() {
   if (isInitialized) return true;
@@ -30,6 +31,7 @@ function initializeParse() {
       'The app will continue to work via the backend API proxy.'
     );
     initializationError = new Error('Missing Parse configuration');
+    initialConnectionStatus = 'not_configured';
     return false;
   }
 
@@ -41,11 +43,13 @@ function initializeParse() {
     Parse.enableLocalDatastore();
 
     isInitialized = true;
+    initialConnectionStatus = 'connected';
     console.log('Parse SDK initialized successfully');
     return true;
   } catch (error) {
     console.error('Failed to initialize Parse SDK:', error);
     initializationError = error;
+    initialConnectionStatus = 'error';
     return false;
   }
 }
@@ -66,34 +70,10 @@ initializeParse();
  *   const meetings = await query('Meetings').equalTo('state', 'CA').find();
  */
 export function ParseProvider({ children }) {
-  const [isReady, setIsReady] = useState(isInitialized);
-  const [error, setError] = useState(initializationError);
-  const [connectionStatus, setConnectionStatus] = useState('unknown');
-
-  // Test connection on mount
-  useEffect(() => {
-    if (!isInitialized) {
-      setConnectionStatus('not_configured');
-      return;
-    }
-
-    async function testConnection() {
-      try {
-        setConnectionStatus('connecting');
-        // Simple health check - query with limit 0 to minimize data transfer
-        const query = new Parse.Query('Meetings');
-        query.limit(0);
-        await query.count();
-        setConnectionStatus('connected');
-      } catch (err) {
-        console.warn('Parse connection test failed:', err.message);
-        setConnectionStatus('error');
-        // Don't set error state here - Parse might still work for some operations
-      }
-    }
-
-    testConnection();
-  }, []);
+  const [isReady] = useState(isInitialized);
+  const [error] = useState(initializationError);
+  // Connection status is determined synchronously at initialization - no async test needed
+  const [connectionStatus] = useState(initialConnectionStatus);
 
   /**
    * Helper to create a new Parse.Query with proper typing
