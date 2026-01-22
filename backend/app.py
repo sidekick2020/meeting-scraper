@@ -4374,6 +4374,57 @@ def request_thumbnails_batch():
 BACK4APP_USER_URL = "https://parseapi.back4app.com/classes/DashboardUser"
 OWNER_EMAIL = "chris.thompson@sobersidekick.com"
 
+# User permissions definitions
+USER_PERMISSIONS = {
+    'view_meetings': {
+        'label': 'View Meetings',
+        'description': 'View meetings list and details',
+        'category': 'Meetings'
+    },
+    'manage_meetings': {
+        'label': 'Manage Meetings',
+        'description': 'Edit, update, and delete meetings',
+        'category': 'Meetings'
+    },
+    'run_scraper': {
+        'label': 'Run Scraper',
+        'description': 'Execute scraper operations',
+        'category': 'Operations'
+    },
+    'view_heatmap': {
+        'label': 'View Heatmap',
+        'description': 'Access heatmap visualization',
+        'category': 'Analytics'
+    },
+    'view_analytics': {
+        'label': 'View Analytics',
+        'description': 'Access analytics and reports',
+        'category': 'Analytics'
+    },
+    'manage_tasks': {
+        'label': 'Manage Tasks',
+        'description': 'Create and manage research tasks',
+        'category': 'Operations'
+    },
+    'manage_users': {
+        'label': 'Manage Users',
+        'description': 'Invite users and manage permissions',
+        'category': 'Administration'
+    }
+}
+
+# All permission keys for admin users
+ALL_PERMISSIONS = list(USER_PERMISSIONS.keys())
+
+# Default permissions for standard users
+DEFAULT_STANDARD_PERMISSIONS = ['view_meetings', 'view_heatmap', 'view_analytics']
+
+# View-only permissions for domain users who join without invite
+VIEW_ONLY_PERMISSIONS = ['view_meetings', 'view_heatmap', 'view_analytics']
+
+# Allowed domains for auto-access (domain users can log in without invite)
+ALLOWED_DOMAINS = ['sobersidekick.com', 'empathyhealthtech.com']
+
 # Email configuration (using environment variables)
 SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
 SMTP_PORT = int(os.environ.get('SMTP_PORT', 587))
@@ -4510,6 +4561,16 @@ def get_users():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/permissions', methods=['GET'])
+def get_permissions():
+    """Get all available permission definitions."""
+    return jsonify({
+        'permissions': USER_PERMISSIONS,
+        'allPermissions': ALL_PERMISSIONS,
+        'defaultStandardPermissions': DEFAULT_STANDARD_PERMISSIONS
+    })
+
+
 @app.route('/api/users', methods=['POST'])
 def invite_user():
     """Invite a new user to the dashboard."""
@@ -4554,6 +4615,9 @@ def invite_user():
         # Generate invite token
         invite_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
 
+        # Set permissions based on role
+        permissions = ALL_PERMISSIONS if role == 'admin' else DEFAULT_STANDARD_PERMISSIONS
+
         # Create user record
         user_data = {
             'email': email,
@@ -4562,7 +4626,8 @@ def invite_user():
             'inviteToken': invite_token,
             'invitedBy': inviter_email,
             'invitedAt': {'__type': 'Date', 'iso': datetime.utcnow().isoformat() + 'Z'},
-            'isOwner': email == OWNER_EMAIL
+            'isOwner': email == OWNER_EMAIL,
+            'permissions': permissions
         }
 
         create_response = requests.post(
@@ -4633,11 +4698,23 @@ def update_user(user_id):
             if data['role'] not in ['standard', 'admin']:
                 return jsonify({'error': 'Invalid role'}), 400
             update_data['role'] = data['role']
+            # When switching to admin, grant all permissions
+            if data['role'] == 'admin':
+                update_data['permissions'] = ALL_PERMISSIONS
 
         if 'status' in data:
             if data['status'] not in ['pending', 'active', 'suspended']:
                 return jsonify({'error': 'Invalid status'}), 400
             update_data['status'] = data['status']
+
+        if 'permissions' in data:
+            # Validate permissions
+            requested_perms = data['permissions']
+            if not isinstance(requested_perms, list):
+                return jsonify({'error': 'Permissions must be an array'}), 400
+            # Filter to only valid permissions
+            valid_perms = [p for p in requested_perms if p in ALL_PERMISSIONS]
+            update_data['permissions'] = valid_perms
 
         if not update_data:
             return jsonify({'error': 'No valid fields to update'}), 400
@@ -4855,12 +4932,13 @@ def check_user_access():
     if not email:
         return jsonify({'error': 'Email is required'}), 400
 
-    # Owner always has access
+    # Owner always has access with all permissions
     if email == OWNER_EMAIL:
         return jsonify({
             'hasAccess': True,
             'role': 'admin',
-            'isOwner': True
+            'isOwner': True,
+            'permissions': ALL_PERMISSIONS
         })
 
     try:
@@ -4880,10 +4958,16 @@ def check_user_access():
             if users:
                 user = users[0]
                 if user.get('status') == 'active':
+                    user_role = user.get('role', 'standard')
+                    # Get user's permissions, default based on role
+                    user_permissions = user.get('permissions')
+                    if user_permissions is None:
+                        user_permissions = ALL_PERMISSIONS if user_role == 'admin' else DEFAULT_STANDARD_PERMISSIONS
                     return jsonify({
                         'hasAccess': True,
-                        'role': user.get('role', 'standard'),
-                        'isOwner': False
+                        'role': user_role,
+                        'isOwner': False,
+                        'permissions': user_permissions
                     })
                 elif user.get('status') == 'pending':
                     return jsonify({
@@ -4897,6 +4981,54 @@ def check_user_access():
                         'reason': 'suspended',
                         'message': 'Your account has been suspended.'
                     })
+
+        # Check if user is from an allowed domain - grant view-only access
+        email_domain = email.split('@')[1].lower() if '@' in email else ''
+        if email_domain in ALLOWED_DOMAINS:
+            # Auto-create user with view-only permissions
+            try:
+                user_data = {
+                    'email': email,
+                    'role': 'standard',
+                    'status': 'active',
+                    'invitedBy': 'domain_auto',
+                    'invitedAt': {'__type': 'Date', 'iso': datetime.utcnow().isoformat() + 'Z'},
+                    'acceptedAt': {'__type': 'Date', 'iso': datetime.utcnow().isoformat() + 'Z'},
+                    'isOwner': False,
+                    'permissions': VIEW_ONLY_PERMISSIONS
+                }
+
+                create_response = requests.post(
+                    BACK4APP_USER_URL,
+                    headers={
+                        'X-Parse-Application-Id': BACK4APP_APP_ID,
+                        'X-Parse-REST-API-Key': BACK4APP_REST_KEY,
+                        'Content-Type': 'application/json',
+                    },
+                    json=user_data,
+                    timeout=15
+                )
+
+                if create_response.status_code == 201:
+                    # Invalidate users cache since we added a new user
+                    users_cache.invalidate('all_users')
+
+                return jsonify({
+                    'hasAccess': True,
+                    'role': 'standard',
+                    'isOwner': False,
+                    'permissions': VIEW_ONLY_PERMISSIONS,
+                    'autoCreated': True
+                })
+            except Exception as create_error:
+                print(f"Failed to auto-create user: {create_error}")
+                # Still grant access even if we can't save
+                return jsonify({
+                    'hasAccess': True,
+                    'role': 'standard',
+                    'isOwner': False,
+                    'permissions': VIEW_ONLY_PERMISSIONS
+                })
 
         return jsonify({
             'hasAccess': False,

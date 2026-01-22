@@ -102,6 +102,11 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   const [userError, setUserError] = useState('');
   const [userSuccess, setUserSuccess] = useState('');
 
+  // Permissions state
+  const [expandedUserId, setExpandedUserId] = useState(null);
+  const [permissionDefinitions, setPermissionDefinitions] = useState(null);
+  const [updatingPermissions, setUpdatingPermissions] = useState(false);
+
   // Handle API version change with progress indicator
   const handleApiVersionChange = async (newVersion, isRollback = false) => {
     if (newVersion === apiVersion || isVersionSwitching) return;
@@ -233,8 +238,69 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   useEffect(() => {
     if (activeTab === 'users' && isAdmin) {
       fetchUsers();
+      fetchPermissions();
     }
   }, [activeTab, isAdmin, fetchUsers]);
+
+  // Fetch permission definitions
+  const fetchPermissions = async () => {
+    if (permissionDefinitions) return; // Already loaded
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/permissions`);
+      if (response.ok) {
+        const data = await response.json();
+        setPermissionDefinitions(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch permissions:', error);
+    }
+  };
+
+  // Toggle user expanded state
+  const toggleUserExpanded = (userId) => {
+    setExpandedUserId(expandedUserId === userId ? null : userId);
+  };
+
+  // Handle permission toggle for a user
+  const handleTogglePermission = async (userId, permission, currentPermissions) => {
+    setUpdatingPermissions(true);
+    setUserError('');
+
+    const hasPermission = currentPermissions?.includes(permission);
+    const newPermissions = hasPermission
+      ? currentPermissions.filter(p => p !== permission)
+      : [...(currentPermissions || []), permission];
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          permissions: newPermissions,
+          requesterEmail: currentUser?.email
+        })
+      });
+
+      if (response.ok) {
+        fetchUsers(true); // Force refresh
+      } else {
+        const data = await response.json();
+        setUserError(data.error || 'Failed to update permissions');
+      }
+    } catch (error) {
+      setUserError('Failed to connect to server');
+    } finally {
+      setUpdatingPermissions(false);
+    }
+  };
+
+  // Get user's effective permissions (considering role)
+  const getUserPermissions = (user) => {
+    if (user.role === 'admin' || user.isOwner) {
+      return permissionDefinitions?.allPermissions || [];
+    }
+    return user.permissions || permissionDefinitions?.defaultStandardPermissions || [];
+  };
 
   // Fetch git version tags when API tab is active
   const fetchGitVersions = useCallback(async (forceRefresh = false) => {
@@ -701,65 +767,138 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
                 </div>
               ) : (
                 <div className="users-list">
-                  {users.map((user) => (
-                    <div key={user.objectId} className="user-card">
-                      <div className="user-avatar">
-                        {user.email?.[0]?.toUpperCase() || 'U'}
-                      </div>
-                      <div className="user-info">
-                        <div className="user-email">{user.email}</div>
-                        <div className="user-meta">
-                          <span className={`user-status status-${user.status}`}>
-                            {user.status === 'pending' ? 'Pending' : user.status === 'active' ? 'Active' : 'Suspended'}
-                          </span>
-                          {user.isOwner && <span className="user-badge owner">Owner</span>}
-                          <span className="user-invited">
-                            Invited {formatDate(user.invitedAt)}
-                          </span>
+                  {users.map((user) => {
+                    const isExpanded = expandedUserId === user.objectId;
+                    const userPermissions = getUserPermissions(user);
+                    const isAdminUser = user.role === 'admin' || user.isOwner;
+
+                    return (
+                      <div key={user.objectId} className={`user-card ${isExpanded ? 'expanded' : ''}`}>
+                        <div className="user-card-header" onClick={() => toggleUserExpanded(user.objectId)}>
+                          <div className="user-avatar">
+                            {user.email?.[0]?.toUpperCase() || 'U'}
+                          </div>
+                          <div className="user-info">
+                            <div className="user-email">{user.email}</div>
+                            <div className="user-meta">
+                              <span className={`user-status status-${user.status}`}>
+                                {user.status === 'pending' ? 'Pending' : user.status === 'active' ? 'Active' : 'Suspended'}
+                              </span>
+                              {user.isOwner && <span className="user-badge owner">Owner</span>}
+                              <span className="user-invited">
+                                Invited {formatDate(user.invitedAt)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="user-role" onClick={(e) => e.stopPropagation()}>
+                            {user.isOwner ? (
+                              <span className="role-badge admin">Admin</span>
+                            ) : (
+                              <select
+                                value={user.role || 'standard'}
+                                onChange={(e) => handleUpdateRole(user.objectId, e.target.value)}
+                                className="role-select"
+                              >
+                                <option value="standard">Standard</option>
+                                <option value="admin">Admin</option>
+                              </select>
+                            )}
+                          </div>
+                          <div className="user-actions" onClick={(e) => e.stopPropagation()}>
+                            {user.status === 'pending' && (
+                              <button
+                                className="btn btn-ghost btn-icon"
+                                onClick={() => handleResendInvite(user.objectId, user.email)}
+                                title="Resend invite"
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="1,4 1,10 7,10"/>
+                                  <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+                                </svg>
+                              </button>
+                            )}
+                            {!user.isOwner && (
+                              <button
+                                className="btn btn-ghost btn-icon btn-danger-hover"
+                                onClick={() => handleDeleteUser(user.objectId, user.email)}
+                                title="Remove user"
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="3,6 5,6 21,6"/>
+                                  <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                          <button className={`user-expand-btn ${isExpanded ? 'expanded' : ''}`}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="6,9 12,15 18,9"/>
+                            </svg>
+                          </button>
                         </div>
-                      </div>
-                      <div className="user-role">
-                        {user.isOwner ? (
-                          <span className="role-badge admin">Admin</span>
-                        ) : (
-                          <select
-                            value={user.role || 'standard'}
-                            onChange={(e) => handleUpdateRole(user.objectId, e.target.value)}
-                            className="role-select"
-                          >
-                            <option value="standard">Standard</option>
-                            <option value="admin">Admin</option>
-                          </select>
+
+                        {isExpanded && permissionDefinitions && (
+                          <div className="user-permissions-panel">
+                            <div className="permissions-header">
+                              <h4>Permissions</h4>
+                              {isAdminUser && (
+                                <span className="permissions-note">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="12" y1="16" x2="12" y2="12"/>
+                                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                                  </svg>
+                                  Admin users have all permissions
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="permissions-grid">
+                              {Object.entries(
+                                Object.entries(permissionDefinitions.permissions).reduce((acc, [key, perm]) => {
+                                  const category = perm.category || 'Other';
+                                  if (!acc[category]) acc[category] = [];
+                                  acc[category].push({ key, ...perm });
+                                  return acc;
+                                }, {})
+                              ).map(([category, perms]) => (
+                                <div key={category} className="permission-category">
+                                  <div className="permission-category-header">{category}</div>
+                                  {perms.map((perm) => {
+                                    const hasPermission = userPermissions.includes(perm.key);
+                                    return (
+                                      <label
+                                        key={perm.key}
+                                        className={`permission-toggle ${isAdminUser ? 'disabled' : ''} ${hasPermission ? 'active' : ''}`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={hasPermission}
+                                          disabled={isAdminUser || updatingPermissions}
+                                          onChange={() => handleTogglePermission(user.objectId, perm.key, user.permissions || [])}
+                                        />
+                                        <span className="permission-checkbox">
+                                          {hasPermission && (
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                              <polyline points="20,6 9,17 4,12"/>
+                                            </svg>
+                                          )}
+                                        </span>
+                                        <span className="permission-info">
+                                          <span className="permission-label">{perm.label}</span>
+                                          <span className="permission-description">{perm.description}</span>
+                                        </span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
-                      <div className="user-actions">
-                        {user.status === 'pending' && (
-                          <button
-                            className="btn btn-ghost btn-icon"
-                            onClick={() => handleResendInvite(user.objectId, user.email)}
-                            title="Resend invite"
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="1,4 1,10 7,10"/>
-                              <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
-                            </svg>
-                          </button>
-                        )}
-                        {!user.isOwner && (
-                          <button
-                            className="btn btn-ghost btn-icon btn-danger-hover"
-                            onClick={() => handleDeleteUser(user.objectId, user.email)}
-                            title="Remove user"
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="3,6 5,6 21,6"/>
-                              <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               </div>
