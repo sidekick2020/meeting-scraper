@@ -12,15 +12,18 @@ on:
         required: false
         default: '1.0.0'
 
+permissions:
+  contents: write
+
 jobs:
-  create-release:
-    runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-      version: ${{ steps.get_version.outputs.version }}
+  build-mac:
+    runs-on: macos-latest
 
     steps:
-      - name: Get version from tag
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version
         id: get_version
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
@@ -31,11 +34,40 @@ jobs:
             VERSION="${{ github.event.inputs.version }}"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
 
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: desktop
+        run: npm install
+
+      - name: Update package.json version
+        working-directory: desktop
+        run: |
+          npm version ${{ steps.get_version.outputs.version }} --no-git-tag-version --allow-same-version
+
+      - name: Build Mac App (Apple Silicon)
+        working-directory: desktop
+        run: npm run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Mac App (Intel)
+        working-directory: desktop
+        run: npm run build:intel
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List built files
+        working-directory: desktop/dist
+        run: ls -la
+
+      - name: Upload DMGs to Release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: "Meeting Scraper v${{ steps.get_version.outputs.version }}"
@@ -55,54 +87,6 @@ jobs:
             ### What's New
             - Native Mac app for Meeting Scraper
             - Connects to live production data
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-mac:
-    needs: create-release
-    runs-on: macos-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        working-directory: desktop
-        run: npm install
-
-      - name: Update package.json version
-        working-directory: desktop
-        run: |
-          npm version ${{ needs.create-release.outputs.version }} --no-git-tag-version --allow-same-version
-
-      - name: Build Mac App (Apple Silicon)
-        working-directory: desktop
-        run: npm run build
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Mac App (Intel)
-        working-directory: desktop
-        run: npm run build:intel
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: List built files
-        working-directory: desktop/dist
-        run: ls -la
-
-      - name: Upload DMGs to Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.ref_name }}
           files: |
             desktop/dist/*.dmg
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_unmatched_files: true
