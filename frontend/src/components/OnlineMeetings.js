@@ -46,6 +46,7 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
   const todaySectionRef = useRef(null);
   const hasAutoScrolledRef = useRef(false);
   const meetingsRef = useRef([]);
+  const loadMoreSentinelRef = useRef(null);
 
   // Theme detection for logo
   const [currentTheme, setCurrentTheme] = useState(
@@ -212,11 +213,38 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
     setSelectedMeeting(meeting);
   };
 
-  const loadMoreMeetings = () => {
+  const loadMoreMeetings = useCallback(() => {
     if (!isLoadingMore && hasMore) {
       fetchOnlineMeetings(true);
     }
-  };
+  }, [isLoadingMore, hasMore, fetchOnlineMeetings]);
+
+  // Infinite scroll - load more meetings when sentinel becomes visible
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    const container = containerRef.current;
+    if (!sentinel || !container) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting && hasMore && !isLoadingMore && !isLoading) {
+          loadMoreMeetings();
+        }
+      },
+      {
+        root: container,
+        rootMargin: '200px',
+        threshold: 0,
+      }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMore, isLoadingMore, isLoading, loadMoreMeetings]);
 
   return (
     <div className="online-meetings-page">
@@ -363,7 +391,12 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
               );
             })}
 
-            {/* Load More */}
+            {/* Sentinel element for infinite scroll detection */}
+            {hasMore && !isLoading && (
+              <div ref={loadMoreSentinelRef} className="infinite-scroll-sentinel" aria-hidden="true" />
+            )}
+
+            {/* Load More - shown as fallback */}
             {hasMore && (
               <div className="online-meetings-load-more">
                 <button
