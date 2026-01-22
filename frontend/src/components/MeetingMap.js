@@ -397,13 +397,32 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
   // Cache previous valid data to show during loading transitions
   const prevMapDataRef = useRef(null);
   const prevStateDataRef = useRef(null);
+  // Separate cache for heatmap clusters to persist during zoom transitions
+  const heatmapClustersRef = useRef([]);
+  // Track if we're in a zoom transition (e.g., from clusters to individual meetings)
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const transitionTimeoutRef = useRef(null);
 
   const handleDataLoaded = useCallback((data) => {
     // Only update if we have valid data
     if (data && (data.clusters?.length > 0 || data.meetings?.length > 0 || data.total > 0)) {
       prevMapDataRef.current = data;
     }
+    // Cache clusters for heatmap separately - only update when we have new clusters
+    if (data && data.clusters?.length > 0) {
+      heatmapClustersRef.current = data.clusters;
+    }
+    // Clear heatmap cache when we've loaded individual meetings
+    if (data && data.mode === 'individual' && data.meetings?.length > 0) {
+      heatmapClustersRef.current = [];
+    }
     setMapData(data);
+    // Clear transition state when new data arrives
+    setIsTransitioning(false);
+    if (transitionTimeoutRef.current) {
+      clearTimeout(transitionTimeoutRef.current);
+      transitionTimeoutRef.current = null;
+    }
   }, []);
 
   const handleStateDataLoaded = useCallback((data) => {
@@ -415,11 +434,38 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
   }, []);
 
   const handleZoomChange = useCallback((zoom) => {
-    setCurrentZoom(zoom);
+    setCurrentZoom(prevZoom => {
+      // Detect when transitioning to detail zoom (individual meetings)
+      if (prevZoom < DETAIL_ZOOM_THRESHOLD && zoom >= DETAIL_ZOOM_THRESHOLD) {
+        setIsTransitioning(true);
+        // Clear heatmap after a delay to allow smooth transition
+        if (transitionTimeoutRef.current) {
+          clearTimeout(transitionTimeoutRef.current);
+        }
+        transitionTimeoutRef.current = setTimeout(() => {
+          heatmapClustersRef.current = [];
+          setIsTransitioning(false);
+        }, 500);
+      }
+      return zoom;
+    });
   }, []);
 
   const handleLoadingChange = useCallback((loading) => {
+    // When starting to load, mark as transitioning to preserve heatmap
+    if (loading) {
+      setIsTransitioning(true);
+    }
     setIsLoading(loading);
+  }, []);
+
+  // Cleanup transition timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (transitionTimeoutRef.current) {
+        clearTimeout(transitionTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Use cached data during loading or when current data is empty
@@ -429,12 +475,25 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
     if (mapData.clusters?.length > 0 || mapData.meetings?.length > 0) {
       return mapData;
     }
-    // During loading, use cached previous data if available
-    if (isLoading && prevMapDataRef.current) {
+    // During loading or transitions, use cached previous data if available
+    if ((isLoading || isTransitioning) && prevMapDataRef.current) {
       return prevMapDataRef.current;
     }
     return mapData;
-  }, [mapData, isLoading]);
+  }, [mapData, isLoading, isTransitioning]);
+
+  // Separate memoized value for heatmap clusters that persists during transitions
+  const effectiveHeatmapClusters = useMemo(() => {
+    // If current data has clusters, use them
+    if (mapData.clusters?.length > 0) {
+      return mapData.clusters;
+    }
+    // During loading/transitions, use cached heatmap clusters
+    if ((isLoading || isTransitioning) && heatmapClustersRef.current.length > 0) {
+      return heatmapClustersRef.current;
+    }
+    return mapData.clusters || [];
+  }, [mapData.clusters, isLoading, isTransitioning]);
 
   const effectiveStateData = useMemo(() => {
     // If current data has content, use it
@@ -452,6 +511,10 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
   const showStateLevel = currentZoom < STATE_ZOOM_THRESHOLD && effectiveStateData.states?.length > 0;
   const showClusters = !showStateLevel && effectiveMapData.mode === 'clustered' && effectiveMapData.clusters?.length > 0;
   const showIndividualMeetings = effectiveMapData.mode === 'individual' && effectiveMapData.meetings?.length > 0;
+  // Show heatmap during loading/transitions, but hide once individual meetings are loaded
+  // The heatmap persists while waiting for data, then fades out when meetings are displayed
+  const showHeatmapLayer = !showStateLevel && currentZoom < DETAIL_ZOOM_THRESHOLD &&
+    !showIndividualMeetings && effectiveHeatmapClusters.length > 0;
 
   // Filter meetings with valid coordinates
   const validMeetings = useMemo(() =>
@@ -509,9 +572,9 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
           />
         ))}
 
-        {/* Show heatmap at medium zoom levels */}
-        {showHeatmap && showClusters && currentZoom < DETAIL_ZOOM_THRESHOLD && (
-          <HeatmapLayer clusters={effectiveMapData.clusters} />
+        {/* Show heatmap at medium zoom levels - persists during loading transitions */}
+        {showHeatmap && showHeatmapLayer && (
+          <HeatmapLayer clusters={effectiveHeatmapClusters} />
         )}
 
         {/* Show cluster markers at medium zoom levels */}
