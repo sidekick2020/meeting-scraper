@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 const RENDER_DASHBOARD_URL = process.env.REACT_APP_RENDER_DASHBOARD_URL || 'https://dashboard.render.com';
-const CHECK_INTERVAL = 3000; // Check every 3 seconds for faster detection
-const CHECK_INTERVAL_FAST = 1500; // Faster checks when connection is unstable
-const FAILURE_THRESHOLD = 2; // Number of consecutive failures before showing deploying
+const CHECK_INTERVAL = 5000; // Check every 5 seconds
+const CHECK_INTERVAL_FAST = 3000; // Faster checks when connection is unstable
+const FAILURE_THRESHOLD = 4; // Number of consecutive failures before showing deploying (more tolerant of slow responses)
+const BACKEND_TIMEOUT = 15000; // 15 second timeout for backend requests (Render can be slow, especially on cold starts)
 const TYPICAL_DEPLOY_TIME = 120; // Typical deployment takes ~2 minutes
 
 function DeploymentIndicator() {
@@ -67,7 +68,7 @@ function DeploymentIndicator() {
     const checkBackend = async () => {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const timeoutId = setTimeout(() => controller.abort(), BACKEND_TIMEOUT);
 
         const response = await fetch(`${BACKEND_URL}/api/version`, {
           signal: controller.signal
@@ -109,8 +110,8 @@ function DeploymentIndicator() {
       // Only show indicators after we have an initial version (page has loaded successfully once)
       if (!initialBackendVersionRef.current) return;
 
-      // After first failure, show 'checking' state and use faster interval
-      if (backendFailsRef.current === 1) {
+      // After 2 failures, show 'checking' state and use faster interval
+      if (backendFailsRef.current === 2) {
         setBackendStatus('checking');
         checkIntervalRef.current = CHECK_INTERVAL_FAST;
         // Restart the interval with faster checking
@@ -118,7 +119,7 @@ function DeploymentIndicator() {
         intervalId = setInterval(checkBackend, CHECK_INTERVAL_FAST);
       }
 
-      // After threshold failures, show 'deploying' state
+      // After threshold failures (4), show 'deploying' state
       if (backendFailsRef.current >= FAILURE_THRESHOLD) {
         setBackendStatus('deploying');
       }
@@ -134,7 +135,7 @@ function DeploymentIndicator() {
     const checkFrontend = async () => {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         // Add cache-busting to always get fresh version
         const response = await fetch(`/version.json?t=${Date.now()}`, {
@@ -166,13 +167,15 @@ function DeploymentIndicator() {
         } else {
           // Frontend version check failed - might be deploying
           frontendFailsRef.current += 1;
-          if (frontendFailsRef.current >= FAILURE_THRESHOLD && initialFrontendVersionRef.current) {
+          // Need more failures for frontend since static files should be reliable
+          if (frontendFailsRef.current >= FAILURE_THRESHOLD + 2 && initialFrontendVersionRef.current) {
             setFrontendStatus('updating');
           }
         }
       } catch (error) {
         frontendFailsRef.current += 1;
-        if (frontendFailsRef.current >= FAILURE_THRESHOLD && initialFrontendVersionRef.current) {
+        // Need more failures for frontend since static files should be reliable
+        if (frontendFailsRef.current >= FAILURE_THRESHOLD + 2 && initialFrontendVersionRef.current) {
           setFrontendStatus('updating');
         }
       }
