@@ -3,6 +3,7 @@ services:
   - type: web
     name: meeting-scraper-backend
     runtime: python
+    plan: starter  # Always-on (no spin-down after inactivity)
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn -w 1 -b 0.0.0.0:$PORT --timeout 120 app:app
