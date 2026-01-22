@@ -214,6 +214,9 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
       if (currentFilters.hybrid) {
         url += `&hybrid=true`;
       }
+      if (currentFilters.format) {
+        url += `&format=${encodeURIComponent(currentFilters.format)}`;
+      }
 
       const response = await fetch(url);
 
