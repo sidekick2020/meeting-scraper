@@ -1,14 +1,50 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 
-function PublicSidebar({ onAdminClick }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const { theme, toggleTheme, isDark } = useTheme();
+// Hamburger toggle button component - can be used in headers
+export function SidebarToggleButton({ isOpen, onClick, className = '' }) {
+  return (
+    <button
+      className={`public-sidebar-toggle ${className}`}
+      onClick={onClick}
+      aria-label={isOpen ? 'Close menu' : 'Open menu'}
+      aria-expanded={isOpen}
+    >
+      {isOpen ? (
+        // X icon when open
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      ) : (
+        // Menu/hamburger icon when closed
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+function PublicSidebar({ onAdminClick, isOpen: externalIsOpen, onToggle }) {
+  // Use external state if provided, otherwise manage internally
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isControlled = externalIsOpen !== undefined;
+  const isOpen = isControlled ? externalIsOpen : internalIsOpen;
+  const setIsOpen = isControlled ? onToggle : setInternalIsOpen;
+
+  const { toggleTheme, isDark } = useTheme();
   const sidebarRef = useRef(null);
 
   // Close sidebar when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Don't close if clicking the toggle button
+      if (event.target.closest('.public-sidebar-toggle')) {
+        return;
+      }
       if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
         setIsOpen(false);
       }
@@ -21,7 +57,7 @@ function PublicSidebar({ onAdminClick }) {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen]);
+  }, [isOpen, setIsOpen]);
 
   // Close sidebar on escape key
   useEffect(() => {
@@ -38,7 +74,7 @@ function PublicSidebar({ onAdminClick }) {
     return () => {
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [isOpen]);
+  }, [isOpen, setIsOpen]);
 
   const handleSoberSidekickLogin = () => {
     // TODO: Implement Sober Sidekick member login
@@ -49,28 +85,13 @@ function PublicSidebar({ onAdminClick }) {
 
   return (
     <>
-      {/* Toggle button - always visible on right side */}
-      <button
-        className="public-sidebar-toggle"
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label={isOpen ? 'Close menu' : 'Open menu'}
-        aria-expanded={isOpen}
-      >
-        {isOpen ? (
-          // X icon when open
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        ) : (
-          // Menu/hamburger icon when closed
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-        )}
-      </button>
+      {/* Only render fixed toggle button if not externally controlled */}
+      {!isControlled && (
+        <SidebarToggleButton
+          isOpen={isOpen}
+          onClick={() => setIsOpen(!isOpen)}
+        />
+      )}
 
       {/* Overlay when sidebar is open */}
       {isOpen && <div className="public-sidebar-overlay" onClick={() => setIsOpen(false)} />}

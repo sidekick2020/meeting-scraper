@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import MeetingMap from './MeetingMap';
 import MeetingDetail from './MeetingDetail';
 import ThemeToggle from './ThemeToggle';
+import { SidebarToggleButton } from './PublicSidebar';
 import { useDataCache } from '../contexts/DataCacheContext';
 import { useParse } from '../contexts/ParseContext';
 import {
@@ -156,7 +157,7 @@ const MeetingTypeIcon = ({ type, size = 16 }) => {
   return iconMap[iconKey] || iconMap.circle;
 };
 
-function MeetingsExplorer({ onAdminClick }) {
+function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
   // Data cache context for persisting data across navigation
   const { getCache, setCache } = useDataCache();
 
@@ -1361,15 +1362,22 @@ function MeetingsExplorer({ onAdminClick }) {
     <div className="airbnb-explorer">
       {/* Top Navigation Bar */}
       <header className="airbnb-header">
-        <div className="airbnb-logo" onClick={() => window.location.reload()}>
-          <img
-            src="/logo.png"
-            alt="Sober Sidekick"
-            className="logo-icon"
+        <div className="airbnb-header-left">
+          <SidebarToggleButton
+            isOpen={sidebarOpen}
+            onClick={onSidebarToggle}
+            className="header-sidebar-toggle"
           />
-          <div className="logo-text">
-            <span className="logo-brand">Sober Sidekick</span>
-            <span className="logo-tagline">You're Never Alone</span>
+          <div className="airbnb-logo" onClick={() => window.location.reload()}>
+            <img
+              src="/logo.png"
+              alt="Sober Sidekick"
+              className="logo-icon"
+            />
+            <div className="logo-text">
+              <span className="logo-brand">Sober Sidekick</span>
+              <span className="logo-tagline">You're Never Alone</span>
+            </div>
           </div>
         </div>
 
