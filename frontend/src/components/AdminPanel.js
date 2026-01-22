@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useDataCache } from '../contexts/DataCacheContext';
 import Dashboard from './Dashboard';
 import SettingsModal from './SettingsModal';
 import Stats from './Stats';
@@ -18,12 +19,35 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'
 const POLL_INTERVAL_ACTIVE = 500;
 const POLL_INTERVAL_IDLE = 2000;
 
+// Cache keys for AdminPanel
+const ADMIN_CACHE_KEYS = {
+  FEEDS: 'admin:feeds',
+  AVAILABLE_STATES: 'admin:availableStates',
+  DIRECTORY_MEETINGS: 'admin:directoryMeetings',
+  DIRECTORY_TOTAL: 'admin:directoryTotal',
+  BACKEND_CONFIGURED: 'admin:backendConfigured',
+  SCRAPING_STATE: 'admin:scrapingState'
+};
+
+// Cache TTL: 5 minutes for admin data
+const ADMIN_CACHE_TTL = 5 * 60 * 1000;
+
 function AdminPanel({ onBackToPublic }) {
   const { user, signOut } = useAuth();
+  const { getCache, setCache } = useDataCache();
+
+  // Initialize from cache
+  const cachedFeeds = getCache(ADMIN_CACHE_KEYS.FEEDS);
+  const cachedStates = getCache(ADMIN_CACHE_KEYS.AVAILABLE_STATES);
+  const cachedDirectory = getCache(ADMIN_CACHE_KEYS.DIRECTORY_MEETINGS);
+  const cachedDirectoryTotal = getCache(ADMIN_CACHE_KEYS.DIRECTORY_TOTAL);
+  const cachedBackendConfigured = getCache(ADMIN_CACHE_KEYS.BACKEND_CONFIGURED);
+  const cachedScrapingState = getCache(ADMIN_CACHE_KEYS.SCRAPING_STATE);
+
   const [isConnected, setIsConnected] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [activeSection, setActiveSection] = useState('scraper');
-  const [scrapingState, setScrapingState] = useState({
+  const [scrapingState, setScrapingState] = useState(cachedScrapingState?.data || {
     is_running: false,
     total_found: 0,
     total_saved: 0,
@@ -46,14 +70,14 @@ function AdminPanel({ onBackToPublic }) {
     appId: localStorage.getItem('back4app_app_id') || '',
     restKey: localStorage.getItem('back4app_rest_key') || ''
   });
-  const [backendConfigured, setBackendConfigured] = useState(false);
+  const [backendConfigured, setBackendConfigured] = useState(cachedBackendConfigured?.data || false);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [activeView, setActiveView] = useState('list');
   const [showDocs, setShowDocs] = useState(false);
   const [unfinishedScrape, setUnfinishedScrape] = useState(null);
   const [checkedUnfinished, setCheckedUnfinished] = useState(false);
   const [showScrapeChoiceModal, setShowScrapeChoiceModal] = useState(false);
-  const [feeds, setFeeds] = useState([]);
+  const [feeds, setFeeds] = useState(cachedFeeds?.data || []);
   const [selectedFeeds, setSelectedFeeds] = useState([]);
   const [showFeedSelector, setShowFeedSelector] = useState(false);
   const [isStartingScrape, setIsStartingScrape] = useState(false);
@@ -69,18 +93,18 @@ function AdminPanel({ onBackToPublic }) {
   const [showSaveConfigInput, setShowSaveConfigInput] = useState(false);
   const [newConfigName, setNewConfigName] = useState('');
 
-  // Directory state
-  const [directoryMeetings, setDirectoryMeetings] = useState([]);
-  const [directoryLoading, setDirectoryLoading] = useState(false);
+  // Directory state - initialize from cache
+  const [directoryMeetings, setDirectoryMeetings] = useState(cachedDirectory?.data || []);
+  const [directoryLoading, setDirectoryLoading] = useState(!cachedDirectory?.data);
   const [directoryLoadingMore, setDirectoryLoadingMore] = useState(false);
   const [directorySearch, setDirectorySearch] = useState('');
   const [directoryState, setDirectoryState] = useState('');
   const [directoryDay, setDirectoryDay] = useState('');
   const [directoryType, setDirectoryType] = useState('');
   const [directoryOnline, setDirectoryOnline] = useState('');
-  const [directoryTotal, setDirectoryTotal] = useState(0);
+  const [directoryTotal, setDirectoryTotal] = useState(cachedDirectoryTotal?.data || 0);
   const [directoryHasMore, setDirectoryHasMore] = useState(true);
-  const [availableStates, setAvailableStates] = useState([]);
+  const [availableStates, setAvailableStates] = useState(cachedStates?.data || []);
   const DIRECTORY_PAGE_SIZE = 25;
 
   const isRunningRef = useRef(false);
@@ -316,14 +340,20 @@ function AdminPanel({ onBackToPublic }) {
 
   useEffect(() => {
     checkConnection();
-    checkBackendConfig();
+    // Only fetch these if not cached
+    if (!cachedBackendConfigured?.data) {
+      checkBackendConfig();
+    }
     checkUnfinishedScrape();
-    fetchFeeds();
+    // Only fetch feeds if not cached
+    if (!cachedFeeds?.data || cachedFeeds.data.length === 0) {
+      fetchFeeds();
+    }
     pollIntervalRef.current = setInterval(checkConnection, POLL_INTERVAL_IDLE);
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [checkConnection, checkBackendConfig, checkUnfinishedScrape, fetchFeeds]);
+  }, [checkConnection, checkBackendConfig, checkUnfinishedScrape, fetchFeeds, cachedBackendConfigured, cachedFeeds]);
 
   useEffect(() => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -334,17 +364,63 @@ function AdminPanel({ onBackToPublic }) {
     };
   }, [scrapingState.is_running, checkConnection]);
 
-  // Fetch available states on mount
+  // Fetch available states on mount (skip if cached)
   useEffect(() => {
-    fetchAvailableStates();
-  }, [fetchAvailableStates]);
+    if (!cachedStates?.data || cachedStates.data.length === 0) {
+      fetchAvailableStates();
+    }
+  }, [fetchAvailableStates, cachedStates]);
 
   // Fetch directory meetings when section is active or filters change
   useEffect(() => {
     if (activeSection === 'directory') {
-      fetchDirectoryMeetings(directorySearch, directoryState, directoryDay, directoryType, directoryOnline);
+      // Only fetch if we don't have cached data or filters changed
+      const hasFilters = directorySearch || directoryState || directoryDay || directoryType || directoryOnline;
+      if (!cachedDirectory?.data || hasFilters || directoryMeetings.length === 0) {
+        fetchDirectoryMeetings(directorySearch, directoryState, directoryDay, directoryType, directoryOnline);
+      }
     }
-  }, [activeSection, directorySearch, directoryState, directoryDay, directoryType, directoryOnline, fetchDirectoryMeetings]);
+  }, [activeSection, directorySearch, directoryState, directoryDay, directoryType, directoryOnline, fetchDirectoryMeetings, cachedDirectory, directoryMeetings.length]);
+
+  // Cache feeds when they change
+  useEffect(() => {
+    if (feeds.length > 0) {
+      setCache(ADMIN_CACHE_KEYS.FEEDS, feeds, ADMIN_CACHE_TTL);
+    }
+  }, [feeds, setCache]);
+
+  // Cache available states
+  useEffect(() => {
+    if (availableStates.length > 0) {
+      setCache(ADMIN_CACHE_KEYS.AVAILABLE_STATES, availableStates, ADMIN_CACHE_TTL);
+    }
+  }, [availableStates, setCache]);
+
+  // Cache directory meetings
+  useEffect(() => {
+    if (directoryMeetings.length > 0) {
+      setCache(ADMIN_CACHE_KEYS.DIRECTORY_MEETINGS, directoryMeetings, ADMIN_CACHE_TTL);
+    }
+  }, [directoryMeetings, setCache]);
+
+  // Cache directory total
+  useEffect(() => {
+    if (directoryTotal > 0) {
+      setCache(ADMIN_CACHE_KEYS.DIRECTORY_TOTAL, directoryTotal, ADMIN_CACHE_TTL);
+    }
+  }, [directoryTotal, setCache]);
+
+  // Cache backend configured status
+  useEffect(() => {
+    setCache(ADMIN_CACHE_KEYS.BACKEND_CONFIGURED, backendConfigured, ADMIN_CACHE_TTL);
+  }, [backendConfigured, setCache]);
+
+  // Cache scraping state (but only non-running states to avoid stale running states)
+  useEffect(() => {
+    if (!scrapingState.is_running) {
+      setCache(ADMIN_CACHE_KEYS.SCRAPING_STATE, scrapingState, ADMIN_CACHE_TTL);
+    }
+  }, [scrapingState, setCache]);
 
   const handleStartClick = () => {
     // If scraper is currently running OR there's an unfinished scrape, show choice modal

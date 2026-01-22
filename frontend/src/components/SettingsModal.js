@@ -1,6 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+
+// Cache keys for SettingsModal
+const SETTINGS_CACHE_KEYS = {
+  USERS: 'settings:users',
+  GIT_VERSIONS: 'settings:gitVersions',
+  RECENT_COMMITS: 'settings:recentCommits',
+  API_VERSIONS: 'settings:apiVersions',
+  CHANGELOG: 'settings:changelog'
+};
+
+// Cache TTL: 5 minutes for settings data
+const SETTINGS_CACHE_TTL = 5 * 60 * 1000;
 
 // Default API versions (will be enhanced with server data when available)
 const DEFAULT_API_VERSIONS = [
@@ -34,6 +47,15 @@ const DEFAULT_API_VERSIONS = [
 ];
 
 function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
+  const { getCache, setCache } = useDataCache();
+
+  // Initialize from cache
+  const cachedUsers = getCache(SETTINGS_CACHE_KEYS.USERS);
+  const cachedGitVersions = getCache(SETTINGS_CACHE_KEYS.GIT_VERSIONS);
+  const cachedRecentCommits = getCache(SETTINGS_CACHE_KEYS.RECENT_COMMITS);
+  const cachedApiVersions = getCache(SETTINGS_CACHE_KEYS.API_VERSIONS);
+  const cachedChangelog = getCache(SETTINGS_CACHE_KEYS.CHANGELOG);
+
   const [activeTab, setActiveTab] = useState('config');
   const [appId, setAppId] = useState(config.appId);
   const [restKey, setRestKey] = useState(config.restKey);
@@ -52,26 +74,26 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   const [versionError, setVersionError] = useState('');
   const [versionSuccess, setVersionSuccess] = useState('');
 
-  // Git version tags state
-  const [gitVersions, setGitVersions] = useState([]);
-  const [recentCommits, setRecentCommits] = useState([]);
-  const [loadingVersions, setLoadingVersions] = useState(false);
-  const [hasGitTags, setHasGitTags] = useState(false);
+  // Git version tags state - initialize from cache
+  const [gitVersions, setGitVersions] = useState(cachedGitVersions?.data || []);
+  const [recentCommits, setRecentCommits] = useState(cachedRecentCommits?.data || []);
+  const [loadingVersions, setLoadingVersions] = useState(!cachedGitVersions?.data);
+  const [hasGitTags, setHasGitTags] = useState(cachedGitVersions?.data?.length > 0);
   const [buildVersion, setBuildVersion] = useState('');
 
-  // API versions with features
-  const [apiVersions, setApiVersions] = useState(DEFAULT_API_VERSIONS);
-  const [loadingApiVersions, setLoadingApiVersions] = useState(false);
+  // API versions with features - initialize from cache
+  const [apiVersions, setApiVersions] = useState(cachedApiVersions?.data || DEFAULT_API_VERSIONS);
+  const [loadingApiVersions, setLoadingApiVersions] = useState(!cachedApiVersions?.data);
 
-  // Changelog state
-  const [changelog, setChangelog] = useState([]);
-  const [loadingChangelog, setLoadingChangelog] = useState(false);
+  // Changelog state - initialize from cache
+  const [changelog, setChangelog] = useState(cachedChangelog?.data || []);
+  const [loadingChangelog, setLoadingChangelog] = useState(!cachedChangelog?.data);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
   const [selectedVersionChangelog, setSelectedVersionChangelog] = useState(null);
 
-  // Users state
-  const [users, setUsers] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
+  // Users state - initialize from cache
+  const [users, setUsers] = useState(cachedUsers?.data || []);
+  const [loadingUsers, setLoadingUsers] = useState(!cachedUsers?.data);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('standard');
@@ -166,7 +188,13 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   // Check if current user is admin
   const isAdmin = currentUser?.role === 'admin' || currentUser?.isOwner || currentUser?.email === 'chris.thompson@sobersidekick.com';
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (forceRefresh = false) => {
+    // Skip if we have cached data and not forcing refresh
+    if (!forceRefresh && cachedUsers?.data && cachedUsers.data.length > 0) {
+      setLoadingUsers(false);
+      return;
+    }
+
     setLoadingUsers(true);
     setUserError('');
 
@@ -182,7 +210,10 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
 
       if (response.ok) {
         const data = await response.json();
-        setUsers(data.users || []);
+        const usersList = data.users || [];
+        setUsers(usersList);
+        // Cache the users
+        setCache(SETTINGS_CACHE_KEYS.USERS, usersList, SETTINGS_CACHE_TTL);
       } else {
         const data = await response.json();
         setUserError(data.error || 'Failed to load users');
@@ -197,7 +228,7 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
     } finally {
       setLoadingUsers(false);
     }
-  }, []);
+  }, [cachedUsers, setCache]);
 
   useEffect(() => {
     if (activeTab === 'users' && isAdmin) {
@@ -206,23 +237,34 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   }, [activeTab, isAdmin, fetchUsers]);
 
   // Fetch git version tags when API tab is active
-  const fetchGitVersions = useCallback(async () => {
+  const fetchGitVersions = useCallback(async (forceRefresh = false) => {
+    // Skip if we have cached data and not forcing refresh
+    if (!forceRefresh && cachedGitVersions?.data && cachedGitVersions.data.length > 0) {
+      setLoadingVersions(false);
+      return;
+    }
+
     setLoadingVersions(true);
     try {
       const response = await fetch(`${BACKEND_URL}/api/versions`);
       if (response.ok) {
         const data = await response.json();
-        setGitVersions(data.versions || []);
-        setRecentCommits(data.recent_commits || []);
+        const versions = data.versions || [];
+        const commits = data.recent_commits || [];
+        setGitVersions(versions);
+        setRecentCommits(commits);
         setHasGitTags(data.has_tags || false);
         setBuildVersion(data.build_version || '');
+        // Cache the data
+        setCache(SETTINGS_CACHE_KEYS.GIT_VERSIONS, versions, SETTINGS_CACHE_TTL);
+        setCache(SETTINGS_CACHE_KEYS.RECENT_COMMITS, commits, SETTINGS_CACHE_TTL);
       }
     } catch (error) {
       console.error('Failed to fetch git versions:', error);
     } finally {
       setLoadingVersions(false);
     }
-  }, []);
+  }, [cachedGitVersions, setCache]);
 
   useEffect(() => {
     if (activeTab === 'api') {
@@ -235,7 +277,13 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   }, [activeTab, fetchGitVersions]);
 
   // Fetch API versions with features from server
-  const fetchApiVersions = async () => {
+  const fetchApiVersions = async (forceRefresh = false) => {
+    // Skip if we have cached data and not forcing refresh
+    if (!forceRefresh && cachedApiVersions?.data && cachedApiVersions.data.length > 0) {
+      setLoadingApiVersions(false);
+      return;
+    }
+
     setLoadingApiVersions(true);
     try {
       const response = await fetch(`${BACKEND_URL}/api/api-versions`);
@@ -243,6 +291,8 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
         const data = await response.json();
         if (data.versions && data.versions.length > 0) {
           setApiVersions(data.versions);
+          // Cache the data
+          setCache(SETTINGS_CACHE_KEYS.API_VERSIONS, data.versions, SETTINGS_CACHE_TTL);
         }
       }
     } catch (error) {
@@ -253,13 +303,22 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   };
 
   // Fetch changelog from server
-  const fetchChangelog = async () => {
+  const fetchChangelog = async (forceRefresh = false) => {
+    // Skip if we have cached data and not forcing refresh
+    if (!forceRefresh && cachedChangelog?.data && cachedChangelog.data.length > 0) {
+      setLoadingChangelog(false);
+      return;
+    }
+
     setLoadingChangelog(true);
     try {
       const response = await fetch(`${BACKEND_URL}/api/changelog`);
       if (response.ok) {
         const data = await response.json();
-        setChangelog(data.changelog || []);
+        const changelogData = data.changelog || [];
+        setChangelog(changelogData);
+        // Cache the data
+        setCache(SETTINGS_CACHE_KEYS.CHANGELOG, changelogData, SETTINGS_CACHE_TTL);
       }
     } catch (error) {
       console.error('Failed to fetch changelog:', error);
@@ -320,7 +379,7 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
         setInviteRole('standard');
         setCcEmail('');
         setShowInviteForm(false);
-        fetchUsers();
+        fetchUsers(true); // Force refresh
       } else {
         setUserError(data.error || 'Failed to invite user');
       }
@@ -344,7 +403,7 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
       });
 
       if (response.ok) {
-        fetchUsers();
+        fetchUsers(true); // Force refresh
       } else {
         const data = await response.json();
         setUserError(data.error || 'Failed to update user');
@@ -367,7 +426,7 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
 
       if (response.ok) {
         setUserSuccess(`${userEmail} has been removed`);
-        fetchUsers();
+        fetchUsers(true); // Force refresh
       } else {
         const data = await response.json();
         setUserError(data.error || 'Failed to delete user');

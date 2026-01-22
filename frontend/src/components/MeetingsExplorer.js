@@ -2,8 +2,24 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import MeetingMap from './MeetingMap';
 import MeetingDetail from './MeetingDetail';
 import ThemeToggle from './ThemeToggle';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+
+// Cache keys
+const CACHE_KEYS = {
+  MEETINGS: 'explorer:meetings',
+  TOTAL: 'explorer:total',
+  AVAILABLE_STATES: 'explorer:availableStates',
+  AVAILABLE_CITIES: 'explorer:availableCities',
+  AVAILABLE_TYPES: 'explorer:availableTypes',
+  AVAILABLE_FORMATS: 'explorer:availableFormats',
+  CONFIG_STATUS: 'explorer:configStatus',
+  FILTER_STATE: 'explorer:filterState'
+};
+
+// Cache TTL: 10 minutes for meetings data
+const MEETINGS_CACHE_TTL = 10 * 60 * 1000;
 
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const dayAbbrev = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -133,26 +149,39 @@ const MeetingTypeIcon = ({ type, size = 16 }) => {
 };
 
 function MeetingsExplorer({ onAdminClick }) {
-  const [meetings, setMeetings] = useState([]);
-  const [filteredMeetings, setFilteredMeetings] = useState([]);
+  // Data cache context for persisting data across navigation
+  const { getCache, setCache } = useDataCache();
+
+  // Initialize state from cache if available
+  const cachedMeetings = getCache(CACHE_KEYS.MEETINGS);
+  const cachedTotal = getCache(CACHE_KEYS.TOTAL);
+  const cachedStates = getCache(CACHE_KEYS.AVAILABLE_STATES);
+  const cachedCities = getCache(CACHE_KEYS.AVAILABLE_CITIES);
+  const cachedTypes = getCache(CACHE_KEYS.AVAILABLE_TYPES);
+  const cachedFormats = getCache(CACHE_KEYS.AVAILABLE_FORMATS);
+  const cachedConfig = getCache(CACHE_KEYS.CONFIG_STATUS);
+  const cachedFilterState = getCache(CACHE_KEYS.FILTER_STATE);
+
+  const [meetings, setMeetings] = useState(cachedMeetings?.data || []);
+  const [filteredMeetings, setFilteredMeetings] = useState(cachedMeetings?.data || []);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [hoveredMeeting, setHoveredMeeting] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!cachedMeetings?.data);
   const [error, setError] = useState(null);
-  const [configStatus, setConfigStatus] = useState(null); // null, 'checking', 'configured', 'not_configured', 'unreachable'
+  const [configStatus, setConfigStatus] = useState(cachedConfig?.data || null); // null, 'checking', 'configured', 'not_configured', 'unreachable'
   const [isMapCollapsed, setIsMapCollapsed] = useState(false);
 
-  // Filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStates, setSelectedStates] = useState([]);
-  const [selectedCity, setSelectedCity] = useState('');
-  const [selectedDays, setSelectedDays] = useState([]); // Changed to array for multi-select
-  const [selectedTypes, setSelectedTypes] = useState([]); // Changed to array for multi-select
-  const [showOnlineOnly, setShowOnlineOnly] = useState(false);
-  const [showTodayOnly, setShowTodayOnly] = useState(false);
-  const [showHybridOnly, setShowHybridOnly] = useState(false);
-  const [selectedFormat, setSelectedFormat] = useState('');
-  const [selectedAccessibility, setSelectedAccessibility] = useState([]);
+  // Filters - restore from cache if available
+  const [searchQuery, setSearchQuery] = useState(cachedFilterState?.data?.searchQuery || '');
+  const [selectedStates, setSelectedStates] = useState(cachedFilterState?.data?.selectedStates || []);
+  const [selectedCity, setSelectedCity] = useState(cachedFilterState?.data?.selectedCity || '');
+  const [selectedDays, setSelectedDays] = useState(cachedFilterState?.data?.selectedDays || []); // Changed to array for multi-select
+  const [selectedTypes, setSelectedTypes] = useState(cachedFilterState?.data?.selectedTypes || []); // Changed to array for multi-select
+  const [showOnlineOnly, setShowOnlineOnly] = useState(cachedFilterState?.data?.showOnlineOnly || false);
+  const [showTodayOnly, setShowTodayOnly] = useState(cachedFilterState?.data?.showTodayOnly || false);
+  const [showHybridOnly, setShowHybridOnly] = useState(cachedFilterState?.data?.showHybridOnly || false);
+  const [selectedFormat, setSelectedFormat] = useState(cachedFilterState?.data?.selectedFormat || '');
+  const [selectedAccessibility, setSelectedAccessibility] = useState(cachedFilterState?.data?.selectedAccessibility || []);
   const [showFilters, setShowFilters] = useState(false);
   const [showStatesDropdown, setShowStatesDropdown] = useState(false);
   const [showDaysDropdown, setShowDaysDropdown] = useState(false);
@@ -169,8 +198,8 @@ function MeetingsExplorer({ onAdminClick }) {
   const daysDropdownRef = useRef(null);
   const typesDropdownRef = useRef(null);
 
-  // Pagination
-  const [totalMeetings, setTotalMeetings] = useState(0);
+  // Pagination - restore total from cache
+  const [totalMeetings, setTotalMeetings] = useState(cachedTotal?.data || 0);
   const [currentPage, setCurrentPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const PAGE_SIZE = 50;
@@ -200,11 +229,11 @@ function MeetingsExplorer({ onAdminClick }) {
     return () => observer.disconnect();
   }, []);
 
-  // Get unique values from meetings
-  const [availableStates, setAvailableStates] = useState([]);
-  const [availableCities, setAvailableCities] = useState([]);
-  const [availableTypes, setAvailableTypes] = useState([]);
-  const [availableFormats, setAvailableFormats] = useState([]);
+  // Get unique values from meetings - restore from cache if available
+  const [availableStates, setAvailableStates] = useState(cachedStates?.data || []);
+  const [availableCities, setAvailableCities] = useState(cachedCities?.data || []);
+  const [availableTypes, setAvailableTypes] = useState(cachedTypes?.data || []);
+  const [availableFormats, setAvailableFormats] = useState(cachedFormats?.data || []);
 
   // Accessibility options
   const accessibilityOptions = [
@@ -226,7 +255,7 @@ function MeetingsExplorer({ onAdminClick }) {
   const boundsTimeoutRef = useRef(null);
   const thumbnailRequestsRef = useRef(new Set());
   const initialFetchDoneRef = useRef(false);
-  const meetingsRef = useRef([]);
+  const meetingsRef = useRef(cachedMeetings?.data || []);
 
   // Fetch thumbnail for a single meeting
   const fetchThumbnail = useCallback(async (meetingId) => {
@@ -427,13 +456,87 @@ function MeetingsExplorer({ onAdminClick }) {
     }
   }, []);
 
-  // Initial data fetch - run only once on mount
+  // Initial data fetch - run only once on mount, skip if cached
   useEffect(() => {
     if (initialFetchDoneRef.current) return;
     initialFetchDoneRef.current = true;
+
+    // If we have cached meetings, don't fetch on initial load
+    // Just check backend config if needed
+    if (cachedMeetings?.data && cachedMeetings.data.length > 0) {
+      // Only check config if not already cached
+      if (!cachedConfig?.data) {
+        checkBackendConfig();
+      }
+      return;
+    }
+
     checkBackendConfig();
     fetchMeetings();
-  }, [fetchMeetings, checkBackendConfig]);
+  }, [fetchMeetings, checkBackendConfig, cachedMeetings, cachedConfig]);
+
+  // Cache meetings data when it changes
+  useEffect(() => {
+    if (meetings.length > 0) {
+      setCache(CACHE_KEYS.MEETINGS, meetings, MEETINGS_CACHE_TTL);
+    }
+  }, [meetings, setCache]);
+
+  // Cache total meetings count
+  useEffect(() => {
+    if (totalMeetings > 0) {
+      setCache(CACHE_KEYS.TOTAL, totalMeetings, MEETINGS_CACHE_TTL);
+    }
+  }, [totalMeetings, setCache]);
+
+  // Cache available filter options
+  useEffect(() => {
+    if (availableStates.length > 0) {
+      setCache(CACHE_KEYS.AVAILABLE_STATES, availableStates, MEETINGS_CACHE_TTL);
+    }
+  }, [availableStates, setCache]);
+
+  useEffect(() => {
+    if (availableCities.length > 0) {
+      setCache(CACHE_KEYS.AVAILABLE_CITIES, availableCities, MEETINGS_CACHE_TTL);
+    }
+  }, [availableCities, setCache]);
+
+  useEffect(() => {
+    if (availableTypes.length > 0) {
+      setCache(CACHE_KEYS.AVAILABLE_TYPES, availableTypes, MEETINGS_CACHE_TTL);
+    }
+  }, [availableTypes, setCache]);
+
+  useEffect(() => {
+    if (availableFormats.length > 0) {
+      setCache(CACHE_KEYS.AVAILABLE_FORMATS, availableFormats, MEETINGS_CACHE_TTL);
+    }
+  }, [availableFormats, setCache]);
+
+  // Cache config status
+  useEffect(() => {
+    if (configStatus && configStatus !== 'checking') {
+      setCache(CACHE_KEYS.CONFIG_STATUS, configStatus, MEETINGS_CACHE_TTL);
+    }
+  }, [configStatus, setCache]);
+
+  // Cache filter state when it changes
+  useEffect(() => {
+    const filterState = {
+      searchQuery,
+      selectedStates,
+      selectedCity,
+      selectedDays,
+      selectedTypes,
+      showOnlineOnly,
+      showTodayOnly,
+      showHybridOnly,
+      selectedFormat,
+      selectedAccessibility
+    };
+    setCache(CACHE_KEYS.FILTER_STATE, filterState, MEETINGS_CACHE_TTL);
+  }, [searchQuery, selectedStates, selectedCity, selectedDays, selectedTypes, showOnlineOnly, showTodayOnly, showHybridOnly, selectedFormat, selectedAccessibility, setCache]);
 
   // Fetch meetings when state filter changes (server-side filtering)
   const prevSelectedStatesRef = useRef([]);

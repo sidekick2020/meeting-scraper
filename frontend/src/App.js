@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './App.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { DataCacheProvider } from './contexts/DataCacheContext';
 import MeetingsExplorer from './components/MeetingsExplorer';
 import AdminPanel from './components/AdminPanel';
 import DeploymentIndicator from './components/DeploymentIndicator';
@@ -150,12 +151,14 @@ function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <Routes>
-            <Route path="/" element={<AppContent />} />
-            <Route path="/docs" element={<DocsPage />} />
-            <Route path="/download" element={<DownloadPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <DataCacheProvider>
+            <Routes>
+              <Route path="/" element={<AppContent />} />
+              <Route path="/docs" element={<DocsPage />} />
+              <Route path="/download" element={<DownloadPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </DataCacheProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

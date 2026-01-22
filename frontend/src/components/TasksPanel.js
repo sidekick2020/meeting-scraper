@@ -1,11 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
+// Cache keys and TTL
+const TASKS_CACHE_KEY = 'tasks:data';
+const DRYSPOTS_CACHE_KEY = 'tasks:drySpots';
+const TASKS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 function TasksPanel({ feeds }) {
-  const [tasks, setTasks] = useState([]);
-  const [drySpots, setDrySpots] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { getCache, setCache } = useDataCache();
+  const cachedTasks = getCache(TASKS_CACHE_KEY);
+  const cachedDrySpots = getCache(DRYSPOTS_CACHE_KEY);
+
+  const [tasks, setTasks] = useState(cachedTasks?.data || []);
+  const [drySpots, setDrySpots] = useState(cachedDrySpots?.data || []);
+  const [isLoading, setIsLoading] = useState(!cachedTasks?.data && !cachedDrySpots?.data);
   const [isResearching, setIsResearching] = useState(false);
   const [researchProgress, setResearchProgress] = useState('');
   const [showAddTask, setShowAddTask] = useState(false);
@@ -28,38 +38,57 @@ function TasksPanel({ feeds }) {
   const [feedType, setFeedType] = useState('auto');
 
   // Fetch tasks and dry spots
-  const fetchTasks = useCallback(async () => {
+  const fetchTasks = useCallback(async (forceRefresh = false) => {
+    // Skip if we have cached data and not forcing refresh
+    if (!forceRefresh && cachedTasks?.data && cachedTasks.data.length > 0) {
+      return;
+    }
+
     try {
       const response = await fetch(`${BACKEND_URL}/api/tasks`);
       if (response.ok) {
         const data = await response.json();
-        setTasks(data.tasks || []);
+        const tasksData = data.tasks || [];
+        setTasks(tasksData);
+        // Cache the data
+        setCache(TASKS_CACHE_KEY, tasksData, TASKS_CACHE_TTL);
       }
     } catch (error) {
       console.error('Error fetching tasks:', error);
     }
-  }, []);
+  }, [cachedTasks, setCache]);
 
-  const fetchDrySpots = useCallback(async () => {
+  const fetchDrySpots = useCallback(async (forceRefresh = false) => {
+    // Skip if we have cached data and not forcing refresh
+    if (!forceRefresh && cachedDrySpots?.data && cachedDrySpots.data.length > 0) {
+      return;
+    }
+
     try {
       const response = await fetch(`${BACKEND_URL}/api/coverage/gaps`);
       if (response.ok) {
         const data = await response.json();
-        setDrySpots(data.gaps || []);
+        const gapsData = data.gaps || [];
+        setDrySpots(gapsData);
+        // Cache the data
+        setCache(DRYSPOTS_CACHE_KEY, gapsData, TASKS_CACHE_TTL);
       }
     } catch (error) {
       console.error('Error fetching dry spots:', error);
     }
-  }, []);
+  }, [cachedDrySpots, setCache]);
 
   useEffect(() => {
     const loadData = async () => {
-      setIsLoading(true);
+      // Only show loading if no cached data
+      if (!cachedTasks?.data && !cachedDrySpots?.data) {
+        setIsLoading(true);
+      }
       await Promise.all([fetchTasks(), fetchDrySpots()]);
       setIsLoading(false);
     };
     loadData();
-  }, [fetchTasks, fetchDrySpots]);
+  }, [fetchTasks, fetchDrySpots, cachedTasks, cachedDrySpots]);
 
   // Research intergroup sites for a dry spot
   const researchDrySpot = async (spot) => {
@@ -86,9 +115,9 @@ function TasksPanel({ feeds }) {
           setTasks(prev => [...data.suggestions, ...prev]);
         }
 
-        // Refresh tasks after a moment
+        // Refresh tasks after a moment (force refresh to get new data)
         setTimeout(() => {
-          fetchTasks();
+          fetchTasks(true);
           setIsResearching(false);
           setResearchProgress('');
         }, 1500);
