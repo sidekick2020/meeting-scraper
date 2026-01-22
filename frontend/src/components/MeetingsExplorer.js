@@ -1973,55 +1973,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
 
       {/* Main Content - Split View */}
       <div className="airbnb-main">
-        {/* Map Panel (Left) */}
-        <div className={`airbnb-map-panel ${isMapCollapsed ? 'collapsed' : ''}`}>
-          <button
-            className="map-collapse-btn"
-            onClick={() => setIsMapCollapsed(!isMapCollapsed)}
-            title={isMapCollapsed ? 'Show map' : 'Hide map'}
-          >
-            {isMapCollapsed ? (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
-            ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-            )}
-          </button>
-
-          {!isMapCollapsed && (
-            <>
-              <MeetingMap
-                onSelectMeeting={handleMapMarkerClick}
-                onStateClick={(stateData) => {
-                  // Set the state filter to show meetings for this state
-                  setSelectedStates([stateData.state]);
-                  // Clear target location since we're clicking a state
-                  setTargetLocation(null);
-                  // Scroll to the meeting list
-                  if (listRef.current) {
-                    listRef.current.scrollIntoView({ behavior: 'smooth' });
-                  }
-                }}
-                showHeatmap={true}
-                targetLocation={targetLocation}
-                filters={mapFilters}
-                onBoundsChange={handleMapBoundsChange}
-                onMapMeetingCount={setMapMeetingCount}
-              />
-              {isLoadingMore && (
-                <div className="map-loading-overlay">
-                  <div className="loading-spinner small"></div>
-                  <span>Loading meetings in this area...</span>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* List Panel (Right) */}
+        {/* List Panel (Left) */}
         <div className={`airbnb-list-panel ${isMapCollapsed ? 'expanded' : ''}`} ref={listRef}>
           {error || configStatus === 'not_configured' || configStatus === 'unreachable' ? (
             <div className="list-error">
@@ -2217,6 +2169,54 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
                       <span className="batch-size-info">Batch: {batchSize}</span>
                     </div>
                   )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Map Panel (Right) */}
+        <div className={`airbnb-map-panel ${isMapCollapsed ? 'collapsed' : ''}`}>
+          <button
+            className="map-collapse-btn"
+            onClick={() => setIsMapCollapsed(!isMapCollapsed)}
+            title={isMapCollapsed ? 'Show map' : 'Hide map'}
+          >
+            {isMapCollapsed ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            )}
+          </button>
+
+          {!isMapCollapsed && (
+            <>
+              <MeetingMap
+                onSelectMeeting={handleMapMarkerClick}
+                onStateClick={(stateData) => {
+                  // Set the state filter to show meetings for this state
+                  setSelectedStates([stateData.state]);
+                  // Clear target location since we're clicking a state
+                  setTargetLocation(null);
+                  // Scroll to the meeting list
+                  if (listRef.current) {
+                    listRef.current.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+                showHeatmap={true}
+                targetLocation={targetLocation}
+                filters={mapFilters}
+                onBoundsChange={handleMapBoundsChange}
+                onMapMeetingCount={setMapMeetingCount}
+              />
+              {isLoadingMore && (
+                <div className="map-loading-overlay">
+                  <div className="loading-spinner small"></div>
+                  <span>Loading meetings in this area...</span>
                 </div>
               )}
             </>
