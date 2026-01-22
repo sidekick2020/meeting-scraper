@@ -1,0 +1,1 @@
+**State shown with county in meetings header**: When viewing the map at county-level zoom, the location header now displays both county and state (e.g., "Cook County, Illinois") for better geographic context.
