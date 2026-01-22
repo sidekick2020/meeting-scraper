@@ -2125,7 +2125,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
                   {isLoading || isLoadingMore ? (
                     <>Loading... {meetings.length > 0 && `(${filteredMeetings.length} of ${totalMeetings || '?'})`}</>
                   ) : (
-                    <>{filteredMeetings.length} meeting{filteredMeetings.length !== 1 ? 's' : ''} available</>
+                    <>{totalMeetings || filteredMeetings.length} meeting{(totalMeetings || filteredMeetings.length) !== 1 ? 's' : ''} available{totalMeetings && filteredMeetings.length < totalMeetings && ` (${filteredMeetings.length} loaded)`}</>
                   )}
                 </p>
               </div>
