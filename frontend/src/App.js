@@ -4,6 +4,7 @@ import './App.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { DataCacheProvider } from './contexts/DataCacheContext';
+import { ParseProvider } from './contexts/ParseContext';
 import MeetingsExplorer from './components/MeetingsExplorer';
 import AdminPanel from './components/AdminPanel';
 import DeploymentIndicator from './components/DeploymentIndicator';
@@ -150,16 +151,18 @@ function App() {
   return (
     <BrowserRouter>
       <ThemeProvider>
-        <AuthProvider>
-          <DataCacheProvider>
-            <Routes>
-              <Route path="/" element={<AppContent />} />
-              <Route path="/docs" element={<DocsPage />} />
-              <Route path="/download" element={<DownloadPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </DataCacheProvider>
-        </AuthProvider>
+        <ParseProvider>
+          <AuthProvider>
+            <DataCacheProvider>
+              <Routes>
+                <Route path="/" element={<AppContent />} />
+                <Route path="/docs" element={<DocsPage />} />
+                <Route path="/download" element={<DownloadPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </DataCacheProvider>
+          </AuthProvider>
+        </ParseProvider>
       </ThemeProvider>
     </BrowserRouter>
   );
