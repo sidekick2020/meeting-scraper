@@ -53,13 +53,9 @@ function LoadingOverlay({ onReady }) {
         throw new Error(`Backend returned status ${configResponse.status}`);
       }
     } catch (error) {
-      if (error.name === 'TimeoutError' || error.name === 'AbortError') {
-        addLog('Connection timed out', 'error');
-      } else if (error.message.includes('fetch')) {
-        addLog('Unable to reach backend server', 'error');
-      } else {
-        addLog(`Connection error: ${error.message}`, 'error');
-      }
+      const url = `${BACKEND_URL}/api/config`;
+      addLog(`URL: ${url || '(empty - using relative)'}`, 'error');
+      addLog(`Error: ${error.name}: ${error.message}`, 'error');
 
       setConnectionStatus('error');
     }
