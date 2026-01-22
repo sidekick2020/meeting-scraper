@@ -8515,23 +8515,6 @@ a.sidebar-nav-item {
   gap: 0.5rem;
 }
 
-.user-card {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-light);
-  border-radius: 12px;
-  transition: all 0.2s ease;
-}
-
-.user-card:hover {
-  background: var(--bg-primary);
-  border-color: var(--border-light);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
 .user-avatar {
   width: 40px;
   height: 40px;
@@ -8647,6 +8630,203 @@ a.sidebar-nav-item {
 
 .btn-danger-hover:hover {
   color: #ef4444;
+}
+
+/* Expandable User Card */
+.user-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.user-card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.user-card-header:hover {
+  background: var(--bg-primary);
+}
+
+.user-card.expanded {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+.user-expand-btn {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: transform 0.2s ease, color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-expand-btn:hover {
+  color: var(--text-primary);
+}
+
+.user-expand-btn.expanded {
+  transform: rotate(180deg);
+}
+
+/* User Permissions Panel */
+.user-permissions-panel {
+  border-top: 1px solid var(--border-light);
+  padding: 1rem;
+  background: var(--bg-primary);
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
+}
+
+.permissions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.permissions-header h4 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.permissions-note {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: rgba(47, 93, 255, 0.08);
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+}
+
+.permissions-note svg {
+  color: var(--primary-color);
+}
+
+/* Permissions Grid */
+.permissions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.permission-category {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.permission-category-header {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* Permission Toggle */
+.permission-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.permission-toggle:hover:not(.disabled) {
+  background: var(--bg-secondary);
+}
+
+.permission-toggle.disabled {
+  cursor: default;
+  opacity: 0.8;
+}
+
+.permission-toggle input[type="checkbox"] {
+  display: none;
+}
+
+.permission-checkbox {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-medium);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  background: var(--bg-primary);
+}
+
+.permission-toggle.active .permission-checkbox {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.permission-toggle.active .permission-checkbox svg {
+  color: white;
+}
+
+.permission-toggle.disabled .permission-checkbox {
+  background: var(--bg-tertiary);
+  border-color: var(--border-light);
+}
+
+.permission-toggle.disabled.active .permission-checkbox {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  opacity: 0.7;
+}
+
+.permission-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.permission-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.permission-description {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 /* Alerts */
