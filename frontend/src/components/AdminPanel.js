@@ -384,15 +384,26 @@ function AdminPanel({ onBackToPublic }) {
   }, [fetchAvailableStates, cachedStates]);
 
   // Fetch directory meetings when section is active or filters change
+  // Use a ref to track if we've done initial fetch to avoid loops
+  const initialDirectoryFetchRef = useRef(false);
+
   useEffect(() => {
     if (activeSection === 'directory') {
-      // Only fetch if we don't have cached data or filters changed
       const hasFilters = directorySearch || directoryState || directoryDay || directoryType || directoryOnline;
-      if (!cachedDirectory?.data || hasFilters || directoryMeetings.length === 0) {
+      // Fetch if:
+      // 1. We have no meetings and haven't done initial fetch yet, OR
+      // 2. Filters changed (hasFilters is truthy means user set a filter)
+      const needsInitialFetch = directoryMeetings.length === 0 && !initialDirectoryFetchRef.current;
+
+      if (needsInitialFetch || hasFilters) {
+        initialDirectoryFetchRef.current = true;
         fetchDirectoryMeetings(directorySearch, directoryState, directoryDay, directoryType, directoryOnline);
       }
+    } else {
+      // Reset the ref when leaving directory section so next visit fetches fresh
+      initialDirectoryFetchRef.current = false;
     }
-  }, [activeSection, directorySearch, directoryState, directoryDay, directoryType, directoryOnline, fetchDirectoryMeetings, cachedDirectory, directoryMeetings.length]);
+  }, [activeSection, directorySearch, directoryState, directoryDay, directoryType, directoryOnline, fetchDirectoryMeetings, directoryMeetings.length]);
 
   // Cache feeds when they change
   useEffect(() => {
