@@ -7962,24 +7962,28 @@ a.sidebar-nav-item {
   width: 50%;
   transition: width 0.3s ease;
   background: var(--bg-secondary);
+  padding: 1rem;
 }
 
 .airbnb-map-panel.collapsed {
   width: 0;
+  padding: 0;
 }
 
 .airbnb-map-panel .meeting-map-container {
   height: 100%;
-  border-radius: 0;
+  border-radius: 1rem;
   border: none;
   margin: 0;
   padding: 0;
   background: #f2efe9;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
 }
 
 .airbnb-map-panel .meeting-map {
   height: 100%;
-  border-radius: 0;
+  border-radius: 1rem;
 }
 
 .airbnb-map-panel .map-header,
