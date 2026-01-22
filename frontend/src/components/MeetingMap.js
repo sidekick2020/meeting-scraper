@@ -16,19 +16,27 @@ L.Icon.Default.mergeOptions({
 });
 
 // Custom marker icon for individual meetings
-const createCustomIcon = (color = '#667eea') => {
+const createCustomIcon = (color = '#2f5dff') => {
   return L.divIcon({
     className: 'custom-marker',
     html: `<div style="
+      background: white;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 3px solid ${color};
+      box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    "><div style="
       background: ${color};
       width: 12px;
       height: 12px;
       border-radius: 50%;
-      border: 2px solid white;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-    "></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
+    "></div></div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
   });
 };
 
