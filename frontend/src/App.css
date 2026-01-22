@@ -7551,6 +7551,153 @@ a.sidebar-nav-item {
   }
 }
 
+/* Skeleton Meeting Cards */
+.skeleton-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+  padding: 1rem;
+}
+
+.skeleton-meeting-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-medium);
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.skeleton-card-image {
+  height: 140px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  position: relative;
+}
+
+.skeleton-card-badge {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  width: 32px;
+  height: 20px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.skeleton-card-content {
+  padding: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.skeleton-card-location {
+  height: 12px;
+  width: 40%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-card-title {
+  height: 18px;
+  width: 75%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-card-schedule {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.skeleton-card-day {
+  height: 14px;
+  width: 60px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-card-time {
+  height: 14px;
+  width: 50px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-card-venue {
+  height: 12px;
+  width: 60%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  margin-top: 0.25rem;
+}
+
+/* Staggered animation delay for a more natural look */
+.skeleton-meeting-card:nth-child(1) .skeleton-card-image,
+.skeleton-meeting-card:nth-child(1) .skeleton-card-location,
+.skeleton-meeting-card:nth-child(1) .skeleton-card-title,
+.skeleton-meeting-card:nth-child(1) .skeleton-card-day,
+.skeleton-meeting-card:nth-child(1) .skeleton-card-time,
+.skeleton-meeting-card:nth-child(1) .skeleton-card-venue {
+  animation-delay: 0s;
+}
+
+.skeleton-meeting-card:nth-child(2) .skeleton-card-image,
+.skeleton-meeting-card:nth-child(2) .skeleton-card-location,
+.skeleton-meeting-card:nth-child(2) .skeleton-card-title,
+.skeleton-meeting-card:nth-child(2) .skeleton-card-day,
+.skeleton-meeting-card:nth-child(2) .skeleton-card-time,
+.skeleton-meeting-card:nth-child(2) .skeleton-card-venue {
+  animation-delay: 0.1s;
+}
+
+.skeleton-meeting-card:nth-child(3) .skeleton-card-image,
+.skeleton-meeting-card:nth-child(3) .skeleton-card-location,
+.skeleton-meeting-card:nth-child(3) .skeleton-card-title,
+.skeleton-meeting-card:nth-child(3) .skeleton-card-day,
+.skeleton-meeting-card:nth-child(3) .skeleton-card-time,
+.skeleton-meeting-card:nth-child(3) .skeleton-card-venue {
+  animation-delay: 0.2s;
+}
+
+.skeleton-meeting-card:nth-child(4) .skeleton-card-image,
+.skeleton-meeting-card:nth-child(4) .skeleton-card-location,
+.skeleton-meeting-card:nth-child(4) .skeleton-card-title,
+.skeleton-meeting-card:nth-child(4) .skeleton-card-day,
+.skeleton-meeting-card:nth-child(4) .skeleton-card-time,
+.skeleton-meeting-card:nth-child(4) .skeleton-card-venue {
+  animation-delay: 0.3s;
+}
+
+.skeleton-meeting-card:nth-child(5) .skeleton-card-image,
+.skeleton-meeting-card:nth-child(5) .skeleton-card-location,
+.skeleton-meeting-card:nth-child(5) .skeleton-card-title,
+.skeleton-meeting-card:nth-child(5) .skeleton-card-day,
+.skeleton-meeting-card:nth-child(5) .skeleton-card-time,
+.skeleton-meeting-card:nth-child(5) .skeleton-card-venue {
+  animation-delay: 0.4s;
+}
+
+.skeleton-meeting-card:nth-child(6) .skeleton-card-image,
+.skeleton-meeting-card:nth-child(6) .skeleton-card-location,
+.skeleton-meeting-card:nth-child(6) .skeleton-card-title,
+.skeleton-meeting-card:nth-child(6) .skeleton-card-day,
+.skeleton-meeting-card:nth-child(6) .skeleton-card-time,
+.skeleton-meeting-card:nth-child(6) .skeleton-card-venue {
+  animation-delay: 0.5s;
+}
+
 .users-loading,
 .users-empty {
   display: flex;

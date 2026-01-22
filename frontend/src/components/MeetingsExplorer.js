@@ -1556,9 +1556,23 @@ function MeetingsExplorer({ onAdminClick }) {
         {/* List Panel (Right) */}
         <div className={`airbnb-list-panel ${isMapCollapsed ? 'expanded' : ''}`} ref={listRef}>
           {isLoading ? (
-            <div className="list-loading">
-              <div className="loading-spinner"></div>
-              <p>Loading meetings...</p>
+            <div className="skeleton-cards-grid">
+              {[...Array(6)].map((_, index) => (
+                <div key={index} className="skeleton-meeting-card">
+                  <div className="skeleton-card-image">
+                    <div className="skeleton-card-badge"></div>
+                  </div>
+                  <div className="skeleton-card-content">
+                    <div className="skeleton-card-location"></div>
+                    <div className="skeleton-card-title"></div>
+                    <div className="skeleton-card-schedule">
+                      <div className="skeleton-card-day"></div>
+                      <div className="skeleton-card-time"></div>
+                    </div>
+                    <div className="skeleton-card-venue"></div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : error || configStatus === 'not_configured' || configStatus === 'unreachable' ? (
             <div className="list-error">
