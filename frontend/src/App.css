@@ -9526,22 +9526,22 @@ a.sidebar-nav-item {
 .map-collapse-btn {
   position: absolute;
   top: 50%;
-  right: 0;
+  left: 0;
   transform: translateY(-50%);
   z-index: 1000;
   width: 24px;
   height: 48px;
   background: var(--bg-primary);
   border: 1px solid var(--border-light);
-  border-left: none;
-  border-radius: 0 0.5rem 0.5rem 0;
+  border-right: none;
+  border-radius: 0.5rem 0 0 0.5rem;
   color: var(--text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+  box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
 }
 
 .map-collapse-btn:hover {
@@ -9550,7 +9550,7 @@ a.sidebar-nav-item {
 }
 
 .airbnb-map-panel.collapsed .map-collapse-btn {
-  right: -24px;
+  left: -24px;
 }
 
 .map-loading {
