@@ -1525,38 +1525,31 @@ function MeetingsExplorer({ onAdminClick }) {
           </button>
 
           {!isMapCollapsed && (
-            isLoading ? (
-              <div className="map-loading">
-                <div className="loading-spinner"></div>
-                <p>Loading map...</p>
-              </div>
-            ) : (
-              <>
-                <MeetingMap
-                  onSelectMeeting={handleMapMarkerClick}
-                  onStateClick={(stateData) => {
-                    // Set the state filter to show meetings for this state
-                    setSelectedStates([stateData.state]);
-                    // Clear target location since we're clicking a state
-                    setTargetLocation(null);
-                    // Scroll to the meeting list
-                    if (listRef.current) {
-                      listRef.current.scrollIntoView({ behavior: 'smooth' });
-                    }
-                  }}
-                  showHeatmap={true}
-                  targetLocation={targetLocation}
-                  filters={mapFilters}
-                  onBoundsChange={handleMapBoundsChange}
-                />
-                {isLoadingMore && (
-                  <div className="map-loading-overlay">
-                    <div className="loading-spinner small"></div>
-                    <span>Loading meetings in this area...</span>
-                  </div>
-                )}
-              </>
-            )
+            <>
+              <MeetingMap
+                onSelectMeeting={handleMapMarkerClick}
+                onStateClick={(stateData) => {
+                  // Set the state filter to show meetings for this state
+                  setSelectedStates([stateData.state]);
+                  // Clear target location since we're clicking a state
+                  setTargetLocation(null);
+                  // Scroll to the meeting list
+                  if (listRef.current) {
+                    listRef.current.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+                showHeatmap={true}
+                targetLocation={targetLocation}
+                filters={mapFilters}
+                onBoundsChange={handleMapBoundsChange}
+              />
+              {isLoadingMore && (
+                <div className="map-loading-overlay">
+                  <div className="loading-spinner small"></div>
+                  <span>Loading meetings in this area...</span>
+                </div>
+              )}
+            </>
           )}
         </div>
 
