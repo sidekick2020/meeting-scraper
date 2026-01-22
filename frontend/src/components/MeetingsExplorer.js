@@ -450,11 +450,12 @@ function MeetingsExplorer({ onAdminClick }) {
       prevSelectedStatesRef.current = selectedStates;
       if (selectedStates.length > 0) {
         // Fetch from server with state filter
-        meetingsRef.current = [];
+        // Don't clear meetingsRef here - let fetchMeetings update it when new data arrives
+        // This keeps the old data visible while loading
         fetchMeetings({ stateFilter: selectedStates });
       } else {
         // Reset to all meetings
-        meetingsRef.current = [];
+        // Don't clear meetingsRef here - let fetchMeetings update it when new data arrives
         fetchMeetings();
       }
     }
@@ -963,8 +964,9 @@ function MeetingsExplorer({ onAdminClick }) {
     if (selectedCity) filters.city = selectedCity;
 
     // Always fetch meetings when map moves - reset to first page
+    // Don't clear meetingsRef here - let fetchMeetings update it when new data arrives
+    // This keeps the old data visible while loading
     setCurrentPage(0);
-    meetingsRef.current = [];
     fetchMeetings({ bounds, reset: true, filters });
   }, [fetchMeetings, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity]);
 

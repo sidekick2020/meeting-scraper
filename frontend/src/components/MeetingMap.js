@@ -384,11 +384,23 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
   const [currentZoom, setCurrentZoom] = useState(5);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Cache previous valid data to show during loading transitions
+  const prevMapDataRef = useRef(null);
+  const prevStateDataRef = useRef(null);
+
   const handleDataLoaded = useCallback((data) => {
+    // Only update if we have valid data
+    if (data && (data.clusters?.length > 0 || data.meetings?.length > 0 || data.total > 0)) {
+      prevMapDataRef.current = data;
+    }
     setMapData(data);
   }, []);
 
   const handleStateDataLoaded = useCallback((data) => {
+    // Only update if we have valid data
+    if (data && data.states?.length > 0) {
+      prevStateDataRef.current = data;
+    }
     setStateData(data);
   }, []);
 
@@ -400,16 +412,42 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
     setIsLoading(loading);
   }, []);
 
+  // Use cached data during loading or when current data is empty
+  // This prevents the map from going blank during transitions
+  const effectiveMapData = useMemo(() => {
+    // If current data has content, use it
+    if (mapData.clusters?.length > 0 || mapData.meetings?.length > 0) {
+      return mapData;
+    }
+    // During loading, use cached previous data if available
+    if (isLoading && prevMapDataRef.current) {
+      return prevMapDataRef.current;
+    }
+    return mapData;
+  }, [mapData, isLoading]);
+
+  const effectiveStateData = useMemo(() => {
+    // If current data has content, use it
+    if (stateData.states?.length > 0) {
+      return stateData;
+    }
+    // Use cached previous data if available
+    if (prevStateDataRef.current) {
+      return prevStateDataRef.current;
+    }
+    return stateData;
+  }, [stateData]);
+
   // Determine what to display based on zoom level
-  const showStateLevel = currentZoom < STATE_ZOOM_THRESHOLD && stateData.states?.length > 0;
-  const showClusters = !showStateLevel && mapData.mode === 'clustered' && mapData.clusters?.length > 0;
-  const showIndividualMeetings = mapData.mode === 'individual' && mapData.meetings?.length > 0;
+  const showStateLevel = currentZoom < STATE_ZOOM_THRESHOLD && effectiveStateData.states?.length > 0;
+  const showClusters = !showStateLevel && effectiveMapData.mode === 'clustered' && effectiveMapData.clusters?.length > 0;
+  const showIndividualMeetings = effectiveMapData.mode === 'individual' && effectiveMapData.meetings?.length > 0;
 
   // Filter meetings with valid coordinates
   const validMeetings = useMemo(() =>
-    (mapData.meetings || []).filter(m => m.latitude && m.longitude &&
+    (effectiveMapData.meetings || []).filter(m => m.latitude && m.longitude &&
       !isNaN(m.latitude) && !isNaN(m.longitude)),
-    [mapData.meetings]
+    [effectiveMapData.meetings]
   );
 
   return (
@@ -422,9 +460,9 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
           ) : showIndividualMeetings ? (
             `${validMeetings.length} meetings in view`
           ) : showStateLevel ? (
-            `${stateData.total?.toLocaleString() || 0} meetings across ${stateData.statesWithMeetings || 0} states`
+            `${effectiveStateData.total?.toLocaleString() || 0} meetings across ${effectiveStateData.statesWithMeetings || 0} states`
           ) : (
-            `${mapData.total} meetings • ${mapData.clusters?.length || 0} clusters`
+            `${effectiveMapData.total} meetings • ${effectiveMapData.clusters?.length || 0} clusters`
           )}
         </span>
       </div>
@@ -453,7 +491,7 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
         <MapPanHandler targetLocation={targetLocation} onPanComplete={onBoundsChange} />
 
         {/* Show state-level bubbles at very low zoom */}
-        {showStateLevel && stateData.states.map((state) => (
+        {showStateLevel && effectiveStateData.states.map((state) => (
           <StateMarker
             key={`state-${state.state}`}
             stateData={state}
@@ -463,11 +501,11 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
 
         {/* Show heatmap at medium zoom levels */}
         {showHeatmap && showClusters && currentZoom < DETAIL_ZOOM_THRESHOLD && (
-          <HeatmapLayer clusters={mapData.clusters} />
+          <HeatmapLayer clusters={effectiveMapData.clusters} />
         )}
 
         {/* Show cluster markers at medium zoom levels */}
-        {showClusters && currentZoom < DETAIL_ZOOM_THRESHOLD && mapData.clusters.map((cluster, index) => (
+        {showClusters && currentZoom < DETAIL_ZOOM_THRESHOLD && effectiveMapData.clusters.map((cluster, index) => (
           <ClusterMarker
             key={`cluster-${index}`}
             cluster={cluster}
