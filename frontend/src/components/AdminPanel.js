@@ -16,6 +16,7 @@ import FeedDetailPanel from './FeedDetailPanel';
 import TasksPanel from './TasksPanel';
 import SubmissionsPanel from './SubmissionsPanel';
 import IntergroupResearchPanel from './IntergroupResearchPanel';
+import { SourceCreationPanel } from './SourceCreation';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -688,6 +689,13 @@ function AdminPanel({ onBackToPublic }) {
         <path d="M9 12l2 2 4-4"/>
       </svg>
     )},
+    { id: 'add-source', label: 'Add Source', icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="M21 21l-4.35-4.35"/>
+        <path d="M11 8v6M8 11h6"/>
+      </svg>
+    )},
     { id: 'tasks', label: 'Tasks', icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M9 11l3 3L22 4"/>
@@ -698,7 +706,6 @@ function AdminPanel({ onBackToPublic }) {
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="11" cy="11" r="8"/>
         <path d="M21 21l-4.35-4.35"/>
-        <path d="M11 8v6M8 11h6"/>
       </svg>
     )},
     { id: 'submissions', label: 'Submissions', icon: (
@@ -862,6 +869,9 @@ function AdminPanel({ onBackToPublic }) {
             )}
           </>
         );
+
+      case 'add-source':
+        return <SourceCreationPanel />;
 
       case 'tasks':
         return <TasksPanel feeds={feeds} />;
