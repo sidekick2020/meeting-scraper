@@ -258,17 +258,7 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
     // Initial fetch for clusters/meetings
     fetchHeatmapData(false);
 
-    // Notify parent of initial bounds
-    const initialBounds = map.getBounds();
-    if (onBoundsChange) {
-      onBoundsChange({
-        north: initialBounds.getNorth(),
-        south: initialBounds.getSouth(),
-        east: initialBounds.getEast(),
-        west: initialBounds.getWest(),
-        zoom: map.getZoom()
-      });
-    }
+    // Don't call onBoundsChange on initial mount - wait for user interaction or programmatic pan
 
     map.on('moveend', handleMoveEnd);
     map.on('zoomend', handleMoveEnd);
@@ -355,7 +345,7 @@ function ClusterMarker({ cluster, onClusterClick }) {
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 // Component to handle map panning to a target location
-function MapPanHandler({ targetLocation }) {
+function MapPanHandler({ targetLocation, onPanComplete }) {
   const map = useMap();
   const lastLocationRef = useRef(null);
 
@@ -367,9 +357,23 @@ function MapPanHandler({ targetLocation }) {
         lastLocationRef.current = locationKey;
         const zoom = targetLocation.zoom || 12;
         map.setView([targetLocation.lat, targetLocation.lng], zoom, { animate: true });
+
+        // Notify parent after pan completes
+        setTimeout(() => {
+          if (onPanComplete) {
+            const bounds = map.getBounds();
+            onPanComplete({
+              north: bounds.getNorth(),
+              south: bounds.getSouth(),
+              east: bounds.getEast(),
+              west: bounds.getWest(),
+              zoom: map.getZoom()
+            });
+          }
+        }, 300);
       }
     }
-  }, [map, targetLocation]);
+  }, [map, targetLocation, onPanComplete]);
 
   return null;
 }
@@ -446,7 +450,7 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
           onBoundsChange={onBoundsChange}
         />
 
-        <MapPanHandler targetLocation={targetLocation} />
+        <MapPanHandler targetLocation={targetLocation} onPanComplete={onBoundsChange} />
 
         {/* Show state-level bubbles at very low zoom */}
         {showStateLevel && stateData.states.map((state) => (
