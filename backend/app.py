@@ -3497,30 +3497,122 @@ def get_api_versions():
         "current_default": "v1.8"
     })
 
+def parse_unreleased_fragments(base_path):
+    """Parse unreleased changelog fragments from the fragments directory.
+
+    Returns a dict with sections: New Features, Bug Fixes, UI/UX Improvements
+    """
+    sections = {}
+
+    # Map directory names to section names
+    dir_to_section = {
+        'features': 'New Features',
+        'fixes': 'Bug Fixes',
+        'improvements': 'UI/UX Improvements'
+    }
+
+    unreleased_path = os.path.join(base_path, 'changelog', 'unreleased')
+
+    if not os.path.exists(unreleased_path):
+        return sections
+
+    for dir_name, section_name in dir_to_section.items():
+        dir_path = os.path.join(unreleased_path, dir_name)
+        if not os.path.exists(dir_path):
+            continue
+
+        items = []
+        for filename in sorted(os.listdir(dir_path)):
+            if not filename.endswith('.md') or filename == '.gitkeep':
+                continue
+
+            filepath = os.path.join(dir_path, filename)
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    content = f.read().strip()
+
+                if not content:
+                    continue
+
+                # Parse the fragment - format is:
+                # **Title**: Description
+                # - Detail 1
+                # - Detail 2
+                lines = content.split('\n')
+                current_item = None
+
+                for line in lines:
+                    line = line.rstrip()
+
+                    # Match main bullet: **Title**: Description
+                    title_match = re.match(r'^\*\*(.+?)\*\*:?\s*(.*)$', line)
+                    if title_match:
+                        if current_item:
+                            items.append(current_item)
+                        current_item = {
+                            "title": title_match.group(1),
+                            "description": title_match.group(2) if title_match.group(2) else "",
+                            "details": []
+                        }
+                        continue
+
+                    # Match detail bullet: - Detail text
+                    detail_match = re.match(r'^- (.+)$', line)
+                    if detail_match and current_item:
+                        current_item["details"].append(detail_match.group(1))
+
+                if current_item:
+                    items.append(current_item)
+
+            except Exception:
+                continue
+
+        if items:
+            sections[section_name] = items
+
+    return sections
+
+
 @app.route('/api/changelog', methods=['GET'])
 def get_changelog():
-    """Get changelog from CHANGELOG.md file, parsed into structured format.
+    """Get changelog from CHANGELOG.md file and unreleased fragments, parsed into structured format.
     Results are cached for 5 minutes to improve performance.
+
+    Always includes unreleased changes from fragments directory if any exist.
     """
     # Check cache first
     cached = changelog_cache.get('changelog')
     if cached is not None:
         return jsonify(cached)
 
-    changelog_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'CHANGELOG.md')
+    # Determine base path for finding files
+    base_path = os.path.dirname(os.path.dirname(__file__))
+    if not os.path.exists(os.path.join(base_path, 'CHANGELOG.md')):
+        base_path = os.path.dirname(__file__)
+        if not os.path.exists(os.path.join(base_path, '..', 'CHANGELOG.md')):
+            base_path = '/home/user/meeting-scraper'
 
-    # Also check for CHANGELOG.md in current directory or parent
+    changelog_path = os.path.join(base_path, 'CHANGELOG.md')
     if not os.path.exists(changelog_path):
         changelog_path = os.path.join(os.path.dirname(__file__), '..', 'CHANGELOG.md')
-    if not os.path.exists(changelog_path):
-        changelog_path = '/home/user/meeting-scraper/CHANGELOG.md'
+
+    versions = []
+
+    # First, parse unreleased fragments and add as first version if any exist
+    unreleased_sections = parse_unreleased_fragments(base_path)
+    if unreleased_sections:
+        unreleased_version = {
+            "version": "Unreleased",
+            "date": None,
+            "sections": unreleased_sections
+        }
+        versions.append(unreleased_version)
 
     try:
         with open(changelog_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
         # Parse the changelog into structured format
-        versions = []
         current_version = None
         current_section = None
 
@@ -3535,6 +3627,12 @@ def get_changelog():
 
                 version_num = version_match.group(1)
                 release_date = version_match.group(2) if version_match.group(2) else None
+
+                # Skip if this is an "Unreleased" section in CHANGELOG.md (we use fragments instead)
+                if version_num.lower() == 'unreleased':
+                    current_version = None
+                    current_section = None
+                    continue
 
                 current_version = {
                     "version": version_num,
@@ -3586,12 +3684,30 @@ def get_changelog():
         return jsonify(result)
 
     except FileNotFoundError:
+        # Even if CHANGELOG.md is not found, return unreleased fragments if any
+        if versions:
+            result = {
+                "changelog": versions,
+                "total_versions": len(versions)
+            }
+            changelog_cache.set('changelog', result)
+            return jsonify(result)
+
         return jsonify({
             "changelog": [],
             "total_versions": 0,
             "error": "Changelog file not found"
         })
     except Exception as e:
+        # Even on error, return unreleased fragments if any
+        if versions:
+            result = {
+                "changelog": versions,
+                "total_versions": len(versions)
+            }
+            changelog_cache.set('changelog', result)
+            return jsonify(result)
+
         return jsonify({
             "changelog": [],
             "total_versions": 0,
