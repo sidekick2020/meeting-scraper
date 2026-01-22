@@ -714,6 +714,40 @@ function MeetingsExplorer({ onAdminClick }) {
     }, 300);
   }, []);
 
+  // Geocode a location query and pan the map to that location
+  const geocodeAndPanMap = useCallback(async (query, stateHint = null) => {
+    if (!query || query.length < 2) return;
+
+    try {
+      // Build search query - include state hint for better accuracy
+      const searchQuery = stateHint ? `${query}, ${stateHint}, USA` : `${query}, USA`;
+
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?` +
+        `format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=us&limit=1&addressdetails=1`,
+        {
+          headers: {
+            'User-Agent': 'MeetingScraper/1.0'
+          }
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.length > 0) {
+          const location = data[0];
+          setTargetLocation({
+            lat: parseFloat(location.lat),
+            lng: parseFloat(location.lon),
+            zoom: 12 // City-level zoom
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Geocode error:', error);
+    }
+  }, []);
+
   // Compute autocomplete suggestions with grouping
   const computeSuggestions = useCallback((query, showRecent = false) => {
     const results = [];
@@ -891,13 +925,15 @@ function MeetingsExplorer({ onAdminClick }) {
       }
     }
 
-    // If it's a city from the meeting data, set city filter
+    // If it's a city from the meeting data, set city filter and pan map
     if (suggestion.type === 'city') {
       setSelectedCity(suggestion.value);
       // Also set state if available
       if (suggestion.subLabel) {
         setSelectedStates([suggestion.subLabel]);
       }
+      // Geocode and pan map to the city
+      geocodeAndPanMap(suggestion.value, suggestion.subLabel);
     }
   };
 
@@ -905,6 +941,8 @@ function MeetingsExplorer({ onAdminClick }) {
   const handleSearchSubmit = () => {
     if (searchQuery) {
       saveRecentSearch(searchQuery);
+      // Geocode and pan map to the searched location
+      geocodeAndPanMap(searchQuery, selectedStates.length === 1 ? selectedStates[0] : null);
     }
     setShowSuggestions(false);
     // Re-fetch meetings with current filters
