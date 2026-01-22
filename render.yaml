@@ -36,6 +36,9 @@ services:
       - type: rewrite
         source: /download
         destination: /index.html
+      - type: rewrite
+        source: /download/*
+        destination: /index.html
       # Catch-all for all other SPA routes
       - type: rewrite
         source: /*
