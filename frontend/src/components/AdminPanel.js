@@ -209,6 +209,7 @@ function AdminPanel({ onBackToPublic }) {
 
   // Fetch directory meetings (initial load or filter change)
   const fetchDirectoryMeetings = useCallback(async (search = '', state = '', day = '', type = '', online = '') => {
+    console.log('[Directory] fetchDirectoryMeetings called with:', { search, state, day, type, online });
     setDirectoryLoading(true);
     setDirectoryMeetings([]);
     setDirectoryError(null);
@@ -217,6 +218,7 @@ function AdminPanel({ onBackToPublic }) {
 
     try {
       let url = `${BACKEND_URL}/api/meetings?limit=${DIRECTORY_PAGE_SIZE}&skip=0`;
+      console.log('[Directory] Fetching URL:', url);
       if (search) url += `&search=${encodeURIComponent(search)}`;
       if (state) url += `&state=${encodeURIComponent(state)}`;
       if (day !== '') url += `&day=${encodeURIComponent(day)}`;
@@ -228,8 +230,10 @@ function AdminPanel({ onBackToPublic }) {
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
 
+      console.log('[Directory] Response status:', response.status);
       if (response.ok) {
         const data = await response.json();
+        console.log('[Directory] Response data:', { meetingsCount: data.meetings?.length, total: data.total, error: data.error });
         const meetings = data.meetings || [];
         setDirectoryMeetings(meetings);
         setDirectoryTotal(data.total || 0);
@@ -239,6 +243,7 @@ function AdminPanel({ onBackToPublic }) {
         }
       } else {
         const errorData = await response.json().catch(() => ({}));
+        console.log('[Directory] Error response:', errorData);
         setDirectoryError(errorData.error || `Server error: ${response.status}`);
         setDirectoryTotal(0);
       }
@@ -371,7 +376,9 @@ function AdminPanel({ onBackToPublic }) {
 
   // Fetch directory meetings when section becomes active or filters change
   useEffect(() => {
+    console.log('[Directory] useEffect triggered, activeSection:', activeSection);
     if (activeSection === 'directory') {
+      console.log('[Directory] Calling fetchDirectoryMeetings');
       fetchDirectoryMeetings(directorySearch, directoryState, directoryDay, directoryType, directoryOnline);
     }
   }, [activeSection, directorySearch, directoryState, directoryDay, directoryType, directoryOnline, fetchDirectoryMeetings]);
