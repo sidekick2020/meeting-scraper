@@ -9595,6 +9595,54 @@ a.sidebar-nav-item {
   border-width: 3px;
 }
 
+/* Subtle map loading indicator - positioned at top of map */
+.map-loading-indicator {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border-light);
+  border-radius: 2rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.map-loading-indicator.subtle {
+  background: rgba(255, 255, 255, 0.8);
+  opacity: 0.85;
+}
+
+[data-theme="dark"] .map-loading-indicator {
+  background: rgba(30, 30, 35, 0.9);
+}
+
+[data-theme="dark"] .map-loading-indicator.subtle {
+  background: rgba(30, 30, 35, 0.8);
+}
+
+.map-loading-indicator .loading-count {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.loading-spinner-mini {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border-light);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
 /* List Panel */
 .airbnb-list-panel {
   width: 50%;

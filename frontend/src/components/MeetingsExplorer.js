@@ -226,7 +226,7 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
   const [hasMore, setHasMore] = useState(true);
 
   // Network-adaptive batch loading state
-  const [batchSize, setBatchSize] = useState(50); // Default, will be updated based on network
+  const [batchSize, setBatchSize] = useState(5); // Default 5, will be updated based on network for faster perceived loading
   const [networkSpeed, setNetworkSpeed] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0, percentage: 0 });
   const networkInitializedRef = useRef(false);
@@ -622,7 +622,7 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
         console.log(`Network speed: ${speed.toFixed(2)} Mbps, using batch size: ${optimalBatch}`);
       } catch (err) {
         console.warn('Failed to measure network speed, using default batch size');
-        setBatchSize(50);
+        setBatchSize(5);
       }
     };
 
@@ -1395,6 +1395,20 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
     }
   };
 
+  // Handle meeting card click from list - show detail and zoom map to location
+  const handleMeetingCardClick = (meeting) => {
+    setSelectedMeeting(meeting);
+    // Zoom the map to the meeting location if it has coordinates
+    if (meeting.latitude && meeting.longitude) {
+      isProgrammaticPanRef.current = true;
+      setTargetLocation({
+        lat: meeting.latitude,
+        lng: meeting.longitude,
+        zoom: 15 // Zoom in to street level
+      });
+    }
+  };
+
   // Handle map bounds change - fetch meetings for the visible area
   const handleMapBoundsChange = useCallback((bounds) => {
     setMapBounds(bounds);
@@ -2018,10 +2032,13 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
                 onBoundsChange={handleMapBoundsChange}
                 onMapMeetingCount={setMapMeetingCount}
               />
-              {isLoadingMore && (
-                <div className="map-loading-overlay">
-                  <div className="loading-spinner small"></div>
-                  <span>Loading meetings in this area...</span>
+              {(isLoading || isLoadingMore) && (
+                <div className={`map-loading-indicator ${isLoading && !isLoadingMore ? 'subtle' : ''}`}>
+                  <div className="loading-spinner-mini"></div>
+                  <span>{isLoading && !isLoadingMore ? 'Loading meetings...' : 'Loading more...'}</span>
+                  {loadingProgress.total > 0 && (
+                    <span className="loading-count">{loadingProgress.loaded}/{loadingProgress.total}</span>
+                  )}
                 </div>
               )}
             </>
@@ -2100,7 +2117,7 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
                     key={meeting.objectId || index}
                     data-meeting-id={meeting.objectId}
                     className={`meeting-card ${hoveredMeeting?.objectId === meeting.objectId ? 'hovered' : ''}`}
-                    onClick={() => setSelectedMeeting(meeting)}
+                    onClick={() => handleMeetingCardClick(meeting)}
                     onMouseEnter={() => handleMeetingHover(meeting)}
                     onMouseLeave={() => handleMeetingHover(null)}
                   >
