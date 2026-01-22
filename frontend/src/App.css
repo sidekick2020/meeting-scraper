@@ -2450,6 +2450,73 @@ html, body {
   margin-top: 0.25rem;
 }
 
+/* Highlighted marker for hovered meetings */
+.highlighted-marker {
+  z-index: 1000 !important;
+}
+
+.highlighted-marker-outer {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.highlighted-marker-pulse {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #667eea;
+  animation: marker-pulse 1.5s ease-out infinite;
+}
+
+.highlighted-marker-inner {
+  position: relative;
+  background: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 4px solid #667eea;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(102, 126, 234, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: marker-bounce 0.3s ease-out;
+}
+
+.highlighted-marker-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #667eea;
+}
+
+@keyframes marker-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes marker-bounce {
+  0% {
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 /* State-level markers for zoomed out view */
 .state-marker {
   background: transparent !important;
