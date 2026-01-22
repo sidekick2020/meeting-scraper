@@ -6,54 +6,54 @@ All notable changes to this project will be documented in this file.
 
 ### New Features
 - **Data Caching System**: Platform-wide data caching to improve navigation experience
-- Added DataCacheContext with configurable TTL and stale-while-revalidate
-- Meetings Explorer caches meetings, filters, and available states
-- Admin Panel caches feeds, directory, and scraping state
-- Settings Modal caches users, versions, and changelog
-- Scrape History, Coverage Analysis, and Tasks Panel now cache data
-- Data persists during navigation, only refreshes on manual action or TTL expiry
+  - Added DataCacheContext with configurable TTL and stale-while-revalidate
+  - Meetings Explorer caches meetings, filters, and available states
+  - Admin Panel caches feeds, directory, and scraping state
+  - Settings Modal caches users, versions, and changelog
+  - Scrape History, Coverage Analysis, and Tasks Panel now cache data
+  - Data persists during navigation, only refreshes on manual action or TTL expiry
 - **Location Search & UI Improvements**: Enhanced search and visual updates
-- Nominatim API integration for searching all US locations
-- Auto-set state filter when selecting a location from search
-- Static map images on meeting cards based on geopoint coordinates
-- Bolder map pins (28px) with white background and colored border
-- Map panel with padding, rounded corners, and shadow
-- Pill-style search input with better padding
-- All meeting types always shown (including AA)
-- Search button shows "Search" text when filters are active
+  - Nominatim API integration for searching all US locations
+  - Auto-set state filter when selecting a location from search
+  - Static map images on meeting cards based on geopoint coordinates
+  - Bolder map pins (28px) with white background and colored border
+  - Map panel with padding, rounded corners, and shadow
+  - Pill-style search input with better padding
+  - All meeting types always shown (including AA)
+  - Search button shows "Search" text when filters are active
 - **Meeting Format Filter**: Added server-side filtering by meeting format
-- Format filter now queries the database instead of filtering client-side only
-- Supported formats: discussion, big_book, step_study, speaker, beginners, twelve_and_twelve, literature, meditation
-- Works with both the meetings list and map heatmap views
+  - Format filter now queries the database instead of filtering client-side only
+  - Supported formats: discussion, big_book, step_study, speaker, beginners, twelve_and_twelve, literature, meditation
+  - Works with both the meetings list and map heatmap views
 - **Parse JS SDK Integration**: Added proper Parse SDK initialization for direct Back4app access
-- Initialize Parse SDK synchronously at module load time (before React renders)
-- Created ParseContext with useParse() hook for component access
-- Enables direct database queries from frontend (optional, backend proxy still works)
-- Includes connection status monitoring and offline caching support
-- Follows Parse best practices: initialize once at app entry point
+  - Initialize Parse SDK synchronously at module load time (before React renders)
+  - Created ParseContext with useParse() hook for component access
+  - Enables direct database queries from frontend (optional, backend proxy still works)
+  - Includes connection status monitoring and offline caching support
+  - Follows Parse best practices: initialize once at app entry point
 
 ### Bug Fixes
 - **Release Notes Fix**: Fixed changelog not loading in Settings modal
-- Changelog data was being fetched on wrong tab (API instead of Release Notes)
-- Release Notes tab now properly loads changelog content
+  - Changelog data was being fetched on wrong tab (API instead of Release Notes)
+  - Release Notes tab now properly loads changelog content
 
 ### UI/UX Improvements
 - **Optimized Meeting Data Loading**: Implemented adaptive batch loading based on network speed
-- Batch sizes automatically adjust from 10-100 meetings based on detected network conditions
-- Parallel batch fetching for faster overall loading on fast connections
-- Real-time network speed detection using Navigator API and request timing
-- Progress bar shows loading status with percentage complete
-- Network connection indicator displays current speed category and batch size
-- Faster initial page loads and "Load More" operations
+  - Batch sizes automatically adjust from 10-100 meetings based on detected network conditions
+  - Parallel batch fetching for faster overall loading on fast connections
+  - Real-time network speed detection using Navigator API and request timing
+  - Progress bar shows loading status with percentage complete
+  - Network connection indicator displays current speed category and batch size
+  - Faster initial page loads and "Load More" operations
 - **Release Notes in Documentation**: Moved changelog to /docs page with improved formatting
-- Changelog now accessible as "Release Notes" tab in the documentation page
-- Collapsible version cards with expand/collapse all controls
-- Better visual hierarchy with section icons and item counts
-- Improved readability with proper spacing and styling
+  - Changelog now accessible as "Release Notes" tab in the documentation page
+  - Collapsible version cards with expand/collapse all controls
+  - Better visual hierarchy with section icons and item counts
+  - Improved readability with proper spacing and styling
 - **Skeleton Loading Cards**: Replaced the loading spinner with pulsing skeleton placeholder cards
-- Shows 6 skeleton cards that mirror the actual meeting card layout
-- Staggered shimmer animation for a natural wave effect
-- Provides users a preview of content structure while loading
+  - Shows 6 skeleton cards that mirror the actual meeting card layout
+  - Staggered shimmer animation for a natural wave effect
+  - Provides users a preview of content structure while loading
 
 ## [1.8.0] - 2026-01-21
 

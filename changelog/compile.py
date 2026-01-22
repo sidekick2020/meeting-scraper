@@ -35,6 +35,22 @@ def read_fragments(category_dir: Path) -> list[str]:
                 fragments.append(content)
     return fragments
 
+def format_fragment(fragment: str) -> str:
+    """Format a fragment with proper indentation for sub-bullets."""
+    lines = fragment.split('\n')
+    result = []
+    for i, line in enumerate(lines):
+        if i == 0:
+            # First line: add leading bullet
+            result.append(f"- {line}")
+        elif line.startswith('- '):
+            # Sub-bullet: add 2-space indentation
+            result.append(f"  {line}")
+        elif line.strip():
+            # Other non-empty lines: preserve with indentation
+            result.append(f"  {line}")
+    return '\n'.join(result)
+
 def compile_changelog(version: str) -> str:
     """Compile all fragments into a changelog section."""
     today = date.today().isoformat()
@@ -47,7 +63,7 @@ def compile_changelog(version: str) -> str:
         if fragments:
             section = f"### {category_title}\n"
             for fragment in fragments:
-                section += f"- {fragment}\n"
+                section += format_fragment(fragment) + "\n"
             sections.append(section)
 
     if not sections:
