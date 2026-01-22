@@ -1935,26 +1935,7 @@ function MeetingsExplorer({ onAdminClick }) {
 
         {/* List Panel (Right) */}
         <div className={`airbnb-list-panel ${isMapCollapsed ? 'expanded' : ''}`} ref={listRef}>
-          {isLoading ? (
-            <div className="skeleton-cards-grid">
-              {[...Array(6)].map((_, index) => (
-                <div key={index} className="skeleton-meeting-card">
-                  <div className="skeleton-card-image">
-                    <div className="skeleton-card-badge"></div>
-                  </div>
-                  <div className="skeleton-card-content">
-                    <div className="skeleton-card-location"></div>
-                    <div className="skeleton-card-title"></div>
-                    <div className="skeleton-card-schedule">
-                      <div className="skeleton-card-day"></div>
-                      <div className="skeleton-card-time"></div>
-                    </div>
-                    <div className="skeleton-card-venue"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : error || configStatus === 'not_configured' || configStatus === 'unreachable' ? (
+          {error || configStatus === 'not_configured' || configStatus === 'unreachable' ? (
             <div className="list-error">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10"/>
@@ -1978,7 +1959,7 @@ function MeetingsExplorer({ onAdminClick }) {
                 Try Again
               </button>
             </div>
-          ) : filteredMeetings.length === 0 ? (
+          ) : filteredMeetings.length === 0 && !isLoading && !isLoadingMore && !hasMore ? (
             <div className="list-empty">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="11" cy="11" r="8"/>
@@ -1996,7 +1977,13 @@ function MeetingsExplorer({ onAdminClick }) {
             <>
               <div className="list-header">
                 <h2>Meetings in {selectedStates.length > 0 ? selectedStates.join(', ') : selectedCity || 'all areas'}</h2>
-                <p>{filteredMeetings.length} meeting{filteredMeetings.length !== 1 ? 's' : ''} available</p>
+                <p>
+                  {isLoading || isLoadingMore ? (
+                    <>Loading... {meetings.length > 0 && `(${filteredMeetings.length} of ${totalMeetings || '?'})`}</>
+                  ) : (
+                    <>{filteredMeetings.length} meeting{filteredMeetings.length !== 1 ? 's' : ''} available</>
+                  )}
+                </p>
               </div>
               <div className="meeting-cards-grid">
                 {filteredMeetings.map((meeting, index) => (
@@ -2056,6 +2043,25 @@ function MeetingsExplorer({ onAdminClick }) {
                     </div>
                   </div>
                 ))}
+                {/* Skeleton placeholders while loading more meetings */}
+                {(isLoading || isLoadingMore) && (
+                  [...Array(Math.min(batchSize, Math.max(6, (totalMeetings || 50) - meetings.length)))].map((_, index) => (
+                    <div key={`skeleton-${index}`} className="skeleton-meeting-card">
+                      <div className="skeleton-card-image">
+                        <div className="skeleton-card-badge"></div>
+                      </div>
+                      <div className="skeleton-card-content">
+                        <div className="skeleton-card-location"></div>
+                        <div className="skeleton-card-title"></div>
+                        <div className="skeleton-card-schedule">
+                          <div className="skeleton-card-day"></div>
+                          <div className="skeleton-card-time"></div>
+                        </div>
+                        <div className="skeleton-card-venue"></div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
 
               {/* Load More Button with Progress */}
