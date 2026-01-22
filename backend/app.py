@@ -4876,6 +4876,10 @@ def check_user_access():
 tasks_storage = []
 task_id_counter = 1
 
+# Pending source submissions (for non-admin users to submit validated sources for review)
+pending_submissions = []
+submission_id_counter = 1
+
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
     """Get all research tasks"""
@@ -5836,6 +5840,215 @@ def list_all_feeds():
             'tsml': len([f for f in feeds_list if f['type'] == 'tsml']),
             'bmlt': len([f for f in feeds_list if f['type'] == 'bmlt'])
         }
+    })
+
+
+# ============================================
+# Pending Source Submissions (for non-admin review workflow)
+# ============================================
+
+@app.route('/api/submissions', methods=['GET'])
+def get_pending_submissions():
+    """Get all pending source submissions for admin review"""
+    return jsonify({
+        'submissions': pending_submissions,
+        'total': len(pending_submissions),
+        'byStatus': {
+            'pending': len([s for s in pending_submissions if s['status'] == 'pending']),
+            'approved': len([s for s in pending_submissions if s['status'] == 'approved']),
+            'rejected': len([s for s in pending_submissions if s['status'] == 'rejected'])
+        }
+    })
+
+
+@app.route('/api/submissions', methods=['POST'])
+def submit_source_for_review():
+    """Submit a validated source configuration for admin review.
+    This allows non-admin users to contribute sources without directly adding them."""
+    global submission_id_counter
+
+    data = request.json
+    name = data.get('name', '')
+    url = data.get('url', '')
+    state = data.get('state', '')
+    feed_type = data.get('feedType', 'tsml')
+    task_id = data.get('taskId')
+    test_results = data.get('testResults', {})
+    submitter = data.get('submitter', 'anonymous')
+    notes = data.get('notes', '')
+
+    if not name or not url or not state:
+        return jsonify({
+            'success': False,
+            'error': 'Name, URL, and state are required'
+        }), 400
+
+    # Check for duplicate pending submissions
+    for submission in pending_submissions:
+        if submission['url'] == url and submission['status'] == 'pending':
+            return jsonify({
+                'success': False,
+                'error': 'This URL has already been submitted and is pending review'
+            }), 400
+
+    # Check if already in sources
+    all_feeds = get_all_feeds()
+    for existing_name, config in all_feeds.items():
+        if config.get('url') == url:
+            return jsonify({
+                'success': False,
+                'error': f'This URL is already configured as "{existing_name}"'
+            }), 400
+
+    submission = {
+        'id': submission_id_counter,
+        'name': name,
+        'url': url,
+        'state': state,
+        'feedType': feed_type,
+        'status': 'pending',
+        'taskId': task_id,
+        'testResults': {
+            'totalMeetings': test_results.get('totalMeetings', 0),
+            'feedType': test_results.get('feedType'),
+            'stateBreakdown': test_results.get('stateBreakdown', {}),
+            'sampleMeetings': test_results.get('sampleMeetings', [])[:3]
+        },
+        'submitter': submitter,
+        'notes': notes,
+        'submittedAt': datetime.now().isoformat(),
+        'reviewedAt': None,
+        'reviewedBy': None,
+        'reviewNotes': None
+    }
+
+    submission_id_counter += 1
+    pending_submissions.insert(0, submission)
+
+    # Mark associated task as completed if provided
+    if task_id:
+        for task in tasks_storage:
+            if task['id'] == task_id:
+                task['status'] = 'completed'
+                break
+
+    return jsonify({
+        'success': True,
+        'message': 'Source submitted for review',
+        'submission': submission
+    })
+
+
+@app.route('/api/submissions/<int:submission_id>', methods=['PUT'])
+def review_submission(submission_id):
+    """Admin endpoint to approve or reject a submission"""
+    global AA_FEEDS, NA_FEEDS
+
+    data = request.json
+    action = data.get('action')  # 'approve' or 'reject'
+    reviewer = data.get('reviewer', 'admin')
+    review_notes = data.get('notes', '')
+
+    if action not in ['approve', 'reject']:
+        return jsonify({
+            'success': False,
+            'error': 'Action must be "approve" or "reject"'
+        }), 400
+
+    submission = None
+    for s in pending_submissions:
+        if s['id'] == submission_id:
+            submission = s
+            break
+
+    if not submission:
+        return jsonify({
+            'success': False,
+            'error': 'Submission not found'
+        }), 404
+
+    if submission['status'] != 'pending':
+        return jsonify({
+            'success': False,
+            'error': f'Submission has already been {submission["status"]}'
+        }), 400
+
+    submission['reviewedAt'] = datetime.now().isoformat()
+    submission['reviewedBy'] = reviewer
+    submission['reviewNotes'] = review_notes
+
+    if action == 'approve':
+        # Add to sources
+        name = submission['name']
+        url = submission['url']
+        state = submission['state']
+        feed_type = submission['feedType']
+
+        # Check again for duplicates (in case added while pending)
+        all_feeds = get_all_feeds()
+        if name in all_feeds:
+            submission['status'] = 'rejected'
+            submission['reviewNotes'] = f'Duplicate name: "{name}" already exists'
+            return jsonify({
+                'success': False,
+                'error': f'A source named "{name}" already exists'
+            }), 400
+
+        for existing_name, config in all_feeds.items():
+            if config.get('url') == url:
+                submission['status'] = 'rejected'
+                submission['reviewNotes'] = f'Duplicate URL: already configured as "{existing_name}"'
+                return jsonify({
+                    'success': False,
+                    'error': f'This URL is already configured as "{existing_name}"'
+                }), 400
+
+        # Add to appropriate feed dictionary
+        if feed_type == 'bmlt':
+            NA_FEEDS[name] = {
+                'url': url,
+                'state': state,
+                'type': 'bmlt'
+            }
+        else:
+            AA_FEEDS[name] = {
+                'url': url,
+                'state': state
+            }
+
+        submission['status'] = 'approved'
+
+        return jsonify({
+            'success': True,
+            'message': f'Approved and added "{name}" to {feed_type.upper()} feeds',
+            'submission': submission
+        })
+    else:
+        submission['status'] = 'rejected'
+        return jsonify({
+            'success': True,
+            'message': 'Submission rejected',
+            'submission': submission
+        })
+
+
+@app.route('/api/submissions/<int:submission_id>', methods=['DELETE'])
+def delete_submission(submission_id):
+    """Delete a submission (admin only)"""
+    global pending_submissions
+
+    original_len = len(pending_submissions)
+    pending_submissions = [s for s in pending_submissions if s['id'] != submission_id]
+
+    if len(pending_submissions) == original_len:
+        return jsonify({
+            'success': False,
+            'error': 'Submission not found'
+        }), 404
+
+    return jsonify({
+        'success': True,
+        'message': 'Submission deleted'
     })
 
 

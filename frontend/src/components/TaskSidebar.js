@@ -44,6 +44,10 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Submit for review state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
   // Initialize form from task data when task changes
   useEffect(() => {
     if (task && isOpen) {
@@ -61,6 +65,7 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
       setTestAttempts(0);
       setSuggestions([]);
       setSaveSuccess(false);
+      setSubmitSuccess(false);
 
       // Auto-research on open if we have state info
       if (task.state && !task.url) {
@@ -332,6 +337,60 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
     }
   };
 
+  // Submit source for review (non-admin workflow)
+  const submitForReview = async () => {
+    if (!sourceUrl.trim() || !sourceName.trim() || !sourceState.trim()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/submissions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: sourceUrl,
+          name: sourceName,
+          state: sourceState,
+          feedType: feedType === 'auto' ? 'tsml' : feedType,
+          taskId: task?.id,
+          testResults: testResults,
+          notes: ''
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSubmitSuccess(true);
+
+        // Mark task as completed
+        if (task?.id && onTaskUpdate) {
+          onTaskUpdate(task.id, 'completed');
+        }
+
+        // Close sidebar after a moment
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+      } else {
+        setTestResults({
+          ...testResults,
+          saveError: data.error
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting for review:', error);
+      setTestResults({
+        ...testResults,
+        saveError: 'Failed to submit. Please try again.'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Handle close
   const handleClose = () => {
     setSourceName('');
@@ -344,6 +403,7 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
     setSuggestions([]);
     setTestAttempts(0);
     setSaveSuccess(false);
+    setSubmitSuccess(false);
     onClose();
   };
 
@@ -646,46 +706,72 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
 
         {/* Footer */}
         <div className="task-sidebar-footer">
-          {saveSuccess ? (
+          {(saveSuccess || submitSuccess) ? (
             <div className="save-success-message">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
                 <polyline points="22,4 12,14.01 9,11.01"/>
               </svg>
-              Source added successfully!
+              {saveSuccess ? 'Source added successfully!' : 'Submitted for review!'}
             </div>
           ) : (
             <>
               <button className="btn btn-ghost" onClick={handleClose}>
                 Cancel
               </button>
-              <button
-                className="btn btn-primary"
-                onClick={saveSource}
-                disabled={!canSave || isSaving}
-              >
-                {isSaving ? (
-                  <>
-                    <span className="btn-spinner"></span>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
-                      <polyline points="17,21 17,13 7,13 7,21"/>
-                      <polyline points="7,3 7,8 15,8"/>
-                    </svg>
-                    Save to Sources
-                  </>
-                )}
-              </button>
+              <div className="footer-actions">
+                {/* Submit for Review - for non-admin users */}
+                <button
+                  className="btn btn-secondary"
+                  onClick={submitForReview}
+                  disabled={!canSave || isSubmitting || isSaving}
+                  title="Submit for admin review before adding to sources"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <span className="btn-spinner"></span>
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M22 2L11 13"/>
+                        <path d="M22 2L15 22l-4-9-9-4 20-7z"/>
+                      </svg>
+                      Submit for Review
+                    </>
+                  )}
+                </button>
+                {/* Save to Sources - for admin users */}
+                <button
+                  className="btn btn-primary"
+                  onClick={saveSource}
+                  disabled={!canSave || isSaving || isSubmitting}
+                  title="Add directly to sources (admin)"
+                >
+                  {isSaving ? (
+                    <>
+                      <span className="btn-spinner"></span>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+                        <polyline points="17,21 17,13 7,13 7,21"/>
+                        <polyline points="7,3 7,8 15,8"/>
+                      </svg>
+                      Save to Sources
+                    </>
+                  )}
+                </button>
+              </div>
             </>
           )}
-          {!canSave && !saveSuccess && testResults?.success && (
-            <span className="footer-hint">Fill in all fields to save</span>
+          {!canSave && !saveSuccess && !submitSuccess && testResults?.success && (
+            <span className="footer-hint">Fill in all fields to continue</span>
           )}
-          {!canSave && !saveSuccess && !testResults?.success && (
+          {!canSave && !saveSuccess && !submitSuccess && !testResults?.success && (
             <span className="footer-hint">Test the source first</span>
           )}
         </div>
