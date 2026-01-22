@@ -9338,6 +9338,13 @@ a.sidebar-nav-item {
   color: var(--text-primary);
 }
 
+/* Infinite Scroll Sentinel */
+.infinite-scroll-sentinel {
+  width: 100%;
+  height: 1px;
+  visibility: hidden;
+}
+
 /* Load More Container */
 .load-more-container {
   display: flex;
