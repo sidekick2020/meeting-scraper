@@ -116,6 +116,9 @@ function AdminPanel({ onBackToPublic }) {
   const [shouldAbandonOld, setShouldAbandonOld] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
   const [feedSearchQuery, setFeedSearchQuery] = useState('');
+  // Sources search and filter state
+  const [sourceSearchQuery, setSourceSearchQuery] = useState('');
+  const [sourceLastScrapeFilter, setSourceLastScrapeFilter] = useState('');
   const [expandedFeed, setExpandedFeed] = useState(null);
   // Progressive feed loading state
   const [feedsLoading, setFeedsLoading] = useState(!cachedFeeds?.data);
@@ -902,11 +905,111 @@ function AdminPanel({ onBackToPublic }) {
         );
 
       case 'sources':
+        // Format last scraped date for display
+        const formatSourceLastScraped = (lastScraped) => {
+          if (!lastScraped) return 'Never';
+          const date = new Date(lastScraped);
+          const now = new Date();
+          const diffMs = now - date;
+          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          if (diffHours < 1) return 'Just now';
+          if (diffHours < 24) return `${diffHours}h ago`;
+          if (diffDays === 1) return 'Yesterday';
+          if (diffDays < 7) return `${diffDays}d ago`;
+          if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+          return date.toLocaleDateString();
+        };
+
+        // Filter sources based on search and last scrape filter
+        const filteredSources = feeds.filter(feed => {
+          // Search filter
+          if (sourceSearchQuery) {
+            const query = sourceSearchQuery.toLowerCase();
+            const matchesName = feed.name.toLowerCase().includes(query);
+            const matchesState = feed.state?.toLowerCase().includes(query);
+            if (!matchesName && !matchesState) return false;
+          }
+          // Last scrape filter
+          if (sourceLastScrapeFilter) {
+            if (sourceLastScrapeFilter === 'never' && feed.lastScraped) return false;
+            if (sourceLastScrapeFilter === 'today') {
+              if (!feed.lastScraped) return false;
+              const lastScraped = new Date(feed.lastScraped);
+              const today = new Date();
+              if (lastScraped.toDateString() !== today.toDateString()) return false;
+            }
+            if (sourceLastScrapeFilter === 'week') {
+              if (!feed.lastScraped) return false;
+              const daysSince = (new Date() - new Date(feed.lastScraped)) / (1000 * 60 * 60 * 24);
+              if (daysSince > 7) return false;
+            }
+            if (sourceLastScrapeFilter === 'stale') {
+              if (!feed.lastScraped) return true;
+              const daysSince = (new Date() - new Date(feed.lastScraped)) / (1000 * 60 * 60 * 24);
+              if (daysSince <= 7) return false;
+            }
+          }
+          return true;
+        });
+
+        const hasSourceFilters = sourceSearchQuery || sourceLastScrapeFilter;
+
+        const clearSourceFilters = () => {
+          setSourceSearchQuery('');
+          setSourceLastScrapeFilter('');
+        };
+
         return (
           <div className="sources-section">
             <div className="sources-header">
               <h2>Configured Data Sources</h2>
               <p>These are the meeting feeds currently configured for scraping. Click on a source to see more details.</p>
+            </div>
+            <div className="sources-toolbar">
+              <div className="sources-search">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search sources by name or state..."
+                  value={sourceSearchQuery}
+                  onChange={(e) => setSourceSearchQuery(e.target.value)}
+                />
+                {sourceSearchQuery && (
+                  <button
+                    className="search-clear-btn"
+                    onClick={() => setSourceSearchQuery('')}
+                    aria-label="Clear search"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/>
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+              <select
+                className="sources-filter"
+                value={sourceLastScrapeFilter}
+                onChange={(e) => setSourceLastScrapeFilter(e.target.value)}
+              >
+                <option value="">All Last Scrape</option>
+                <option value="today">Scraped Today</option>
+                <option value="week">Scraped This Week</option>
+                <option value="stale">Needs Refresh (7+ days)</option>
+                <option value="never">Never Scraped</option>
+              </select>
+              {hasSourceFilters && (
+                <button className="btn btn-ghost btn-sm" onClick={clearSourceFilters}>
+                  Clear Filters
+                </button>
+              )}
+            </div>
+            <div className="sources-count">
+              {filteredSources.length} of {feeds.length} source{feeds.length !== 1 ? 's' : ''}
             </div>
             <div className="sources-list">
               {feeds.length === 0 ? (
@@ -918,37 +1021,60 @@ function AdminPanel({ onBackToPublic }) {
                   </svg>
                   <p>Loading sources...</p>
                 </div>
+              ) : filteredSources.length === 0 ? (
+                <div className="sources-empty">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                  </svg>
+                  <p>No sources match your filters</p>
+                  <button className="btn btn-ghost btn-sm" onClick={clearSourceFilters}>
+                    Clear Filters
+                  </button>
+                </div>
               ) : (
-                feeds.map((feed, index) => (
-                  <div
-                    key={index}
-                    className="source-card source-card-clickable"
-                    onClick={() => setSelectedSource(feed)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => e.key === 'Enter' && setSelectedSource(feed)}
-                  >
-                    <div className="source-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <path d="M2 12h20"/>
-                        <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
-                      </svg>
+                filteredSources.map((feed, index) => {
+                  const isStale = !feed.lastScraped ||
+                    (new Date() - new Date(feed.lastScraped)) > (7 * 24 * 60 * 60 * 1000);
+                  return (
+                    <div
+                      key={index}
+                      className="source-card source-card-clickable"
+                      onClick={() => setSelectedSource(feed)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === 'Enter' && setSelectedSource(feed)}
+                    >
+                      <div className="source-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"/>
+                          <path d="M2 12h20"/>
+                          <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+                        </svg>
+                      </div>
+                      <div className="source-info">
+                        <h3>{feed.name}</h3>
+                        <div className="source-meta">
+                          <span className="source-state">{feed.state}</span>
+                          <span className="source-meta-divider">·</span>
+                          <span className={`source-last-scraped ${isStale ? 'stale' : ''}`}>
+                            {formatSourceLastScraped(feed.lastScraped)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="source-status">
+                        <span className={`status-badge ${isStale ? 'status-stale' : 'status-active'}`}>
+                          {isStale ? 'Needs Refresh' : 'Active'}
+                        </span>
+                      </div>
+                      <div className="source-arrow">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="9,18 15,12 9,6"/>
+                        </svg>
+                      </div>
                     </div>
-                    <div className="source-info">
-                      <h3>{feed.name}</h3>
-                      <span className="source-state">{feed.state}</span>
-                    </div>
-                    <div className="source-status">
-                      <span className="status-badge status-active">Active</span>
-                    </div>
-                    <div className="source-arrow">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="9,18 15,12 9,6"/>
-                      </svg>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
             <div className="sources-footer">
