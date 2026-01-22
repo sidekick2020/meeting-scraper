@@ -7,6 +7,7 @@ function SubmissionsPanel() {
   const [isLoading, setIsLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('pending');
   const [processingId, setProcessingId] = useState(null);
+  const [expandedScriptId, setExpandedScriptId] = useState(null);
 
   // Fetch submissions
   const fetchSubmissions = useCallback(async () => {
@@ -193,6 +194,58 @@ function SubmissionsPanel() {
                         {m.name}
                       </span>
                     ))}
+                  </div>
+                )}
+
+                {/* Generated Script - Expandable */}
+                {submission.testResults?.generatedScript && (
+                  <div className="submission-script-section">
+                    <button
+                      className="script-toggle-btn"
+                      onClick={() => setExpandedScriptId(
+                        expandedScriptId === submission.id ? null : submission.id
+                      )}
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className={`script-chevron ${expandedScriptId === submission.id ? 'expanded' : ''}`}
+                      >
+                        <polyline points="9,18 15,12 9,6"/>
+                      </svg>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="16 18 22 12 16 6"/>
+                        <polyline points="8 6 2 12 8 18"/>
+                      </svg>
+                      <span>Python Script</span>
+                    </button>
+                    {expandedScriptId === submission.id && (
+                      <div className="script-content">
+                        <div className="script-header">
+                          <span className="script-filename">
+                            scrape_{submission.name.toLowerCase().replace(/\s+/g, '_')}.py
+                          </span>
+                          <button
+                            className="script-copy-btn"
+                            onClick={() => {
+                              navigator.clipboard.writeText(submission.testResults.generatedScript);
+                            }}
+                            title="Copy to clipboard"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                            </svg>
+                            Copy
+                          </button>
+                        </div>
+                        <pre className="script-code"><code>{submission.testResults.generatedScript}</code></pre>
+                      </div>
+                    )}
                   </div>
                 )}
 

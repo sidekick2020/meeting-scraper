@@ -5631,189 +5631,11 @@ def autofill_task_source():
     })
 
 
-@app.route('/api/tasks/test-source', methods=['POST'])
-def test_source_url():
-    """Enhanced test endpoint for source URLs with retry support and better error handling.
-    This is an alias/enhancement of test-script with additional features."""
-    data = request.json
-    url = data.get('url', '')
-    feed_type = data.get('feedType', 'auto')
-    state = data.get('state', 'XX')
-    attempt = data.get('attempt', 1)
-    retry_with_alternate = data.get('retryWithAlternate', False)
-
-    if not url:
-        return jsonify({'success': False, 'error': 'URL is required'}), 400
-
-    # If retrying, try to fix common URL issues
-    if retry_with_alternate and attempt > 1:
-        # Try common URL fixes
-        if 'admin-ajax.php' not in url and 'action=meetings' not in url:
-            # Try adding TSML endpoint
-            if not url.endswith('/'):
-                url += '/'
-            url += 'wp-admin/admin-ajax.php?action=meetings'
-        elif 'client_interface' not in url and 'main_server' not in url:
-            # Try adding BMLT endpoint
-            if not url.endswith('/'):
-                url += '/'
-            url += 'main_server/client_interface/json/?switcher=GetSearchResults&data_field_key=meeting_name'
-
-    # Auto-detect feed type
-    if feed_type == 'auto':
-        if 'admin-ajax.php' in url or 'action=meetings' in url:
-            feed_type = 'tsml'
-        elif 'main_server' in url or 'client_interface' in url or 'switcher=' in url:
-            feed_type = 'bmlt'
-        elif 'sheets.code4recovery.org' in url or '.json' in url:
-            feed_type = 'json'
-        else:
-            feed_type = 'tsml'
-
-    try:
-        response = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
-        response.raise_for_status()
-
-        raw_data = response.json()
-
-        if not isinstance(raw_data, list):
-            return jsonify({
-                'success': False,
-                'error': f'Expected JSON array, got {type(raw_data).__name__}',
-                'hint': 'The URL should return a JSON array of meetings. Try adding /wp-admin/admin-ajax.php?action=meetings for TSML sites.',
-                'attempt': attempt
-            })
-
-        if len(raw_data) == 0:
-            return jsonify({
-                'success': False,
-                'error': 'No meetings found in response',
-                'hint': 'The feed returned an empty array. The source may be inactive or require different parameters.',
-                'attempt': attempt
-            })
-
-        # Transform if BMLT
-        if feed_type == 'bmlt':
-            meetings = [transform_bmlt_to_tsml(m) for m in raw_data]
-        else:
-            meetings = raw_data
-            # Add state if missing
-            for m in meetings:
-                if not m.get('state'):
-                    m['state'] = state
-                if not m.get('meeting_type'):
-                    m['meeting_type'] = 'AA'
-
-        # Validate meeting structure
-        sample_meeting = meetings[0]
-        required_fields = ['name']
-        missing_fields = [f for f in required_fields if not sample_meeting.get(f)]
-
-        if missing_fields:
-            return jsonify({
-                'success': False,
-                'error': f'Missing required fields: {", ".join(missing_fields)}',
-                'sampleData': sample_meeting,
-                'attempt': attempt
-            })
-
-        # Count meetings by state
-        state_counts = {}
-        for m in meetings:
-            s = m.get('state', 'Unknown')
-            state_counts[s] = state_counts.get(s, 0) + 1
-
-        # Get sample meetings (first 5)
-        sample_meetings = []
-        for m in meetings[:5]:
-            sample_meetings.append({
-                'name': m.get('name', 'Unknown'),
-                'day': m.get('day'),
-                'time': m.get('time', ''),
-                'city': m.get('city', ''),
-                'state': m.get('state', ''),
-                'meeting_type': m.get('meeting_type', 'AA')
-            })
-
-        return jsonify({
-            'success': True,
-            'totalMeetings': len(meetings),
-            'feedType': feed_type,
-            'stateBreakdown': state_counts,
-            'sampleMeetings': sample_meetings,
-            'fieldsFound': list(sample_meeting.keys())[:15],
-            'attempt': attempt,
-            'urlTested': url
-        })
-
-    except requests.exceptions.Timeout:
-        return jsonify({
-            'success': False,
-            'error': 'Request timed out after 30 seconds',
-            'hint': 'The server may be slow or unreachable. Try again later.',
-            'attempt': attempt
-        })
-    except requests.exceptions.HTTPError as e:
-        status_code = e.response.status_code if e.response else 'unknown'
-        hints = {
-            404: 'The URL was not found. Check if the endpoint path is correct.',
-            403: 'Access forbidden. The server may require authentication or block scrapers.',
-            500: 'Server error. The meeting directory may be experiencing issues.',
-            502: 'Bad gateway. Try again later.',
-            503: 'Service unavailable. The server may be down for maintenance.'
-        }
-        return jsonify({
-            'success': False,
-            'error': f'HTTP error: {status_code}',
-            'hint': hints.get(status_code, f'The server returned an error. Status: {status_code}'),
-            'attempt': attempt
-        })
-    except requests.exceptions.ConnectionError:
-        return jsonify({
-            'success': False,
-            'error': 'Could not connect to server',
-            'hint': 'The domain may not exist or the server is unreachable.',
-            'attempt': attempt
-        })
-    except requests.exceptions.RequestException as e:
-        return jsonify({
-            'success': False,
-            'error': f'Request failed: {str(e)}',
-            'hint': 'Check if the URL is correct and accessible',
-            'attempt': attempt
-        })
-    except json.JSONDecodeError as e:
-        return jsonify({
-            'success': False,
-            'error': 'Invalid JSON response',
-            'hint': 'The URL did not return valid JSON. This might not be a meeting feed endpoint.',
-            'attempt': attempt
-        })
-
-
-@app.route('/api/tasks/generate-script', methods=['POST'])
-def generate_scraping_script():
-    """Generate a Python scraping script based on existing patterns"""
-    data = request.json
-    url = data.get('url', '')
-    name = data.get('name', 'New Meeting Source')
-    state = data.get('state', 'XX')
-    feed_type = data.get('feedType', 'auto')  # 'tsml', 'bmlt', or 'auto'
-
+def _generate_script_content(url, name, state, feed_type):
+    """Helper function to generate Python scraping script content.
+    Used by both test-source and generate-script endpoints."""
     state_name = US_STATE_NAMES.get(state, state)
 
-    # Auto-detect feed type based on URL patterns
-    if feed_type == 'auto':
-        if 'admin-ajax.php' in url or 'action=meetings' in url:
-            feed_type = 'tsml'
-        elif 'main_server' in url or 'client_interface' in url or 'switcher=' in url:
-            feed_type = 'bmlt'
-        elif 'sheets.code4recovery.org' in url or '.json' in url:
-            feed_type = 'json'
-        else:
-            feed_type = 'tsml'  # Default to TSML
-
-    # Generate appropriate script based on feed type
     if feed_type == 'bmlt':
         script = f'''#!/usr/bin/env python3
 """
@@ -6053,6 +5875,198 @@ if __name__ == '__main__':
         print(f"Day: {{meeting.get('day')}} Time: {{meeting.get('time')}}")
         print(f"Location: {{meeting.get('city')}}, {{meeting.get('state')}}")
 '''
+    return script
+
+
+@app.route('/api/tasks/test-source', methods=['POST'])
+def test_source_url():
+    """Enhanced test endpoint for source URLs with retry support and better error handling.
+    This is an alias/enhancement of test-script with additional features.
+    Also generates a Python scraping script on successful test."""
+    data = request.json
+    url = data.get('url', '')
+    feed_type = data.get('feedType', 'auto')
+    state = data.get('state', 'XX')
+    name = data.get('name', '')  # Source name for script generation
+    attempt = data.get('attempt', 1)
+    retry_with_alternate = data.get('retryWithAlternate', False)
+
+    if not url:
+        return jsonify({'success': False, 'error': 'URL is required'}), 400
+
+    # If retrying, try to fix common URL issues
+    if retry_with_alternate and attempt > 1:
+        # Try common URL fixes
+        if 'admin-ajax.php' not in url and 'action=meetings' not in url:
+            # Try adding TSML endpoint
+            if not url.endswith('/'):
+                url += '/'
+            url += 'wp-admin/admin-ajax.php?action=meetings'
+        elif 'client_interface' not in url and 'main_server' not in url:
+            # Try adding BMLT endpoint
+            if not url.endswith('/'):
+                url += '/'
+            url += 'main_server/client_interface/json/?switcher=GetSearchResults&data_field_key=meeting_name'
+
+    # Auto-detect feed type
+    if feed_type == 'auto':
+        if 'admin-ajax.php' in url or 'action=meetings' in url:
+            feed_type = 'tsml'
+        elif 'main_server' in url or 'client_interface' in url or 'switcher=' in url:
+            feed_type = 'bmlt'
+        elif 'sheets.code4recovery.org' in url or '.json' in url:
+            feed_type = 'json'
+        else:
+            feed_type = 'tsml'
+
+    try:
+        response = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
+        response.raise_for_status()
+
+        raw_data = response.json()
+
+        if not isinstance(raw_data, list):
+            return jsonify({
+                'success': False,
+                'error': f'Expected JSON array, got {type(raw_data).__name__}',
+                'hint': 'The URL should return a JSON array of meetings. Try adding /wp-admin/admin-ajax.php?action=meetings for TSML sites.',
+                'attempt': attempt
+            })
+
+        if len(raw_data) == 0:
+            return jsonify({
+                'success': False,
+                'error': 'No meetings found in response',
+                'hint': 'The feed returned an empty array. The source may be inactive or require different parameters.',
+                'attempt': attempt
+            })
+
+        # Transform if BMLT
+        if feed_type == 'bmlt':
+            meetings = [transform_bmlt_to_tsml(m) for m in raw_data]
+        else:
+            meetings = raw_data
+            # Add state if missing
+            for m in meetings:
+                if not m.get('state'):
+                    m['state'] = state
+                if not m.get('meeting_type'):
+                    m['meeting_type'] = 'AA'
+
+        # Validate meeting structure
+        sample_meeting = meetings[0]
+        required_fields = ['name']
+        missing_fields = [f for f in required_fields if not sample_meeting.get(f)]
+
+        if missing_fields:
+            return jsonify({
+                'success': False,
+                'error': f'Missing required fields: {", ".join(missing_fields)}',
+                'sampleData': sample_meeting,
+                'attempt': attempt
+            })
+
+        # Count meetings by state
+        state_counts = {}
+        for m in meetings:
+            s = m.get('state', 'Unknown')
+            state_counts[s] = state_counts.get(s, 0) + 1
+
+        # Get sample meetings (first 5)
+        sample_meetings = []
+        for m in meetings[:5]:
+            sample_meetings.append({
+                'name': m.get('name', 'Unknown'),
+                'day': m.get('day'),
+                'time': m.get('time', ''),
+                'city': m.get('city', ''),
+                'state': m.get('state', ''),
+                'meeting_type': m.get('meeting_type', 'AA')
+            })
+
+        # Generate Python scraping script for this source
+        script_name = name if name else f"Meeting Source ({state})"
+        generated_script = _generate_script_content(url, script_name, state, feed_type)
+
+        return jsonify({
+            'success': True,
+            'totalMeetings': len(meetings),
+            'feedType': feed_type,
+            'stateBreakdown': state_counts,
+            'sampleMeetings': sample_meetings,
+            'fieldsFound': list(sample_meeting.keys())[:15],
+            'attempt': attempt,
+            'urlTested': url,
+            'generatedScript': generated_script
+        })
+
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'success': False,
+            'error': 'Request timed out after 30 seconds',
+            'hint': 'The server may be slow or unreachable. Try again later.',
+            'attempt': attempt
+        })
+    except requests.exceptions.HTTPError as e:
+        status_code = e.response.status_code if e.response else 'unknown'
+        hints = {
+            404: 'The URL was not found. Check if the endpoint path is correct.',
+            403: 'Access forbidden. The server may require authentication or block scrapers.',
+            500: 'Server error. The meeting directory may be experiencing issues.',
+            502: 'Bad gateway. Try again later.',
+            503: 'Service unavailable. The server may be down for maintenance.'
+        }
+        return jsonify({
+            'success': False,
+            'error': f'HTTP error: {status_code}',
+            'hint': hints.get(status_code, f'The server returned an error. Status: {status_code}'),
+            'attempt': attempt
+        })
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            'success': False,
+            'error': 'Could not connect to server',
+            'hint': 'The domain may not exist or the server is unreachable.',
+            'attempt': attempt
+        })
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'success': False,
+            'error': f'Request failed: {str(e)}',
+            'hint': 'Check if the URL is correct and accessible',
+            'attempt': attempt
+        })
+    except json.JSONDecodeError as e:
+        return jsonify({
+            'success': False,
+            'error': 'Invalid JSON response',
+            'hint': 'The URL did not return valid JSON. This might not be a meeting feed endpoint.',
+            'attempt': attempt
+        })
+
+
+@app.route('/api/tasks/generate-script', methods=['POST'])
+def generate_scraping_script():
+    """Generate a Python scraping script based on existing patterns"""
+    data = request.json
+    url = data.get('url', '')
+    name = data.get('name', 'New Meeting Source')
+    state = data.get('state', 'XX')
+    feed_type = data.get('feedType', 'auto')  # 'tsml', 'bmlt', or 'auto'
+
+    # Auto-detect feed type based on URL patterns
+    if feed_type == 'auto':
+        if 'admin-ajax.php' in url or 'action=meetings' in url:
+            feed_type = 'tsml'
+        elif 'main_server' in url or 'client_interface' in url or 'switcher=' in url:
+            feed_type = 'bmlt'
+        elif 'sheets.code4recovery.org' in url or '.json' in url:
+            feed_type = 'json'
+        else:
+            feed_type = 'tsml'  # Default to TSML
+
+    # Use helper function to generate script
+    script = _generate_script_content(url, name, state, feed_type)
 
     return jsonify({
         'success': True,
@@ -6343,7 +6357,8 @@ def submit_source_for_review():
             'totalMeetings': test_results.get('totalMeetings', 0),
             'feedType': test_results.get('feedType'),
             'stateBreakdown': test_results.get('stateBreakdown', {}),
-            'sampleMeetings': test_results.get('sampleMeetings', [])[:3]
+            'sampleMeetings': test_results.get('sampleMeetings', [])[:3],
+            'generatedScript': test_results.get('generatedScript')  # Include generated Python script
         },
         'submitter': submitter,
         'notes': notes,
