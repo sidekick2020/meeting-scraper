@@ -135,11 +135,12 @@ function HeatmapLayer({ clusters }) {
 }
 
 // Component to handle map movement events and fetch data
-function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadingChange }) {
+function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadingChange, filters, onBoundsChange }) {
   const map = useMap();
   const fetchTimeoutRef = useRef(null);
   const lastFetchRef = useRef(null);
   const stateDataFetchedRef = useRef(false);
+  const filtersRef = useRef(filters);
 
   // Fetch state-level data (cached, very fast)
   const fetchStateData = useCallback(async () => {
@@ -160,7 +161,12 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
     }
   }, [onStateDataLoaded, onLoadingChange]);
 
-  const fetchHeatmapData = useCallback(async () => {
+  // Keep filtersRef updated
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
+
+  const fetchHeatmapData = useCallback(async (forceRefresh = false) => {
     const bounds = map.getBounds();
     const zoom = map.getZoom();
 
@@ -169,14 +175,46 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
       return;
     }
 
+    // Build filter string for cache key
+    const currentFilters = filtersRef.current || {};
+    const filterStr = JSON.stringify({
+      day: currentFilters.day,
+      type: currentFilters.type,
+      state: currentFilters.state,
+      city: currentFilters.city,
+      online: currentFilters.online,
+      hybrid: currentFilters.hybrid
+    });
+
     // Create a cache key to avoid duplicate fetches
-    const cacheKey = `${zoom}-${bounds.getNorth().toFixed(2)}-${bounds.getSouth().toFixed(2)}-${bounds.getEast().toFixed(2)}-${bounds.getWest().toFixed(2)}`;
-    if (lastFetchRef.current === cacheKey) return;
+    const cacheKey = `${zoom}-${bounds.getNorth().toFixed(2)}-${bounds.getSouth().toFixed(2)}-${bounds.getEast().toFixed(2)}-${bounds.getWest().toFixed(2)}-${filterStr}`;
+    if (!forceRefresh && lastFetchRef.current === cacheKey) return;
     lastFetchRef.current = cacheKey;
 
     try {
       onLoadingChange?.(true);
-      const url = `${BACKEND_URL}/api/meetings/heatmap?zoom=${zoom}&north=${bounds.getNorth()}&south=${bounds.getSouth()}&east=${bounds.getEast()}&west=${bounds.getWest()}`;
+      let url = `${BACKEND_URL}/api/meetings/heatmap?zoom=${zoom}&north=${bounds.getNorth()}&south=${bounds.getSouth()}&east=${bounds.getEast()}&west=${bounds.getWest()}`;
+
+      // Add filter parameters
+      if (currentFilters.day !== undefined && currentFilters.day !== null) {
+        url += `&day=${currentFilters.day}`;
+      }
+      if (currentFilters.type) {
+        url += `&type=${encodeURIComponent(currentFilters.type)}`;
+      }
+      if (currentFilters.state) {
+        url += `&state=${encodeURIComponent(currentFilters.state)}`;
+      }
+      if (currentFilters.city) {
+        url += `&city=${encodeURIComponent(currentFilters.city)}`;
+      }
+      if (currentFilters.online) {
+        url += `&online=true`;
+      }
+      if (currentFilters.hybrid) {
+        url += `&hybrid=true`;
+      }
+
       const response = await fetch(url);
 
       if (response.ok) {
@@ -193,20 +231,44 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
   useEffect(() => {
     const handleMoveEnd = () => {
       const zoom = map.getZoom();
+      const bounds = map.getBounds();
       onZoomChange(zoom);
+
+      // Notify parent of bounds change for meeting list sync
+      if (onBoundsChange) {
+        onBoundsChange({
+          north: bounds.getNorth(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          west: bounds.getWest(),
+          zoom: zoom
+        });
+      }
 
       // Debounce the fetch
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
       }
-      fetchTimeoutRef.current = setTimeout(fetchHeatmapData, 300);
+      fetchTimeoutRef.current = setTimeout(() => fetchHeatmapData(false), 300);
     };
 
     // Fetch state data immediately (cached)
     fetchStateData();
 
     // Initial fetch for clusters/meetings
-    fetchHeatmapData();
+    fetchHeatmapData(false);
+
+    // Notify parent of initial bounds
+    const initialBounds = map.getBounds();
+    if (onBoundsChange) {
+      onBoundsChange({
+        north: initialBounds.getNorth(),
+        south: initialBounds.getSouth(),
+        east: initialBounds.getEast(),
+        west: initialBounds.getWest(),
+        zoom: map.getZoom()
+      });
+    }
 
     map.on('moveend', handleMoveEnd);
     map.on('zoomend', handleMoveEnd);
@@ -218,7 +280,16 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [map, fetchHeatmapData, fetchStateData, onZoomChange]);
+  }, [map, fetchHeatmapData, fetchStateData, onZoomChange, onBoundsChange]);
+
+  // Refetch when filters change
+  useEffect(() => {
+    if (filters) {
+      // Force refresh when filters change
+      lastFetchRef.current = null;
+      fetchHeatmapData(true);
+    }
+  }, [filters, fetchHeatmapData]);
 
   return null;
 }
@@ -283,7 +354,27 @@ function ClusterMarker({ cluster, onClusterClick }) {
 // Format day number to day name
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true }) {
+// Component to handle map panning to a target location
+function MapPanHandler({ targetLocation }) {
+  const map = useMap();
+  const lastLocationRef = useRef(null);
+
+  useEffect(() => {
+    if (targetLocation && targetLocation.lat && targetLocation.lng) {
+      // Check if location actually changed
+      const locationKey = `${targetLocation.lat}-${targetLocation.lng}-${targetLocation.zoom || 12}`;
+      if (lastLocationRef.current !== locationKey) {
+        lastLocationRef.current = locationKey;
+        const zoom = targetLocation.zoom || 12;
+        map.setView([targetLocation.lat, targetLocation.lng], zoom, { animate: true });
+      }
+    }
+  }, [map, targetLocation]);
+
+  return null;
+}
+
+function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetLocation, filters, onBoundsChange }) {
   const [mapData, setMapData] = useState({ clusters: [], meetings: [], total: 0, mode: 'clustered' });
   const [stateData, setStateData] = useState({ states: [], total: 0 });
   const [currentZoom, setCurrentZoom] = useState(5);
@@ -351,7 +442,11 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true }) {
           onStateDataLoaded={handleStateDataLoaded}
           onZoomChange={handleZoomChange}
           onLoadingChange={handleLoadingChange}
+          filters={filters}
+          onBoundsChange={onBoundsChange}
         />
+
+        <MapPanHandler targetLocation={targetLocation} />
 
         {/* Show state-level bubbles at very low zoom */}
         {showStateLevel && stateData.states.map((state) => (

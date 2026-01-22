@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import MeetingMap from './MeetingMap';
 import MeetingDetail from './MeetingDetail';
 import ThemeToggle from './ThemeToggle';
@@ -178,6 +178,8 @@ function MeetingsExplorer({ onAdminClick }) {
   // Map bounds for dynamic loading
   const [mapBounds, setMapBounds] = useState(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  // Target location for map pan/zoom when user selects a location from search
+  const [targetLocation, setTargetLocation] = useState(null);
 
   // Theme detection for logo switching
   const [currentTheme, setCurrentTheme] = useState(
@@ -271,11 +273,11 @@ function MeetingsExplorer({ onAdminClick }) {
   }, [fetchThumbnail]);
 
   const fetchMeetings = useCallback(async (options = {}) => {
-    const { bounds = null, loadMore = false, stateFilter = null } = options;
+    const { bounds = null, loadMore = false, stateFilter = null, reset = false, filters = {} } = options;
 
     if (loadMore) {
       setIsLoadingMore(true);
-    } else if (bounds) {
+    } else if (bounds && !reset) {
       setIsLoadingMore(true);
     } else {
       setIsLoading(true);
@@ -285,17 +287,41 @@ function MeetingsExplorer({ onAdminClick }) {
     try {
       // Use ref for skip to avoid dependency on meetings.length
       const skip = loadMore ? meetingsRef.current.length : 0;
-      const limit = bounds ? 100 : PAGE_SIZE;
-      let url = `${BACKEND_URL}/api/meetings?limit=${limit}&skip=${skip}`;
+      let url = `${BACKEND_URL}/api/meetings?limit=${PAGE_SIZE}&skip=${skip}`;
 
       // Add bounds parameters if provided
       if (bounds) {
         url += `&north=${bounds.north}&south=${bounds.south}&east=${bounds.east}&west=${bounds.west}`;
       }
 
-      // Add state filter if provided
+      // Add state filter if provided (from param or filters object)
       if (stateFilter && stateFilter.length > 0) {
         url += `&state=${encodeURIComponent(stateFilter[0])}`;
+      } else if (filters.state) {
+        url += `&state=${encodeURIComponent(filters.state)}`;
+      }
+
+      // Add day filter
+      if (filters.day !== undefined && filters.day !== null) {
+        url += `&day=${filters.day}`;
+      }
+
+      // Add type filter
+      if (filters.type) {
+        url += `&type=${encodeURIComponent(filters.type)}`;
+      }
+
+      // Add city filter
+      if (filters.city) {
+        url += `&city=${encodeURIComponent(filters.city)}`;
+      }
+
+      // Add online/hybrid filters
+      if (filters.online) {
+        url += `&online=true`;
+      }
+      if (filters.hybrid) {
+        url += `&hybrid=true`;
       }
 
       const response = await fetch(url);
@@ -317,22 +343,24 @@ function MeetingsExplorer({ onAdminClick }) {
             return updated;
           });
           setCurrentPage(prev => prev + 1);
-        } else if (bounds) {
-          // Merge new meetings with existing ones, avoiding duplicates
-          setMeetings(prev => {
-            const existingIds = new Set(prev.map(m => m.objectId));
-            const uniqueNew = newMeetings.filter(m => !existingIds.has(m.objectId));
-            const updated = [...prev, ...uniqueNew];
-            meetingsRef.current = updated;
-            return updated;
-          });
+        } else if (reset || bounds) {
+          // Reset meetings when bounds change or reset requested
+          meetingsRef.current = newMeetings;
+          setMeetings(newMeetings);
+          setCurrentPage(0);
+
+          // Update available cities from current results
+          if (bounds) {
+            const cities = [...new Set(newMeetings.map(m => m.city).filter(Boolean))].sort();
+            setAvailableCities(cities);
+          }
         } else {
           meetingsRef.current = newMeetings;
           setMeetings(newMeetings);
           setCurrentPage(0);
         }
 
-        // Extract unique values (only on initial load or reset)
+        // Extract unique values (only on initial load without bounds)
         if (!bounds && !loadMore) {
           const states = [...new Set(newMeetings.map(m => m.state).filter(Boolean))].sort();
           setAvailableStates(states);
@@ -359,11 +387,25 @@ function MeetingsExplorer({ onAdminClick }) {
     }
   }, [PAGE_SIZE]);
 
-  const loadMoreMeetings = useCallback((stateFilter = null) => {
+  const loadMoreMeetings = useCallback(() => {
     if (!isLoadingMore && hasMore) {
-      fetchMeetings({ loadMore: true, stateFilter });
+      // Build filters from current state
+      const filters = {};
+      if (showTodayOnly) {
+        filters.day = new Date().getDay();
+      } else if (selectedDays.length === 1) {
+        const dayIndex = dayNames.indexOf(selectedDays[0]);
+        if (dayIndex !== -1) filters.day = dayIndex;
+      }
+      if (selectedTypes.length === 1) filters.type = selectedTypes[0];
+      if (selectedStates.length === 1) filters.state = selectedStates[0];
+      if (showOnlineOnly) filters.online = true;
+      if (showHybridOnly) filters.hybrid = true;
+      if (selectedCity) filters.city = selectedCity;
+
+      fetchMeetings({ loadMore: true, bounds: mapBounds, filters });
     }
-  }, [fetchMeetings, isLoadingMore, hasMore]);
+  }, [fetchMeetings, isLoadingMore, hasMore, mapBounds, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity]);
 
   // Check backend configuration status
   const checkBackendConfig = useCallback(async () => {
@@ -806,11 +848,20 @@ function MeetingsExplorer({ onAdminClick }) {
     // If it's a state, also set the state filter
     if (suggestion.type === 'state') {
       setSelectedStates([suggestion.value]);
+      // Clear target location - state selection doesn't need map pan
+      setTargetLocation(null);
     }
 
-    // If it's a Nominatim place, extract state and set filter
-    if (suggestion.type === 'nominatim' && suggestion.state) {
-      // Extract state abbreviation from full state name
+    // If it's a Nominatim place, pan/zoom map to that location and set filters
+    if (suggestion.type === 'nominatim' && suggestion.lat && suggestion.lon) {
+      // Set target location to pan/zoom the map
+      setTargetLocation({
+        lat: suggestion.lat,
+        lng: suggestion.lon,
+        zoom: 12 // City-level zoom
+      });
+
+      // Extract state abbreviation from full state name if available
       const stateAbbreviations = {
         'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
         'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
@@ -824,9 +875,27 @@ function MeetingsExplorer({ onAdminClick }) {
         'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY',
         'District of Columbia': 'DC'
       };
-      const stateAbbr = stateAbbreviations[suggestion.state];
-      if (stateAbbr) {
-        setSelectedStates([stateAbbr]);
+
+      // Set the state filter if we have state info
+      if (suggestion.state) {
+        const stateAbbr = stateAbbreviations[suggestion.state];
+        if (stateAbbr) {
+          setSelectedStates([stateAbbr]);
+        }
+      }
+
+      // Set the city filter if we have city info
+      if (suggestion.city) {
+        setSelectedCity(suggestion.city);
+      }
+    }
+
+    // If it's a city from the meeting data, set city filter
+    if (suggestion.type === 'city') {
+      setSelectedCity(suggestion.value);
+      // Also set state if available
+      if (suggestion.subLabel) {
+        setSelectedStates([suggestion.subLabel]);
       }
     }
   };
@@ -875,6 +944,64 @@ function MeetingsExplorer({ onAdminClick }) {
       }
     }
   };
+
+  // Handle map bounds change - fetch meetings for the visible area
+  const handleMapBoundsChange = useCallback((bounds) => {
+    setMapBounds(bounds);
+    // Build filters from current state
+    const filters = {};
+    if (showTodayOnly) {
+      filters.day = new Date().getDay();
+    } else if (selectedDays.length === 1) {
+      const dayIndex = dayNames.indexOf(selectedDays[0]);
+      if (dayIndex !== -1) filters.day = dayIndex;
+    }
+    if (selectedTypes.length === 1) filters.type = selectedTypes[0];
+    if (selectedStates.length === 1) filters.state = selectedStates[0];
+    if (showOnlineOnly) filters.online = true;
+    if (showHybridOnly) filters.hybrid = true;
+    if (selectedCity) filters.city = selectedCity;
+
+    // Always fetch meetings when map moves - reset to first page
+    setCurrentPage(0);
+    meetingsRef.current = [];
+    fetchMeetings({ bounds, reset: true, filters });
+  }, [fetchMeetings, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity]);
+
+  // Build filters object to pass to the map
+  const mapFilters = useMemo(() => {
+    const filters = {};
+    // For "Today" filter, convert to day number
+    if (showTodayOnly) {
+      filters.day = new Date().getDay();
+    } else if (selectedDays.length === 1) {
+      // If single day selected, pass it to the map
+      const dayIndex = dayNames.indexOf(selectedDays[0]);
+      if (dayIndex !== -1) {
+        filters.day = dayIndex;
+      }
+    }
+    // Pass meeting type filter
+    if (selectedTypes.length === 1) {
+      filters.type = selectedTypes[0];
+    }
+    // Pass state filter
+    if (selectedStates.length === 1) {
+      filters.state = selectedStates[0];
+    }
+    // Pass online/hybrid filters
+    if (showOnlineOnly) {
+      filters.online = true;
+    }
+    if (showHybridOnly) {
+      filters.hybrid = true;
+    }
+    // Pass city filter
+    if (selectedCity) {
+      filters.city = selectedCity;
+    }
+    return filters;
+  }, [showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity]);
 
   return (
     <div className="airbnb-explorer">
@@ -1408,12 +1535,17 @@ function MeetingsExplorer({ onAdminClick }) {
                   onStateClick={(stateData) => {
                     // Set the state filter to show meetings for this state
                     setSelectedStates([stateData.state]);
+                    // Clear target location since we're clicking a state
+                    setTargetLocation(null);
                     // Scroll to the meeting list
                     if (listRef.current) {
                       listRef.current.scrollIntoView({ behavior: 'smooth' });
                     }
                   }}
                   showHeatmap={true}
+                  targetLocation={targetLocation}
+                  filters={mapFilters}
+                  onBoundsChange={handleMapBoundsChange}
                 />
                 {isLoadingMore && (
                   <div className="map-loading-overlay">
@@ -1542,7 +1674,7 @@ function MeetingsExplorer({ onAdminClick }) {
                 <div className="load-more-container">
                   <button
                     className="btn btn-secondary load-more-btn"
-                    onClick={() => loadMoreMeetings(selectedStates.length > 0 ? selectedStates : null)}
+                    onClick={loadMoreMeetings}
                     disabled={isLoadingMore}
                   >
                     {isLoadingMore ? (

@@ -3827,6 +3827,9 @@ def get_meetings():
         day = request.args.get('day', '', type=str)
         search = request.args.get('search', '')
         meeting_type = request.args.get('type', '')
+        city = request.args.get('city', '')
+        online = request.args.get('online', '')
+        hybrid = request.args.get('hybrid', '')
 
         # Geographic bounding box parameters
         north = request.args.get('north', type=float)
@@ -3845,6 +3848,12 @@ def get_meetings():
         if search:
             # Search in name field (case-insensitive regex)
             where['name'] = {"$regex": search, "$options": "i"}
+        if city:
+            where['city'] = city
+        if online == 'true':
+            where['isOnline'] = True
+        if hybrid == 'true':
+            where['isHybrid'] = True
 
         # Add geographic bounds filtering
         if all(v is not None for v in [north, south, east, west]):
@@ -3919,6 +3928,13 @@ def get_meetings_heatmap():
         south = request.args.get('south', type=float)
         east = request.args.get('east', type=float)
         west = request.args.get('west', type=float)
+        # Filter parameters
+        day_filter = request.args.get('day', type=int)
+        type_filter = request.args.get('type')
+        state_filter = request.args.get('state')
+        city_filter = request.args.get('city')
+        online_filter = request.args.get('online')
+        hybrid_filter = request.args.get('hybrid')
 
         # Determine grid size based on zoom level
         # Lower zoom = larger grid cells = fewer clusters
@@ -3944,13 +3960,27 @@ def get_meetings_heatmap():
             where['latitude'] = {"$gte": south, "$lte": north}
             where['longitude'] = {"$gte": west, "$lte": east}
 
+        # Add filter conditions
+        if day_filter is not None:
+            where['day'] = day_filter
+        if type_filter:
+            where['meetingType'] = type_filter
+        if state_filter:
+            where['state'] = state_filter
+        if city_filter:
+            where['city'] = city_filter
+        if online_filter == 'true':
+            where['isOnline'] = True
+        if hybrid_filter == 'true':
+            where['isHybrid'] = True
+
         import urllib.parse
 
         # For high zoom levels (13+), return individual meetings
         if zoom >= 13:
             params = {
                 'limit': 200,
-                'keys': 'latitude,longitude,name,locationName,day,time,city,state,isOnline,isHybrid',
+                'keys': 'latitude,longitude,name,locationName,day,time,city,state,isOnline,isHybrid,meetingType',
                 'where': json.dumps(where)
             }
             query_string = urllib.parse.urlencode(params)
