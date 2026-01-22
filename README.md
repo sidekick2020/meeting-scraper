@@ -20,6 +20,16 @@ A comprehensive meeting management system by <a href="https://sobersidekick.com"
 
 **Documentation**: <a href="https://meeting-scraper-frontend.onrender.com/docs" target="_blank">https://meeting-scraper-frontend.onrender.com/docs</a>
 
+### Desktop App (Mac)
+
+Download the native Mac app for a dedicated experience:
+
+**<a href="https://meeting-scraper-frontend.onrender.com/download" target="_blank">Download for Mac →</a>**
+
+- Available for Apple Silicon (M1/M2/M3) and Intel Macs
+- No installation required - just drag to Applications
+- Always connects to the latest data
+
 ### Render Dashboards
 
 | Service | Live URL | Render Dashboard |
