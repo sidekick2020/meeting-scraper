@@ -524,17 +524,27 @@ function MeetingsExplorer({ onAdminClick }) {
             return updated;
           });
           setCurrentPage(prev => prev + 1);
-        } else if (reset || bounds) {
-          // Reset meetings when bounds change or reset requested
+        } else if (bounds) {
+          // Accumulate meetings when exploring new areas - merge with existing
+          setMeetings(prev => {
+            const existingIds = new Set(prev.map(m => m.objectId));
+            const uniqueNew = newMeetings.filter(m => !existingIds.has(m.objectId));
+            const updated = [...prev, ...uniqueNew];
+            meetingsRef.current = updated;
+            return updated;
+          });
+
+          // Update available cities from current results
+          const cities = [...new Set(newMeetings.map(m => m.city).filter(Boolean))].sort();
+          setAvailableCities(prev => {
+            const combined = new Set([...prev, ...cities]);
+            return [...combined].sort();
+          });
+        } else if (reset) {
+          // Only reset when explicitly requested (not on bounds change)
           meetingsRef.current = newMeetings;
           setMeetings(newMeetings);
           setCurrentPage(0);
-
-          // Update available cities from current results
-          if (bounds) {
-            const cities = [...new Set(newMeetings.map(m => m.city).filter(Boolean))].sort();
-            setAvailableCities(cities);
-          }
         } else {
           meetingsRef.current = newMeetings;
           setMeetings(newMeetings);
@@ -758,6 +768,19 @@ function MeetingsExplorer({ onAdminClick }) {
   useEffect(() => {
     let filtered = [...meetings];
 
+    // Filter by current map bounds - only show meetings in visible area
+    if (mapBounds) {
+      filtered = filtered.filter(m => {
+        if (!m.latitude || !m.longitude) return true; // Keep online meetings without coords
+        return (
+          m.latitude >= mapBounds.south &&
+          m.latitude <= mapBounds.north &&
+          m.longitude >= mapBounds.west &&
+          m.longitude <= mapBounds.east
+        );
+      });
+    }
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(m =>
@@ -808,7 +831,7 @@ function MeetingsExplorer({ onAdminClick }) {
     }
 
     setFilteredMeetings(filtered);
-  }, [meetings, searchQuery, selectedStates, selectedCity, selectedDays, selectedTypes, showOnlineOnly, showTodayOnly, showHybridOnly, selectedFormat, selectedAccessibility]);
+  }, [meetings, mapBounds, searchQuery, selectedStates, selectedCity, selectedDays, selectedTypes, showOnlineOnly, showTodayOnly, showHybridOnly, selectedFormat, selectedAccessibility]);
 
   // Update available cities when states change
   useEffect(() => {
@@ -1296,7 +1319,9 @@ function MeetingsExplorer({ onAdminClick }) {
   // Handle map bounds change - fetch meetings for the visible area
   const handleMapBoundsChange = useCallback((bounds) => {
     setMapBounds(bounds);
-    // Build filters from current state
+    // Clear selected states when panning - user is exploring a new area
+    setSelectedStates([]);
+    // Build filters from current state (excluding state since we just cleared it)
     const filters = {};
     if (showTodayOnly) {
       filters.day = new Date().getDay();
@@ -1305,18 +1330,16 @@ function MeetingsExplorer({ onAdminClick }) {
       if (dayIndex !== -1) filters.day = dayIndex;
     }
     if (selectedTypes.length === 1) filters.type = selectedTypes[0];
-    if (selectedStates.length === 1) filters.state = selectedStates[0];
     if (showOnlineOnly) filters.online = true;
     if (showHybridOnly) filters.hybrid = true;
     if (selectedCity) filters.city = selectedCity;
     if (selectedFormat) filters.format = selectedFormat;
 
-    // Always fetch meetings when map moves - reset to first page
-    // Don't clear meetingsRef here - let fetchMeetings update it when new data arrives
-    // This keeps the old data visible while loading
+    // Fetch meetings for new area - accumulate with existing cache
+    // Don't reset - let meetings accumulate as user explores
     setCurrentPage(0);
-    fetchMeetings({ bounds, reset: true, filters });
-  }, [fetchMeetings, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity, selectedFormat]);
+    fetchMeetings({ bounds, filters });
+  }, [fetchMeetings, showTodayOnly, selectedDays, selectedTypes, showOnlineOnly, showHybridOnly, selectedCity, selectedFormat]);
 
   // Build filters object to pass to the map
   const mapFilters = useMemo(() => {
