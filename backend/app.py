@@ -3929,6 +3929,60 @@ def get_meetings():
         return jsonify({"meetings": [], "total": 0, "error": str(e)}), 500
 
 
+@app.route('/api/meetings/debug', methods=['GET'])
+def debug_meetings():
+    """Debug endpoint to test Back4app connection and count meetings"""
+    debug_info = {
+        "configured": bool(BACK4APP_APP_ID and BACK4APP_REST_KEY),
+        "hasAppId": bool(BACK4APP_APP_ID),
+        "hasRestKey": bool(BACK4APP_REST_KEY),
+        "appIdPrefix": BACK4APP_APP_ID[:8] + "..." if BACK4APP_APP_ID else None,
+        "back4appUrl": BACK4APP_URL,
+    }
+
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        debug_info["error"] = "Back4app credentials not configured"
+        return jsonify(debug_info)
+
+    headers = {
+        "X-Parse-Application-Id": BACK4APP_APP_ID,
+        "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+    }
+
+    try:
+        # Try to count all meetings
+        import urllib.parse
+        count_url = f"{BACK4APP_URL}?count=1&limit=0"
+        response = requests.get(count_url, headers=headers, timeout=10)
+        debug_info["countResponseStatus"] = response.status_code
+
+        if response.status_code == 200:
+            data = response.json()
+            debug_info["totalMeetings"] = data.get("count", 0)
+            debug_info["success"] = True
+        else:
+            debug_info["error"] = f"Back4app returned status {response.status_code}"
+            debug_info["responseText"] = response.text[:500]
+
+        # Also try to fetch 1 meeting as a sanity check
+        test_url = f"{BACK4APP_URL}?limit=1"
+        test_response = requests.get(test_url, headers=headers, timeout=10)
+        if test_response.status_code == 200:
+            test_data = test_response.json()
+            debug_info["sampleMeetingCount"] = len(test_data.get("results", []))
+            if test_data.get("results"):
+                # Include first meeting's keys (not values for privacy)
+                debug_info["sampleMeetingKeys"] = list(test_data["results"][0].keys())
+        else:
+            debug_info["testFetchError"] = test_response.status_code
+
+    except Exception as e:
+        debug_info["error"] = str(e)
+        debug_info["success"] = False
+
+    return jsonify(debug_info)
+
+
 @app.route('/api/meetings/heatmap', methods=['GET'])
 def get_meetings_heatmap():
     """Get aggregated heatmap data for efficient map display.
