@@ -668,7 +668,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   // Infinite scroll - load more meetings when sentinel becomes visible
   useEffect(() => {
     const sentinel = loadMoreSentinelRef.current;
-    if (!sentinel) return;
+    const listContainer = listRef.current;
+    if (!sentinel || !listContainer) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -678,7 +679,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         }
       },
       {
-        root: null,
+        root: listContainer,
         rootMargin: '200px',
         threshold: 0,
       }
