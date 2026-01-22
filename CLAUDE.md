@@ -155,10 +155,13 @@ The "Build Desktop App" workflow runs on:
 - Tags matching `mac-v*` (e.g., `mac-v1.24.0`)
 - Manual workflow dispatch
 
+**Always include a fetch command** before tagging to ensure the latest commits are available:
+
 Example format when providing tag commands:
 
 ```
-git tag -a v1.24.0 -m "Release v1.24.0 - Summary"
+git fetch origin <branch-name>
+git tag -a v1.24.0 <commit-hash> -m "Release v1.24.0 - Summary"
 git push origin v1.24.0
 
 **View build progress:** https://github.com/sidekick2020/meeting-scraper/actions/workflows/build-desktop.yml
