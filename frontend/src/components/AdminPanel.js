@@ -116,6 +116,7 @@ function AdminPanel({ onBackToPublic }) {
   const [shouldAbandonOld, setShouldAbandonOld] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
   const [feedSearchQuery, setFeedSearchQuery] = useState('');
+  const [sourcesSearchQuery, setSourcesSearchQuery] = useState('');
   const [expandedFeed, setExpandedFeed] = useState(null);
   // Progressive feed loading state
   const [feedsLoading, setFeedsLoading] = useState(!cachedFeeds?.data);
@@ -902,11 +903,46 @@ function AdminPanel({ onBackToPublic }) {
         );
 
       case 'sources':
+        const filteredSources = feeds.filter(feed =>
+          feed.name.toLowerCase().includes(sourcesSearchQuery.toLowerCase()) ||
+          feed.state.toLowerCase().includes(sourcesSearchQuery.toLowerCase())
+        );
+
         return (
           <div className="sources-section">
             <div className="sources-header">
-              <h2>Configured Data Sources</h2>
-              <p>These are the meeting feeds currently configured for scraping. Click on a source to see more details.</p>
+              <div className="sources-header-left">
+                <h2>Configured Data Sources</h2>
+                <p>These are the meeting feeds currently configured for scraping. Click on a source to see more details.</p>
+              </div>
+            </div>
+            <div className="sources-toolbar">
+              <div className="sources-search">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search sources by name or state..."
+                  value={sourcesSearchQuery}
+                  onChange={(e) => setSourcesSearchQuery(e.target.value)}
+                />
+                {sourcesSearchQuery && (
+                  <button
+                    className="sources-search-clear"
+                    onClick={() => setSourcesSearchQuery('')}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/>
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+              <div className="sources-count">
+                {filteredSources.length} of {feeds.length} source{feeds.length !== 1 ? 's' : ''}
+              </div>
             </div>
             <div className="sources-list">
               {feeds.length === 0 ? (
@@ -918,8 +954,19 @@ function AdminPanel({ onBackToPublic }) {
                   </svg>
                   <p>Loading sources...</p>
                 </div>
+              ) : filteredSources.length === 0 ? (
+                <div className="sources-empty">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                  </svg>
+                  <p>No sources match "{sourcesSearchQuery}"</p>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setSourcesSearchQuery('')}>
+                    Clear search
+                  </button>
+                </div>
               ) : (
-                feeds.map((feed, index) => (
+                filteredSources.map((feed, index) => (
                   <div
                     key={index}
                     className="source-card source-card-clickable"
