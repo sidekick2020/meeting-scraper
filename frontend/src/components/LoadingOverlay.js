@@ -1,72 +1,46 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useParse } from '../contexts/ParseContext';
 
 function LoadingOverlay({ onReady }) {
-  const [logs, setLogs] = useState([]);
   const { isInitialized, connectionStatus, isConnectionReady, config, error } = useParse();
+  const hasCalledOnReady = useRef(false);
 
-  const addLog = useCallback((message, type = 'info') => {
-    const timestamp = new Date().toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-    setLogs(prev => [...prev, { timestamp, message, type }]);
-  }, []);
+  // Build logs based on current state (no async connection test needed)
+  const logs = [];
+  const timestamp = new Date().toLocaleTimeString('en-US', {
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
 
-  // Initialize logs on mount
-  useEffect(() => {
-    const timestamp = new Date().toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-    setLogs([{ timestamp, message: 'Initializing application...', type: 'info' }]);
+  logs.push({ timestamp, message: 'Initializing application...', type: 'info' });
 
-    if (!config.hasAppId || !config.hasJsKey) {
-      addLog('Parse SDK not configured - check environment variables', 'warning');
-    } else if (isInitialized) {
-      addLog('Parse SDK initialized', 'success');
+  if (!config.hasAppId || !config.hasJsKey) {
+    logs.push({ timestamp, message: 'Parse SDK not configured - using backend API proxy', type: 'warning' });
+  } else if (isInitialized) {
+    logs.push({ timestamp, message: 'Parse SDK initialized', type: 'success' });
+  }
+
+  if (connectionStatus === 'connected') {
+    logs.push({ timestamp, message: 'Application ready', type: 'success' });
+  } else if (connectionStatus === 'error') {
+    logs.push({ timestamp, message: 'Parse initialization failed', type: 'error' });
+    if (error) {
+      logs.push({ timestamp, message: `Error: ${error.message}`, type: 'error' });
     }
-  }, [isInitialized, config.hasAppId, config.hasJsKey, addLog]);
+    logs.push({ timestamp, message: 'Falling back to backend API proxy', type: 'warning' });
+  } else if (connectionStatus === 'not_configured') {
+    logs.push({ timestamp, message: 'Application ready', type: 'success' });
+  }
 
-  // Handle connection status changes
+  // Call onReady once when connection is ready
   useEffect(() => {
-    switch (connectionStatus) {
-      case 'connecting':
-        addLog('Testing connection to Back4app...', 'info');
-        break;
-      case 'connected':
-        addLog('Connected to Back4app', 'success');
-        addLog('Application ready', 'success');
-        if (onReady) {
-          onReady();
-        }
-        break;
-      case 'error':
-        addLog('Connection to Back4app failed', 'error');
-        if (error) {
-          addLog(`Error: ${error.message}`, 'error');
-        }
-        // Still call onReady - app can work via backend proxy
-        addLog('Falling back to backend API proxy', 'warning');
-        if (onReady) {
-          onReady();
-        }
-        break;
-      case 'not_configured':
-        addLog('Parse not configured - using backend API proxy', 'warning');
-        addLog('Application ready', 'success');
-        if (onReady) {
-          onReady();
-        }
-        break;
-      default:
-        break;
+    if (isConnectionReady && onReady && !hasCalledOnReady.current) {
+      hasCalledOnReady.current = true;
+      onReady();
     }
-  }, [connectionStatus, error, onReady, addLog]);
+  }, [isConnectionReady, onReady]);
 
   const getLogIcon = (type) => {
     switch (type) {
@@ -92,9 +66,9 @@ function LoadingOverlay({ onReady }) {
           {isLoading && <div className="loading-spinner"></div>}
           <h2 className="loading-overlay-title">
             {hasError
-              ? 'Connection Issue'
+              ? 'Initialization Error'
               : isLoading
-                ? 'Connecting to Backend'
+                ? 'Initializing...'
                 : 'Ready'}
           </h2>
         </div>
