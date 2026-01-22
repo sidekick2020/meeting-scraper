@@ -3176,6 +3176,11 @@ def get_cache_stats():
 @app.route('/api/feeds', methods=['GET'])
 def get_feeds():
     """Get list of configured feeds with statistics (meeting count, last scrape time)"""
+    # Check cache first for fast response
+    cached_response = feeds_cache.get('feeds_list')
+    if cached_response is not None:
+        return jsonify(cached_response)
+
     all_feeds = get_all_feeds()
 
     # Get meeting counts by source from Back4app
@@ -3188,16 +3193,9 @@ def get_feeds():
                 "X-Parse-Application-Id": BACK4APP_APP_ID,
                 "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
             }
-
-            # Query to get counts grouped by sourceFeed using aggregate
-            # Back4app supports aggregate queries via the aggregate endpoint
             import urllib.parse
 
-            # We'll query meetings and count them locally since Parse doesn't support
-            # efficient group-by counts. Instead, get distinct sourceFeed values with counts.
-            # Use a more efficient approach: query with distinct and count per source
-
-            # First, get all unique source feeds from recent scrape history
+            # First, get feed stats from recent scrape history (most accurate and fast)
             if scrape_history:
                 latest_completed = next(
                     (h for h in scrape_history if h.get("status") == "completed"),
@@ -3228,24 +3226,34 @@ def get_feeds():
                                 meeting_counts[feed_name] = 0
                             last_scraped[feed_name] = completed_at
 
-            # Also get actual current meeting counts from database for accuracy
-            # Query meetings grouped by sourceFeed (limited approach)
-            for feed_name in list(all_feeds.keys())[:50]:  # Limit to avoid timeout
-                if feed_name not in meeting_counts:
-                    try:
-                        where = {"sourceFeed": feed_name}
-                        count_url = f"https://parseapi.back4app.com/classes/Meetings?where={urllib.parse.quote(json.dumps(where))}&count=1&limit=0"
-                        count_response = requests.get(count_url, headers=headers, timeout=5)
-                        if count_response.status_code == 200:
-                            count_data = count_response.json()
-                            meeting_counts[feed_name] = count_data.get("count", 0)
-                    except:
-                        pass
+            # For feeds without counts, use a single batch query instead of N+1
+            # Fetch sourceFeed field from a sample of meetings and count locally
+            feeds_needing_counts = [f for f in all_feeds.keys() if f not in meeting_counts]
+            if feeds_needing_counts:
+                try:
+                    # Single query: get sourceFeed for all meetings (limited to 5000 for performance)
+                    # Only fetch the sourceFeed field to minimize data transfer
+                    batch_url = "https://parseapi.back4app.com/classes/Meetings?keys=sourceFeed&limit=5000"
+                    batch_response = requests.get(batch_url, headers=headers, timeout=15)
+                    if batch_response.status_code == 200:
+                        batch_data = batch_response.json()
+                        meetings = batch_data.get("results", [])
+                        # Count meetings by sourceFeed locally
+                        for meeting in meetings:
+                            source = meeting.get("sourceFeed")
+                            if source:
+                                meeting_counts[source] = meeting_counts.get(source, 0) + 1
+                except Exception as e:
+                    print(f"Error in batch feed count query: {e}")
+                    # Fallback: set unknown feeds to 0 rather than making N+1 queries
+                    for feed_name in feeds_needing_counts:
+                        if feed_name not in meeting_counts:
+                            meeting_counts[feed_name] = 0
 
         except Exception as e:
             print(f"Error fetching feed statistics: {e}")
 
-    return jsonify({
+    response_data = {
         "feeds": [
             {
                 "name": name,
@@ -3256,7 +3264,12 @@ def get_feeds():
             }
             for name, config in all_feeds.items()
         ]
-    })
+    }
+
+    # Cache the response for 5 minutes
+    feeds_cache.set('feeds_list', response_data)
+
+    return jsonify(response_data)
 
 @app.route('/api/version', methods=['GET'])
 def get_version():
