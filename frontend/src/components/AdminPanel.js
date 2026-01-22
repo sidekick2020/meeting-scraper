@@ -113,6 +113,10 @@ function AdminPanel({ onBackToPublic }) {
   const [selectedSource, setSelectedSource] = useState(null);
   const [feedSearchQuery, setFeedSearchQuery] = useState('');
   const [expandedFeed, setExpandedFeed] = useState(null);
+  // Progressive feed loading state
+  const [feedsLoading, setFeedsLoading] = useState(!cachedFeeds?.data);
+  const [visibleFeedCount, setVisibleFeedCount] = useState(20);
+  const FEEDS_PER_PAGE = 20;
   const [savedConfigs, setSavedConfigs] = useState(() => {
     const saved = localStorage.getItem('scrape_configurations');
     return saved ? JSON.parse(saved) : [];
@@ -195,12 +199,15 @@ function AdminPanel({ onBackToPublic }) {
 
   // Fetch configured feeds
   const fetchFeeds = useCallback(async () => {
+    setFeedsLoading(true);
     try {
       const response = await fetch(`${BACKEND_URL}/api/feeds`);
       if (response.ok) {
         const data = await response.json();
         const feedList = data.feeds || [];
         setFeeds(feedList);
+        // Reset visible count when feeds are refreshed
+        setVisibleFeedCount(FEEDS_PER_PAGE);
         // Default to feeds that need scraping (never scraped or > 7 days old)
         const needsScrapeFeeds = feedList.filter(f => {
           if (!f.lastScraped) return true;
@@ -212,11 +219,15 @@ function AdminPanel({ onBackToPublic }) {
           ? needsScrapeFeeds.map(f => f.name)
           : feedList.map(f => f.name)
         );
+        // Cache the feeds
+        setCache(ADMIN_CACHE_KEYS.FEEDS, feedList, ADMIN_CACHE_TTL);
       }
     } catch (error) {
       console.error('Error fetching feeds:', error);
+    } finally {
+      setFeedsLoading(false);
     }
-  }, []);
+  }, [setCache]);
 
   // Fetch available states for directory filter
   const fetchAvailableStates = useCallback(async () => {
@@ -1556,7 +1567,22 @@ function AdminPanel({ onBackToPublic }) {
         </div>
 
         <div className="feed-selector-list">
-          {feeds.length === 0 ? (
+          {feedsLoading ? (
+            <div className="feed-selector-loading">
+              <div className="feeds-loading-skeleton">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="feed-skeleton-item">
+                    <div className="skeleton-checkbox"></div>
+                    <div className="skeleton-content">
+                      <div className="skeleton-title"></div>
+                      <div className="skeleton-subtitle"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="feeds-loading-message">Loading sources...</div>
+            </div>
+          ) : feeds.length === 0 ? (
             <div className="feed-selector-empty">
               <p>No data sources available</p>
               <p className="hint">Check backend connection</p>
@@ -1579,7 +1605,28 @@ function AdminPanel({ onBackToPublic }) {
                 );
               }
 
-              return filteredFeeds.map((feed) => {
+              // Progressive loading: only show up to visibleFeedCount feeds
+              const visibleFeeds = feedSearchQuery ? filteredFeeds : filteredFeeds.slice(0, visibleFeedCount);
+              const hasMoreFeeds = !feedSearchQuery && filteredFeeds.length > visibleFeedCount;
+              const loadMoreFeeds = () => setVisibleFeedCount(prev => prev + FEEDS_PER_PAGE);
+
+              return (
+                <>
+                  {/* Loading progress indicator */}
+                  {!feedSearchQuery && (
+                    <div className="feeds-progress-bar">
+                      <div className="feeds-progress-info">
+                        <span>Showing {Math.min(visibleFeedCount, filteredFeeds.length)} of {filteredFeeds.length} sources</span>
+                      </div>
+                      <div className="feeds-progress-track">
+                        <div
+                          className="feeds-progress-fill"
+                          style={{ width: `${Math.min(100, (visibleFeedCount / filteredFeeds.length) * 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+                  {visibleFeeds.map((feed) => {
                 const formatLastScraped = (dateStr) => {
                   if (!dateStr) return 'Never';
                   const date = new Date(dateStr);
@@ -1663,7 +1710,25 @@ function AdminPanel({ onBackToPublic }) {
                     )}
                   </div>
                 );
-              });
+              })}
+              {/* Load More button */}
+              {hasMoreFeeds && (
+                <button
+                  className="feed-load-more-btn"
+                  onClick={loadMoreFeeds}
+                  disabled={isStartingScrape}
+                >
+                  Load {Math.min(FEEDS_PER_PAGE, filteredFeeds.length - visibleFeedCount)} more sources
+                  <span className="load-more-remaining">
+                    ({filteredFeeds.length - visibleFeedCount} remaining)
+                  </span>
+                </button>
+              )}
+              {!hasMoreFeeds && filteredFeeds.length > FEEDS_PER_PAGE && !feedSearchQuery && (
+                <div className="feeds-all-loaded">All {filteredFeeds.length} sources loaded</div>
+              )}
+            </>
+              );
             })()
           )}
         </div>
