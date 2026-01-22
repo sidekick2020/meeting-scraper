@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useDataCache } from '../contexts/DataCacheContext';
+import { useParse } from '../contexts/ParseContext';
 import Dashboard from './Dashboard';
 import SettingsModal from './SettingsModal';
 import Stats from './Stats';
@@ -25,7 +26,6 @@ const ADMIN_CACHE_KEYS = {
   AVAILABLE_STATES: 'admin:availableStates',
   DIRECTORY_MEETINGS: 'admin:directoryMeetings',
   DIRECTORY_TOTAL: 'admin:directoryTotal',
-  BACKEND_CONFIGURED: 'admin:backendConfigured',
   SCRAPING_STATE: 'admin:scrapingState'
 };
 
@@ -35,13 +35,13 @@ const ADMIN_CACHE_TTL = 5 * 60 * 1000;
 function AdminPanel({ onBackToPublic }) {
   const { user, signOut } = useAuth();
   const { getCache, setCache } = useDataCache();
+  const { isInitialized: parseInitialized, config: parseConfig } = useParse();
 
   // Initialize from cache
   const cachedFeeds = getCache(ADMIN_CACHE_KEYS.FEEDS);
   const cachedStates = getCache(ADMIN_CACHE_KEYS.AVAILABLE_STATES);
   const cachedDirectory = getCache(ADMIN_CACHE_KEYS.DIRECTORY_MEETINGS);
   const cachedDirectoryTotal = getCache(ADMIN_CACHE_KEYS.DIRECTORY_TOTAL);
-  const cachedBackendConfigured = getCache(ADMIN_CACHE_KEYS.BACKEND_CONFIGURED);
   const cachedScrapingState = getCache(ADMIN_CACHE_KEYS.SCRAPING_STATE);
 
   const [isConnected, setIsConnected] = useState(false);
@@ -70,7 +70,8 @@ function AdminPanel({ onBackToPublic }) {
     appId: localStorage.getItem('back4app_app_id') || '',
     restKey: localStorage.getItem('back4app_rest_key') || ''
   });
-  const [backendConfigured, setBackendConfigured] = useState(cachedBackendConfigured?.data || false);
+  // Derive backendConfigured from Parse context
+  const backendConfigured = parseInitialized && parseConfig.hasAppId && parseConfig.hasJsKey;
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [activeView, setActiveView] = useState('list');
   const [showDocs, setShowDocs] = useState(false);
@@ -146,18 +147,7 @@ function AdminPanel({ onBackToPublic }) {
     return () => observer.disconnect();
   }, []);
 
-  // Check if backend has Back4app configured via env vars
-  const checkBackendConfig = useCallback(async () => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/config`);
-      if (response.ok) {
-        const data = await response.json();
-        setBackendConfigured(data.configured);
-      }
-    } catch (error) {
-      console.error('Error checking config:', error);
-    }
-  }, []);
+  // Backend config status is now derived from ParseContext (no fetch needed)
 
   // Check for unfinished scrapes on load
   const checkUnfinishedScrape = useCallback(async () => {
@@ -340,10 +330,6 @@ function AdminPanel({ onBackToPublic }) {
 
   useEffect(() => {
     checkConnection();
-    // Only fetch these if not cached
-    if (!cachedBackendConfigured?.data) {
-      checkBackendConfig();
-    }
     checkUnfinishedScrape();
     // Only fetch feeds if not cached
     if (!cachedFeeds?.data || cachedFeeds.data.length === 0) {
@@ -353,7 +339,7 @@ function AdminPanel({ onBackToPublic }) {
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [checkConnection, checkBackendConfig, checkUnfinishedScrape, fetchFeeds, cachedBackendConfigured, cachedFeeds]);
+  }, [checkConnection, checkUnfinishedScrape, fetchFeeds, cachedFeeds]);
 
   useEffect(() => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -410,10 +396,7 @@ function AdminPanel({ onBackToPublic }) {
     }
   }, [directoryTotal, setCache]);
 
-  // Cache backend configured status
-  useEffect(() => {
-    setCache(ADMIN_CACHE_KEYS.BACKEND_CONFIGURED, backendConfigured, ADMIN_CACHE_TTL);
-  }, [backendConfigured, setCache]);
+  // Backend configured status is now derived from ParseContext - no caching needed
 
   // Cache scraping state (but only non-running states to avoid stale running states)
   useEffect(() => {

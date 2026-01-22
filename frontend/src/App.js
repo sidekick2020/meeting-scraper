@@ -4,7 +4,7 @@ import './App.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { DataCacheProvider } from './contexts/DataCacheContext';
-import { ParseProvider } from './contexts/ParseContext';
+import { ParseProvider, useParse } from './contexts/ParseContext';
 import MeetingsExplorer from './components/MeetingsExplorer';
 import AdminPanel from './components/AdminPanel';
 import DeploymentIndicator from './components/DeploymentIndicator';
@@ -59,10 +59,9 @@ function SignInModal({ onClose }) {
   );
 }
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
-
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
+  const { connectionStatus } = useParse();
   const [currentView, setCurrentView] = useState('public'); // 'public' or 'admin'
   const [showSignIn, setShowSignIn] = useState(false);
   const [isBackendReady, setIsBackendReady] = useState(false);
@@ -83,23 +82,12 @@ function AppContent() {
     setIsBackendReady(true);
   };
 
-  // Preload backend connection in background while on public view
+  // Backend is ready when Parse connection check completes (success, error, or not configured)
   React.useEffect(() => {
-    if (currentView === 'public' && !isBackendReady) {
-      fetch(`${BACKEND_URL}/api/config`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(10000)
-      })
-        .then(response => {
-          if (response.ok) {
-            setIsBackendReady(true);
-          }
-        })
-        .catch(() => {
-          // Silently fail - user will see LoadingOverlay when they access admin
-        });
+    if (connectionStatus === 'connected' || connectionStatus === 'error' || connectionStatus === 'not_configured') {
+      setIsBackendReady(true);
     }
-  }, [currentView, isBackendReady]);
+  }, [connectionStatus]);
 
   // Check if user just signed in
   React.useEffect(() => {

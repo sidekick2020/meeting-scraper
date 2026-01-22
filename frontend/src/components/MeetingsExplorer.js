@@ -3,6 +3,7 @@ import MeetingMap from './MeetingMap';
 import MeetingDetail from './MeetingDetail';
 import ThemeToggle from './ThemeToggle';
 import { useDataCache } from '../contexts/DataCacheContext';
+import { useParse } from '../contexts/ParseContext';
 import {
   measureNetworkSpeed,
   calculateBatchSize,
@@ -22,7 +23,6 @@ const CACHE_KEYS = {
   AVAILABLE_CITIES: 'explorer:availableCities',
   AVAILABLE_TYPES: 'explorer:availableTypes',
   AVAILABLE_FORMATS: 'explorer:availableFormats',
-  CONFIG_STATUS: 'explorer:configStatus',
   FILTER_STATE: 'explorer:filterState'
 };
 
@@ -160,6 +160,9 @@ function MeetingsExplorer({ onAdminClick }) {
   // Data cache context for persisting data across navigation
   const { getCache, setCache } = useDataCache();
 
+  // Parse SDK context for connection status
+  const { connectionStatus: parseConnectionStatus, config: parseConfig } = useParse();
+
   // Initialize state from cache if available
   const cachedMeetings = getCache(CACHE_KEYS.MEETINGS);
   const cachedTotal = getCache(CACHE_KEYS.TOTAL);
@@ -167,7 +170,6 @@ function MeetingsExplorer({ onAdminClick }) {
   const cachedCities = getCache(CACHE_KEYS.AVAILABLE_CITIES);
   const cachedTypes = getCache(CACHE_KEYS.AVAILABLE_TYPES);
   const cachedFormats = getCache(CACHE_KEYS.AVAILABLE_FORMATS);
-  const cachedConfig = getCache(CACHE_KEYS.CONFIG_STATUS);
   const cachedFilterState = getCache(CACHE_KEYS.FILTER_STATE);
 
   const [meetings, setMeetings] = useState(cachedMeetings?.data || []);
@@ -176,8 +178,19 @@ function MeetingsExplorer({ onAdminClick }) {
   const [hoveredMeeting, setHoveredMeeting] = useState(null);
   const [isLoading, setIsLoading] = useState(!cachedMeetings?.data);
   const [error, setError] = useState(null);
-  const [configStatus, setConfigStatus] = useState(cachedConfig?.data || null); // null, 'checking', 'configured', 'not_configured', 'unreachable'
   const [isMapCollapsed, setIsMapCollapsed] = useState(false);
+
+  // Derive configStatus from Parse context (maps to legacy status values for UI compatibility)
+  const configStatus = useMemo(() => {
+    if (!parseConfig.hasAppId || !parseConfig.hasJsKey) return 'not_configured';
+    switch (parseConnectionStatus) {
+      case 'connecting': return 'checking';
+      case 'connected': return 'configured';
+      case 'error': return 'unreachable';
+      case 'not_configured': return 'not_configured';
+      default: return null;
+    }
+  }, [parseConnectionStatus, parseConfig.hasAppId, parseConfig.hasJsKey]);
 
   // Filters - restore from cache if available
   const [searchQuery, setSearchQuery] = useState(cachedFilterState?.data?.searchQuery || '');
@@ -577,26 +590,6 @@ function MeetingsExplorer({ onAdminClick }) {
     }
   }, [fetchMeetings, isLoadingMore, hasMore, mapBounds, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity, selectedFormat]);
 
-  // Check backend configuration status
-  const checkBackendConfig = useCallback(async () => {
-    setConfigStatus('checking');
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/config`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.configured) {
-          setConfigStatus('configured');
-        } else {
-          setConfigStatus('not_configured');
-        }
-      } else {
-        setConfigStatus('unreachable');
-      }
-    } catch (err) {
-      setConfigStatus('unreachable');
-    }
-  }, []);
-
   // Initialize network speed detection
   useEffect(() => {
     if (networkInitializedRef.current) return;
@@ -619,23 +612,18 @@ function MeetingsExplorer({ onAdminClick }) {
   }, []);
 
   // Initial data fetch - run only once on mount, skip if cached
+  // Note: Backend config status now comes from ParseContext (no separate fetch needed)
   useEffect(() => {
     if (initialFetchDoneRef.current) return;
     initialFetchDoneRef.current = true;
 
     // If we have cached meetings, don't fetch on initial load
-    // Just check backend config if needed
     if (cachedMeetings?.data && cachedMeetings.data.length > 0) {
-      // Only check config if not already cached
-      if (!cachedConfig?.data) {
-        checkBackendConfig();
-      }
       return;
     }
 
-    checkBackendConfig();
     fetchMeetings();
-  }, [fetchMeetings, checkBackendConfig, cachedMeetings, cachedConfig]);
+  }, [fetchMeetings, cachedMeetings]);
 
   // Cache meetings data when it changes
   useEffect(() => {
@@ -676,12 +664,7 @@ function MeetingsExplorer({ onAdminClick }) {
     }
   }, [availableFormats, setCache]);
 
-  // Cache config status
-  useEffect(() => {
-    if (configStatus && configStatus !== 'checking') {
-      setCache(CACHE_KEYS.CONFIG_STATUS, configStatus, MEETINGS_CACHE_TTL);
-    }
-  }, [configStatus, setCache]);
+  // Config status is now derived from ParseContext - no caching needed
 
   // Cache filter state when it changes
   useEffect(() => {
@@ -1911,7 +1894,7 @@ function MeetingsExplorer({ onAdminClick }) {
               ) : (
                 <p>{error}</p>
               )}
-              <button className="btn btn-primary" onClick={() => { checkBackendConfig(); fetchMeetings(); }}>
+              <button className="btn btn-primary" onClick={() => fetchMeetings()}>
                 Try Again
               </button>
             </div>
