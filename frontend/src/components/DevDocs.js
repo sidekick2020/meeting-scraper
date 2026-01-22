@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MeetingSchema from './MeetingSchema';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
 // Swift Meeting model file content
 const swiftModelContent = `import ParseSwift
@@ -288,6 +290,19 @@ function DevDocs({ onClose, standalone = false }) {
                   </svg>
                   Deployment
                 </button>
+                <button
+                  className={`sidebar-item ${activeTab === 'changelog' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('changelog')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <line x1="10" y1="9" x2="8" y2="9"/>
+                  </svg>
+                  Release Notes
+                </button>
               </div>
               <div className="sidebar-section">
                 <h3>Mobile SDKs</h3>
@@ -360,6 +375,7 @@ function DevDocs({ onClose, standalone = false }) {
               {activeTab === 'deployment' && <DeploymentTab />}
               {activeTab === 'ios' && <IOSGuideTab />}
               {activeTab === 'android' && <AndroidGuideTab />}
+              {activeTab === 'changelog' && <ChangelogTab />}
             </main>
           </div>
         </div>
@@ -2007,6 +2023,206 @@ fun fetchFromCache(): ParseQuery<Meeting> {
 
 # Your Meeting model
 -keep class com.yourpackage.Meeting { *; }`}</code></pre>
+    </div>
+  );
+}
+
+function ChangelogTab() {
+  const [changelog, setChangelog] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [expandedVersions, setExpandedVersions] = useState({});
+
+  useEffect(() => {
+    const fetchChangelog = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/changelog`);
+        if (response.ok) {
+          const data = await response.json();
+          setChangelog(data.changelog || []);
+          // Auto-expand first version
+          if (data.changelog && data.changelog.length > 0) {
+            setExpandedVersions({ 0: true });
+          }
+        } else {
+          setError('Failed to load changelog');
+        }
+      } catch (err) {
+        console.error('Failed to fetch changelog:', err);
+        setError('Failed to connect to server');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchChangelog();
+  }, []);
+
+  const getSectionIcon = (sectionName) => {
+    const name = sectionName.toLowerCase();
+    if (name.includes('feature')) return '✨';
+    if (name.includes('bug') || name.includes('fix')) return '🐛';
+    if (name.includes('performance')) return '⚡';
+    if (name.includes('ui') || name.includes('ux')) return '🎨';
+    if (name.includes('documentation') || name.includes('doc')) return '📚';
+    if (name.includes('backend')) return '⚙️';
+    return '📝';
+  };
+
+  const toggleVersion = (index) => {
+    setExpandedVersions(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
+  const expandAll = () => {
+    const allExpanded = {};
+    changelog.forEach((_, index) => {
+      allExpanded[index] = true;
+    });
+    setExpandedVersions(allExpanded);
+  };
+
+  const collapseAll = () => {
+    setExpandedVersions({});
+  };
+
+  if (loading) {
+    return (
+      <div className="docs-page">
+        <h1>Release Notes</h1>
+        <div className="docs-loading">
+          <div className="docs-loading-spinner"></div>
+          <p>Loading release notes...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="docs-page">
+        <h1>Release Notes</h1>
+        <div className="warning-box">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="docs-page">
+      <h1>Release Notes</h1>
+      <p className="lead">
+        Complete changelog of features, improvements, and bug fixes across all versions.
+      </p>
+
+      {changelog.length > 0 && (
+        <div className="docs-changelog-controls">
+          <button className="btn btn-secondary btn-sm" onClick={expandAll}>
+            Expand All
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={collapseAll}>
+            Collapse All
+          </button>
+          <span className="docs-changelog-count">{changelog.length} versions</span>
+        </div>
+      )}
+
+      {changelog.length === 0 ? (
+        <div className="info-box">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          <p>No release notes available yet.</p>
+        </div>
+      ) : (
+        <div className="docs-changelog-list">
+          {changelog.map((version, vIndex) => (
+            <div
+              key={vIndex}
+              className={`docs-changelog-version ${expandedVersions[vIndex] ? 'expanded' : ''}`}
+            >
+              <button
+                className="docs-changelog-version-header"
+                onClick={() => toggleVersion(vIndex)}
+              >
+                <div className="docs-changelog-version-info">
+                  <span className="docs-changelog-version-badge">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+                      <line x1="7" y1="7" x2="7.01" y2="7"/>
+                    </svg>
+                    v{version.version}
+                  </span>
+                  {version.date && (
+                    <span className="docs-changelog-version-date">{version.date}</span>
+                  )}
+                  <span className="docs-changelog-item-count">
+                    {Object.values(version.sections).reduce((sum, items) => sum + items.length, 0)} changes
+                  </span>
+                </div>
+                <svg
+                  className="docs-changelog-chevron"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+
+              {expandedVersions[vIndex] && (
+                <div className="docs-changelog-version-content">
+                  {Object.entries(version.sections).map(([sectionName, items], sIndex) => (
+                    items.length > 0 && (
+                      <div key={sIndex} className="docs-changelog-section">
+                        <h4 className="docs-changelog-section-title">
+                          <span className="docs-changelog-section-icon">{getSectionIcon(sectionName)}</span>
+                          {sectionName}
+                          <span className="docs-changelog-section-count">{items.length}</span>
+                        </h4>
+
+                        <ul className="docs-changelog-items">
+                          {items.map((item, iIndex) => (
+                            <li key={iIndex} className="docs-changelog-item">
+                              <div className="docs-changelog-item-header">
+                                <strong>{item.title}</strong>
+                                {item.description && (
+                                  <span className="docs-changelog-item-desc">: {item.description}</span>
+                                )}
+                              </div>
+                              {item.details && item.details.length > 0 && (
+                                <ul className="docs-changelog-item-details">
+                                  {item.details.map((detail, dIndex) => (
+                                    <li key={dIndex}>{detail}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
