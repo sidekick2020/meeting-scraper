@@ -67,6 +67,7 @@ function AppContent() {
   const [showSignIn, setShowSignIn] = useState(false);
   const [isBackendReady, setIsBackendReady] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mobileNav, setMobileNav] = useState(null);
 
   const handleAdminClick = () => {
     if (isAuthenticated) {
@@ -128,11 +129,13 @@ function AppContent() {
           <MeetingsExplorer
             sidebarOpen={sidebarOpen}
             onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
+            onMobileNavChange={setMobileNav}
           />
           <PublicSidebar
             onAdminClick={handleAdminClick}
             isOpen={sidebarOpen}
             onToggle={setSidebarOpen}
+            mobileNav={mobileNav}
           />
         </>
       ) : (
