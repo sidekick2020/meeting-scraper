@@ -5700,6 +5700,15 @@ a.sidebar-nav-item {
   color: var(--accent-primary);
 }
 
+.suggestion-group-places {
+  border-left: 3px solid var(--accent-primary);
+}
+
+.suggestion-group-places .suggestion-group-header {
+  color: var(--accent-primary);
+  background: rgba(47, 93, 255, 0.08);
+}
+
 .suggestion-clear-recent {
   background: none;
   border: none;

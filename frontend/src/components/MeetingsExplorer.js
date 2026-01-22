@@ -800,11 +800,34 @@ function MeetingsExplorer({ onAdminClick }) {
   const handleSuggestionClick = (suggestion) => {
     setSearchQuery(suggestion.value);
     setShowSuggestions(false);
+    setLocationResults([]);
     saveRecentSearch(suggestion.value);
 
     // If it's a state, also set the state filter
     if (suggestion.type === 'state') {
       setSelectedStates([suggestion.value]);
+    }
+
+    // If it's a Nominatim place, extract state and set filter
+    if (suggestion.type === 'nominatim' && suggestion.state) {
+      // Extract state abbreviation from full state name
+      const stateAbbreviations = {
+        'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+        'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+        'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+        'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+        'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+        'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+        'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+        'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+        'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+        'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY',
+        'District of Columbia': 'DC'
+      };
+      const stateAbbr = stateAbbreviations[suggestion.state];
+      if (stateAbbr) {
+        setSelectedStates([stateAbbr]);
+      }
     }
   };
 
@@ -935,6 +958,36 @@ function MeetingsExplorer({ onAdminClick }) {
                     ))}
                   </div>
                 )}
+                {/* Group: Places (from Nominatim API - searches all US locations) */}
+                {(locationResults.length > 0 || isSearchingLocations) && (
+                  <div className="suggestion-group suggestion-group-places">
+                    <div className="suggestion-group-header">
+                      Search US Locations
+                      {isSearchingLocations && <span className="suggestion-loading"></span>}
+                    </div>
+                    {locationResults.map((location, index) => (
+                      <button
+                        key={`place-${location.lat}-${location.lon}-${index}`}
+                        className="suggestion-item"
+                        onClick={() => handleSuggestionClick(location)}
+                      >
+                        <span className="suggestion-icon suggestion-place">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+                            <path d="M2 12h20"/>
+                          </svg>
+                        </span>
+                        <span className="suggestion-text">
+                          <span className="suggestion-label">{location.label}</span>
+                          {location.state && (
+                            <span className="suggestion-sublabel">{location.state}</span>
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {/* Group: Cities */}
                 {suggestions.some(s => s.group === 'cities') && (
                   <div className="suggestion-group">
@@ -1017,36 +1070,6 @@ function MeetingsExplorer({ onAdminClick }) {
                           </span>
                           {suggestion.subLabel && (
                             <span className="suggestion-sublabel">{suggestion.subLabel}</span>
-                          )}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {/* Group: Places (from Nominatim API) */}
-                {(locationResults.length > 0 || isSearchingLocations) && (
-                  <div className="suggestion-group">
-                    <div className="suggestion-group-header">
-                      Places
-                      {isSearchingLocations && <span className="suggestion-loading"></span>}
-                    </div>
-                    {locationResults.map((location, index) => (
-                      <button
-                        key={`place-${location.lat}-${location.lon}-${index}`}
-                        className="suggestion-item"
-                        onClick={() => handleSuggestionClick(location)}
-                      >
-                        <span className="suggestion-icon suggestion-place">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
-                            <path d="M2 12h20"/>
-                          </svg>
-                        </span>
-                        <span className="suggestion-text">
-                          <span className="suggestion-label">{location.label}</span>
-                          {location.state && (
-                            <span className="suggestion-sublabel">{location.state}</span>
                           )}
                         </span>
                       </button>
