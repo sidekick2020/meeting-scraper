@@ -1465,27 +1465,27 @@ function MeetingsExplorer({ onAdminClick }) {
                     onMouseLeave={() => handleMeetingHover(null)}
                   >
                     <div className="meeting-card-image">
-                      {meeting.thumbnailUrl ? (
+                      {meeting.latitude && meeting.longitude && !meeting.isOnline ? (
                         <img
-                          src={meeting.thumbnailUrl}
-                          alt={meeting.name || 'Meeting thumbnail'}
-                          className="meeting-card-thumbnail"
+                          src={`https://a.tile.openstreetmap.org/15/${Math.floor((meeting.longitude + 180) / 360 * 32768)}/${Math.floor((1 - Math.log(Math.tan(meeting.latitude * Math.PI / 180) + 1 / Math.cos(meeting.latitude * Math.PI / 180)) / Math.PI) / 2 * 32768)}.png`}
+                          alt={`Map of ${meeting.name || 'meeting location'}`}
+                          className="meeting-card-map"
                           loading="lazy"
                         />
+                      ) : meeting.isOnline ? (
+                        <div className="meeting-card-icon meeting-card-icon-online">
+                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="2" y="3" width="20" height="14" rx="2"/>
+                            <path d="M8 21h8"/>
+                            <path d="M12 17v4"/>
+                          </svg>
+                        </div>
                       ) : (
                         <div className="meeting-card-icon">
-                          {meeting.isOnline ? (
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <rect x="2" y="3" width="20" height="14" rx="2"/>
-                              <path d="M8 21h8"/>
-                              <path d="M12 17v4"/>
-                            </svg>
-                          ) : (
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                              <circle cx="12" cy="10" r="3"/>
-                            </svg>
-                          )}
+                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                          </svg>
                         </div>
                       )}
                       <div className="meeting-card-type-badge">
