@@ -225,7 +225,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
   const [hasMore, setHasMore] = useState(true);
 
   // Network-adaptive batch loading state
-  const [batchSize, setBatchSize] = useState(50); // Default, will be updated based on network
+  const [batchSize, setBatchSize] = useState(5); // Default 5, will be updated based on network for faster perceived loading
   const [networkSpeed, setNetworkSpeed] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0, percentage: 0 });
   const networkInitializedRef = useRef(false);
@@ -621,7 +621,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
         console.log(`Network speed: ${speed.toFixed(2)} Mbps, using batch size: ${optimalBatch}`);
       } catch (err) {
         console.warn('Failed to measure network speed, using default batch size');
-        setBatchSize(50);
+        setBatchSize(5);
       }
     };
 
@@ -760,6 +760,48 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
     }
   }, [selectedStates, fetchMeetings]);
 
+  // Fetch meetings when filters change (server-side filtering for better results)
+  const prevFiltersRef = useRef({});
+  useEffect(() => {
+    // Skip initial render
+    if (!initialFetchDoneRef.current) return;
+
+    // Build current filter state
+    const currentFilters = {
+      showTodayOnly,
+      showOnlineOnly,
+      showHybridOnly,
+      selectedTypes: selectedTypes.join(','),
+      selectedDays: selectedDays.join(','),
+      selectedFormat,
+    };
+
+    // Check if filters actually changed (excluding state which has its own effect)
+    const prevFilters = prevFiltersRef.current;
+    const filtersChanged = Object.keys(currentFilters).some(
+      key => currentFilters[key] !== prevFilters[key]
+    );
+
+    if (filtersChanged) {
+      prevFiltersRef.current = currentFilters;
+
+      // Build filters object for fetch
+      const filters = {};
+      if (showTodayOnly) {
+        filters.day = new Date().getDay();
+      } else if (selectedDays.length === 1) {
+        filters.day = selectedDays[0];
+      }
+      if (selectedTypes.length === 1) filters.type = selectedTypes[0];
+      if (selectedStates.length === 1) filters.state = selectedStates[0];
+      if (showOnlineOnly) filters.online = true;
+      if (showHybridOnly) filters.hybrid = true;
+
+      // Reset to first page and fetch with new filters
+      fetchMeetings({ filters, reset: true });
+    }
+  }, [showTodayOnly, showOnlineOnly, showHybridOnly, selectedTypes, selectedDays, selectedFormat, selectedStates, fetchMeetings]);
+
   // Request thumbnails for visible meetings that don't have them
   useEffect(() => {
     if (filteredMeetings.length > 0) {
@@ -784,18 +826,10 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
   useEffect(() => {
     let filtered = [...meetings];
 
-    // Filter by current map bounds - only show meetings in visible area
-    if (mapBounds) {
-      filtered = filtered.filter(m => {
-        if (!m.latitude || !m.longitude) return true; // Keep online meetings without coords
-        return (
-          m.latitude >= mapBounds.south &&
-          m.latitude <= mapBounds.north &&
-          m.longitude >= mapBounds.west &&
-          m.longitude <= mapBounds.east
-        );
-      });
-    }
+    // Note: We don't filter by map bounds client-side anymore because:
+    // 1. Server already filters meetings by bounds when fetching
+    // 2. Client-side filtering caused empty results when panning to new areas
+    // 3. Meetings accumulate as user explores, so old meetings outside bounds are kept for reference
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -1045,7 +1079,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
   }, []);
 
   // Reverse geocode map center to get location name
-  const reverseGeocodeMapCenter = useCallback(async (lat, lng) => {
+  // Adjusts detail level based on map zoom
+  const reverseGeocodeMapCenter = useCallback(async (lat, lng, mapZoom = 10) => {
     if (lat === undefined || lng === undefined) return;
 
     // Clear any pending reverse geocode
@@ -1056,9 +1091,13 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
     // Debounce reverse geocoding to avoid too many API calls
     reverseGeocodeTimeoutRef.current = setTimeout(async () => {
       try {
+        // Map zoom to Nominatim zoom for appropriate detail level
+        // Map zoom 4-6: show country/state, 7-9: show state, 10-12: show city, 13+: show neighborhood
+        const nominatimZoom = mapZoom < 7 ? 5 : mapZoom < 10 ? 8 : mapZoom < 13 ? 10 : 14;
+
         const response = await fetch(
           `https://nominatim.openstreetmap.org/reverse?` +
-          `format=json&lat=${lat}&lon=${lng}&addressdetails=1&zoom=10`,
+          `format=json&lat=${lat}&lon=${lng}&addressdetails=1&zoom=${nominatimZoom}`,
           {
             headers: {
               'User-Agent': 'MeetingScraper/1.0'
@@ -1069,19 +1108,32 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
         if (response.ok) {
           const data = await response.json();
           if (data && data.address) {
-            // Build location string from address components
-            const city = data.address.city || data.address.town || data.address.village || data.address.county || '';
+            // Build location string based on map zoom level
+            const neighborhood = data.address.suburb || data.address.neighbourhood || '';
+            const city = data.address.city || data.address.town || data.address.village || '';
+            const county = data.address.county || '';
             const state = data.address.state || '';
+            const country = data.address.country || '';
 
-            if (city && state) {
-              setMapCenterLocation(`${city}, ${state}`);
+            let locationName = null;
+
+            if (mapZoom >= 13 && neighborhood) {
+              // High zoom: show neighborhood + city
+              locationName = city ? `${neighborhood}, ${city}` : neighborhood;
+            } else if (mapZoom >= 10 && city) {
+              // Medium zoom: show city + state
+              locationName = state ? `${city}, ${state}` : city;
+            } else if (mapZoom >= 7 && (county || state)) {
+              // Low-medium zoom: show county or state
+              locationName = county || state;
             } else if (state) {
-              setMapCenterLocation(state);
-            } else if (city) {
-              setMapCenterLocation(city);
-            } else {
-              setMapCenterLocation(null);
+              // Low zoom: show state or country
+              locationName = country && country !== 'United States' ? `${state}, ${country}` : state;
+            } else if (country) {
+              locationName = country;
             }
+
+            setMapCenterLocation(locationName);
           } else {
             setMapCenterLocation(null);
           }
@@ -1394,6 +1446,20 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
     }
   };
 
+  // Handle meeting card click from list - show detail and zoom map to location
+  const handleMeetingCardClick = (meeting) => {
+    setSelectedMeeting(meeting);
+    // Zoom the map to the meeting location if it has coordinates
+    if (meeting.latitude && meeting.longitude) {
+      isProgrammaticPanRef.current = true;
+      setTargetLocation({
+        lat: meeting.latitude,
+        lng: meeting.longitude,
+        zoom: 15 // Zoom in to street level
+      });
+    }
+  };
+
   // Handle map bounds change - fetch meetings for the visible area
   const handleMapBoundsChange = useCallback((bounds) => {
     setMapBounds(bounds);
@@ -1407,9 +1473,9 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
       // User manually dragged the map - clear filters and reverse geocode
       setSelectedStates([]);
       setSelectedCity('');
-      // Reverse geocode to update location display based on map center
+      // Reverse geocode to update location display based on map center and zoom
       if (bounds.center_lat !== undefined && bounds.center_lng !== undefined) {
-        reverseGeocodeMapCenter(bounds.center_lat, bounds.center_lng);
+        reverseGeocodeMapCenter(bounds.center_lat, bounds.center_lng, bounds.zoom);
       }
     }
 
@@ -1426,10 +1492,10 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
     if (showHybridOnly) filters.hybrid = true;
     if (selectedFormat) filters.format = selectedFormat;
 
-    // Fetch meetings for new area - accumulate with existing cache
-    // Don't reset - let meetings accumulate as user explores
+    // Fetch meetings for new area - use bulk loading for faster results
+    // Accumulate with existing cache as user explores
     setCurrentPage(0);
-    fetchMeetings({ bounds, filters });
+    fetchMeetings({ bounds, filters, bulkLoad: true });
   }, [fetchMeetings, showTodayOnly, selectedDays, selectedTypes, showOnlineOnly, showHybridOnly, selectedFormat, reverseGeocodeMapCenter]);
 
   // Build filters object to pass to the map
@@ -2045,7 +2111,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
                     key={meeting.objectId || index}
                     data-meeting-id={meeting.objectId}
                     className={`meeting-card ${hoveredMeeting?.objectId === meeting.objectId ? 'hovered' : ''}`}
-                    onClick={() => setSelectedMeeting(meeting)}
+                    onClick={() => handleMeetingCardClick(meeting)}
                     onMouseEnter={() => handleMeetingHover(meeting)}
                     onMouseLeave={() => handleMeetingHover(null)}
                   >
@@ -2213,10 +2279,13 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
                 onBoundsChange={handleMapBoundsChange}
                 onMapMeetingCount={setMapMeetingCount}
               />
-              {isLoadingMore && (
-                <div className="map-loading-overlay">
-                  <div className="loading-spinner small"></div>
-                  <span>Loading meetings in this area...</span>
+              {(isLoading || isLoadingMore) && (
+                <div className={`map-loading-indicator ${isLoading && !isLoadingMore ? 'subtle' : ''}`}>
+                  <div className="loading-spinner-mini"></div>
+                  <span>{isLoading && !isLoadingMore ? 'Loading meetings...' : 'Loading more...'}</span>
+                  {loadingProgress.total > 0 && (
+                    <span className="loading-count">{loadingProgress.loaded}/{loadingProgress.total}</span>
+                  )}
                 </div>
               )}
             </>

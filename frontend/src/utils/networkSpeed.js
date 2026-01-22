@@ -6,10 +6,12 @@
  */
 
 // Batch size configuration
+// Load meetings 5 at a time for better perceived performance,
+// showing heatmaps immediately while individual meetings load progressively
 const BATCH_CONFIG = {
-  MIN_BATCH_SIZE: 10,
+  MIN_BATCH_SIZE: 5,
   MAX_BATCH_SIZE: 100,
-  DEFAULT_BATCH_SIZE: 50,
+  DEFAULT_BATCH_SIZE: 5,
 
   // Network speed thresholds (in Mbps)
   SLOW_THRESHOLD: 1,      // Below 1 Mbps = slow
@@ -19,12 +21,13 @@ const BATCH_CONFIG = {
 };
 
 // Speed categories with corresponding batch sizes
+// Using smaller batches (5-20) for faster perceived loading
 const SPEED_TO_BATCH = {
-  'very-slow': 10,
-  'slow': 25,
-  'medium': 50,
-  'fast': 75,
-  'very-fast': 100,
+  'very-slow': 5,
+  'slow': 5,
+  'medium': 10,
+  'fast': 15,
+  'very-fast': 20,
 };
 
 // Store last known network speed for quick access
