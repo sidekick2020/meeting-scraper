@@ -12137,6 +12137,190 @@ a.sidebar-nav-item {
   font-size: 0.75rem;
 }
 
+/* Scrape History Section */
+.source-history-section {
+  padding-bottom: 1rem;
+}
+
+.source-history-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-primary);
+}
+
+.source-history-toggle:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-medium);
+}
+
+.source-history-toggle-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.source-history-toggle-content svg {
+  color: var(--text-muted);
+}
+
+.source-history-chevron {
+  transition: transform 0.2s ease;
+  color: var(--text-muted);
+}
+
+.source-history-toggle.expanded .source-history-chevron {
+  transform: rotate(180deg);
+}
+
+.source-history-content {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.75rem;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.source-history-loading,
+.source-history-error,
+.source-history-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.source-history-error {
+  color: #ef4444;
+}
+
+.source-history-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-light);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.source-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.source-history-entry {
+  padding: 0.75rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+  transition: border-color 0.2s ease;
+}
+
+.source-history-entry:hover {
+  border-color: var(--border-medium);
+}
+
+.source-history-date {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.source-history-status {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  text-transform: uppercase;
+}
+
+.source-history-status.completed {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.source-history-status.in_progress {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.source-history-timestamp {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.source-history-stats {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.source-history-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 45px;
+}
+
+.source-history-stat .stat-value {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.source-history-stat .stat-value.found {
+  color: var(--text-primary);
+}
+
+.source-history-stat .stat-value.saved {
+  color: #22c55e;
+}
+
+.source-history-stat .stat-value.duplicates {
+  color: #f59e0b;
+}
+
+.source-history-stat .stat-value.errors {
+  color: #ef4444;
+}
+
+.source-history-stat .stat-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
 /* Mobile Source Panel */
 @media (max-width: 480px) {
   .source-detail-panel {
@@ -12215,6 +12399,39 @@ a.sidebar-nav-item {
 
 [data-theme="light"] .source-quality-item {
   color: #374151;
+}
+
+/* Light Mode: Scrape History Section */
+[data-theme="light"] .source-history-toggle {
+  background: #f8f9fa;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .source-history-toggle:hover {
+  background: #f3f4f6;
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .source-history-content {
+  background: #f8f9fa;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .source-history-entry {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .source-history-entry:hover {
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .source-history-timestamp {
+  color: #6b7280;
+}
+
+[data-theme="light"] .source-history-stat .stat-label {
+  color: #6b7280;
 }
 
 /* Light Mode: Form Labels and Hints */
