@@ -9333,26 +9333,35 @@ a.sidebar-nav-item {
 
 .map-loading-overlay {
   position: absolute;
-  bottom: 1rem;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: var(--bg-secondary);
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.25rem 2rem;
+  background: rgba(255, 255, 255, 0.95);
   border: 1px solid var(--border-light);
-  border-radius: 2rem;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
+  border-radius: 0.75rem;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 500;
   z-index: 1000;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  min-width: 180px;
+}
+
+[data-theme="dark"] .map-loading-overlay {
+  background: rgba(30, 30, 35, 0.95);
 }
 
 .map-loading-overlay .loading-spinner.small {
-  width: 16px;
-  height: 16px;
-  border-width: 2px;
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
 }
 
 /* List Panel */
