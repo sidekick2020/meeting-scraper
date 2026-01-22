@@ -67,8 +67,15 @@ echo '**Feature Name**: Description
 
 **Claude cannot push git tags** due to authentication restrictions. Claude's git credentials only allow pushing to branches matching `claude/*`.
 
-After the PR is merged, Claude should provide tag commands (always include fetch first):
+After the PR is merged, Claude should provide tag commands.
 
+**IMPORTANT**: Always check the latest existing tag first to determine the next version number:
+```bash
+git fetch origin main
+git tag -l --sort=-v:refname | head -5
+```
+
+Then provide the tag commands with the correct incremented version:
 ```bash
 git fetch origin main
 git tag -a vX.Y.Z <commit-hash> -m "Release vX.Y.Z - Summary"
@@ -120,7 +127,7 @@ Suggest a new version tag when:
 - **Minor (X.Y.0)**: New features, significant enhancements
 - **Major (X.0.0)**: Breaking changes, major rewrites
 
-Always check CHANGELOG.md to see what the latest documented version is, and compare with `git tag -l` to identify unpushed versions.
+**CRITICAL**: Always run `git fetch origin main && git tag -l --sort=-v:refname | head -5` to find the latest version tag before suggesting a new version number. Increment from the highest existing tag, NOT from CHANGELOG.md (which may be outdated).
 
 ## Commit Message Format
 
