@@ -761,6 +761,48 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
     }
   }, [selectedStates, fetchMeetings]);
 
+  // Fetch meetings when filters change (server-side filtering for better results)
+  const prevFiltersRef = useRef({});
+  useEffect(() => {
+    // Skip initial render
+    if (!initialFetchDoneRef.current) return;
+
+    // Build current filter state
+    const currentFilters = {
+      showTodayOnly,
+      showOnlineOnly,
+      showHybridOnly,
+      selectedTypes: selectedTypes.join(','),
+      selectedDays: selectedDays.join(','),
+      selectedFormat,
+    };
+
+    // Check if filters actually changed (excluding state which has its own effect)
+    const prevFilters = prevFiltersRef.current;
+    const filtersChanged = Object.keys(currentFilters).some(
+      key => currentFilters[key] !== prevFilters[key]
+    );
+
+    if (filtersChanged) {
+      prevFiltersRef.current = currentFilters;
+
+      // Build filters object for fetch
+      const filters = {};
+      if (showTodayOnly) {
+        filters.day = new Date().getDay();
+      } else if (selectedDays.length === 1) {
+        filters.day = selectedDays[0];
+      }
+      if (selectedTypes.length === 1) filters.type = selectedTypes[0];
+      if (selectedStates.length === 1) filters.state = selectedStates[0];
+      if (showOnlineOnly) filters.online = true;
+      if (showHybridOnly) filters.hybrid = true;
+
+      // Reset to first page and fetch with new filters
+      fetchMeetings({ filters, reset: true });
+    }
+  }, [showTodayOnly, showOnlineOnly, showHybridOnly, selectedTypes, selectedDays, selectedFormat, selectedStates, fetchMeetings]);
+
   // Request thumbnails for visible meetings that don't have them
   useEffect(() => {
     if (filteredMeetings.length > 0) {
