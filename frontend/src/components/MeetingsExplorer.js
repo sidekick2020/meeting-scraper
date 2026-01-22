@@ -236,6 +236,11 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   // Target location for map pan/zoom when user selects a location from search
   const [targetLocation, setTargetLocation] = useState(null);
+  // Map center location name from reverse geocoding
+  const [mapCenterLocation, setMapCenterLocation] = useState(null);
+  const reverseGeocodeTimeoutRef = useRef(null);
+  // Flag to track if map movement is from programmatic pan (vs user drag)
+  const isProgrammaticPanRef = useRef(false);
   // Track meeting count from map for list/map sync
   const [mapMeetingCount, setMapMeetingCount] = useState(0);
 
@@ -281,7 +286,6 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
   const locationSearchTimeout = useRef(null);
 
   const listRef = useRef(null);
-  const boundsTimeoutRef = useRef(null);
   const thumbnailRequestsRef = useRef(new Set());
   const initialFetchDoneRef = useRef(false);
   const meetingsRef = useRef(cachedMeetings?.data || []);
@@ -768,36 +772,11 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
     }
   }, [filteredMeetings, requestMissingThumbnails]);
 
-  // Track if first bounds change (skip fetching on initial map load)
-  const firstBoundsChangeRef = useRef(true);
-
-  // Handle map bounds change with debouncing
-  const handleBoundsChange = useCallback((bounds) => {
-    // Skip the first bounds change (initial map load) to avoid duplicate fetch
-    if (firstBoundsChangeRef.current) {
-      firstBoundsChangeRef.current = false;
-      setMapBounds(bounds);
-      return;
-    }
-
-    // Clear any pending timeout
-    if (boundsTimeoutRef.current) {
-      clearTimeout(boundsTimeoutRef.current);
-    }
-
-    // Debounce the fetch to avoid too many requests
-    boundsTimeoutRef.current = setTimeout(() => {
-      setMapBounds(bounds);
-      // Fetch meetings for the new bounds
-      fetchMeetings({ bounds });
-    }, 500);
-  }, [fetchMeetings]);
-
-  // Cleanup timeout on unmount
+  // Cleanup reverse geocode timeout on unmount
   useEffect(() => {
     return () => {
-      if (boundsTimeoutRef.current) {
-        clearTimeout(boundsTimeoutRef.current);
+      if (reverseGeocodeTimeoutRef.current) {
+        clearTimeout(reverseGeocodeTimeoutRef.current);
       }
     };
   }, []);
@@ -1066,6 +1045,55 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
     }
   }, []);
 
+  // Reverse geocode map center to get location name
+  const reverseGeocodeMapCenter = useCallback(async (lat, lng) => {
+    if (lat === undefined || lng === undefined) return;
+
+    // Clear any pending reverse geocode
+    if (reverseGeocodeTimeoutRef.current) {
+      clearTimeout(reverseGeocodeTimeoutRef.current);
+    }
+
+    // Debounce reverse geocoding to avoid too many API calls
+    reverseGeocodeTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?` +
+          `format=json&lat=${lat}&lon=${lng}&addressdetails=1&zoom=10`,
+          {
+            headers: {
+              'User-Agent': 'MeetingScraper/1.0'
+            }
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.address) {
+            // Build location string from address components
+            const city = data.address.city || data.address.town || data.address.village || data.address.county || '';
+            const state = data.address.state || '';
+
+            if (city && state) {
+              setMapCenterLocation(`${city}, ${state}`);
+            } else if (state) {
+              setMapCenterLocation(state);
+            } else if (city) {
+              setMapCenterLocation(city);
+            } else {
+              setMapCenterLocation(null);
+            }
+          } else {
+            setMapCenterLocation(null);
+          }
+        }
+      } catch (error) {
+        console.error('Reverse geocode error:', error);
+        setMapCenterLocation(null);
+      }
+    }, 800); // Longer debounce for reverse geocoding to reduce API calls
+  }, []);
+
   // Compute autocomplete suggestions with grouping
   const computeSuggestions = useCallback((query, showRecent = false) => {
     const results = [];
@@ -1221,6 +1249,8 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
       // doesn't match meeting city fields, so we rely on geographic filters
       setSearchQuery('');
 
+      // Mark as programmatic pan so handleBoundsChange doesn't clear filters
+      isProgrammaticPanRef.current = true;
       // Set target location to pan/zoom the map
       setTargetLocation({
         lat: suggestion.lat,
@@ -1264,6 +1294,8 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
       if (suggestion.subLabel) {
         setSelectedStates([suggestion.subLabel]);
       }
+      // Mark as programmatic pan so handleBoundsChange doesn't clear filters
+      isProgrammaticPanRef.current = true;
       // Use local coordinates for instant panning if available
       if (suggestion.lat && suggestion.lng) {
         setTargetLocation({
@@ -1287,6 +1319,8 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
       }
       // Use coordinates for instant panning (zoom in more for specific locations)
       if (suggestion.lat && suggestion.lng) {
+        // Mark as programmatic pan so handleBoundsChange doesn't clear filters
+        isProgrammaticPanRef.current = true;
         setTargetLocation({
           lat: suggestion.lat,
           lng: suggestion.lng,
@@ -1315,6 +1349,8 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
       // Find a meeting with coordinates for this city to pan the map
       const meetingWithCoords = meetings.find(m => m.city === city && m.latitude && m.longitude);
       if (meetingWithCoords) {
+        // Mark as programmatic pan so handleBoundsChange doesn't clear filters
+        isProgrammaticPanRef.current = true;
         setTargetLocation({
           lat: meetingWithCoords.latitude,
           lng: meetingWithCoords.longitude,
@@ -1362,9 +1398,23 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
   // Handle map bounds change - fetch meetings for the visible area
   const handleMapBoundsChange = useCallback((bounds) => {
     setMapBounds(bounds);
-    // Clear selected states when panning - user is exploring a new area
-    setSelectedStates([]);
-    // Build filters from current state (excluding state since we just cleared it)
+
+    // Only update location display and clear filters when user manually pans the map
+    // (not when map pans from search/filter selection)
+    if (isProgrammaticPanRef.current) {
+      // Reset the flag after programmatic pan completes
+      isProgrammaticPanRef.current = false;
+    } else {
+      // User manually dragged the map - clear filters and reverse geocode
+      setSelectedStates([]);
+      setSelectedCity('');
+      // Reverse geocode to update location display based on map center
+      if (bounds.center_lat !== undefined && bounds.center_lng !== undefined) {
+        reverseGeocodeMapCenter(bounds.center_lat, bounds.center_lng);
+      }
+    }
+
+    // Build filters from current state
     const filters = {};
     if (showTodayOnly) {
       filters.day = new Date().getDay();
@@ -1375,14 +1425,13 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
     if (selectedTypes.length === 1) filters.type = selectedTypes[0];
     if (showOnlineOnly) filters.online = true;
     if (showHybridOnly) filters.hybrid = true;
-    if (selectedCity) filters.city = selectedCity;
     if (selectedFormat) filters.format = selectedFormat;
 
     // Fetch meetings for new area - accumulate with existing cache
     // Don't reset - let meetings accumulate as user explores
     setCurrentPage(0);
     fetchMeetings({ bounds, filters });
-  }, [fetchMeetings, showTodayOnly, selectedDays, selectedTypes, showOnlineOnly, showHybridOnly, selectedCity, selectedFormat]);
+  }, [fetchMeetings, showTodayOnly, selectedDays, selectedTypes, showOnlineOnly, showHybridOnly, selectedFormat, reverseGeocodeMapCenter]);
 
   // Build filters object to pass to the map
   const mapFilters = useMemo(() => {
@@ -2036,7 +2085,7 @@ function MeetingsExplorer({ onAdminClick, sidebarOpen, onSidebarToggle }) {
           ) : (
             <>
               <div className="list-header">
-                <h2>Meetings in {selectedStates.length > 0 ? selectedStates.join(', ') : selectedCity || 'all areas'}</h2>
+                <h2>Meetings in {selectedStates.length > 0 ? selectedStates.join(', ') : selectedCity || mapCenterLocation || 'all areas'}</h2>
                 <p>
                   {isLoading || isLoadingMore ? (
                     <>Loading... {meetings.length > 0 && `(${filteredMeetings.length} of ${totalMeetings || '?'})`}</>
