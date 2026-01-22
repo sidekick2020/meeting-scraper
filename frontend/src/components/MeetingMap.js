@@ -425,14 +425,8 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
       // Detect when transitioning to detail zoom (individual meetings)
       if (prevZoom < DETAIL_ZOOM_THRESHOLD && zoom >= DETAIL_ZOOM_THRESHOLD) {
         setIsTransitioning(true);
-        // Clear heatmap after a delay to allow smooth transition
-        if (transitionTimeoutRef.current) {
-          clearTimeout(transitionTimeoutRef.current);
-        }
-        transitionTimeoutRef.current = setTimeout(() => {
-          heatmapClustersRef.current = [];
-          setIsTransitioning(false);
-        }, 500);
+        // Don't pre-emptively clear heatmap - let it stay visible until
+        // individual meetings are actually loaded (handled in handleDataLoaded)
       }
       return zoom;
     });
@@ -498,10 +492,9 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
   const showStateLevel = currentZoom < STATE_ZOOM_THRESHOLD && effectiveStateData.states?.length > 0;
   const showClusters = !showStateLevel && effectiveMapData.mode === 'clustered' && effectiveMapData.clusters?.length > 0;
   const showIndividualMeetings = effectiveMapData.mode === 'individual' && effectiveMapData.meetings?.length > 0;
-  // Show heatmap during loading/transitions, but hide once individual meetings are loaded
-  // The heatmap persists while waiting for data, then fades out when meetings are displayed
-  const showHeatmapLayer = !showStateLevel && currentZoom < DETAIL_ZOOM_THRESHOLD &&
-    !showIndividualMeetings && effectiveHeatmapClusters.length > 0;
+  // Show heatmap during loading/transitions - only hide when we actually have individual meetings displayed
+  // The heatmap persists while waiting for data, ensuring users see context until better data loads
+  const showHeatmapLayer = !showStateLevel && !showIndividualMeetings && effectiveHeatmapClusters.length > 0;
 
   // Filter meetings with valid coordinates
   const validMeetings = useMemo(() =>
