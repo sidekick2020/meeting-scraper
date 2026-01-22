@@ -6729,6 +6729,7 @@ intergroup_research_sessions = []
 intergroup_research_findings = []
 intergroup_research_notes = []
 intergroup_research_scripts = []
+custom_research_sources = []  # Custom sources saved from tested scripts
 research_session_counter = 0
 
 # Known intergroup URL patterns to try
@@ -7618,6 +7619,223 @@ if __name__ == '__main__':
         'scriptType': 'python',
         'feedType': page_type
     })
+
+
+@app.route('/api/intergroup-research/scripts/test', methods=['POST'])
+def test_research_script():
+    """Test a script by fetching its URL and returning normalized meeting data"""
+    data = request.json
+    url = data.get('url', '')
+    feed_type = data.get('feedType', 'tsml')  # tsml, bmlt, json, custom
+    state = data.get('state', '')
+    source_name = data.get('sourceName', 'Test Script')
+
+    if not url:
+        return jsonify({
+            'success': False,
+            'error': 'URL is required'
+        }), 400
+
+    try:
+        # Fetch data from the URL
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0)',
+            'Accept': 'application/json'
+        }
+
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+
+        # Try to parse as JSON
+        try:
+            raw_data = response.json()
+        except json.JSONDecodeError:
+            return jsonify({
+                'success': False,
+                'error': 'Response is not valid JSON',
+                'rawResponse': response.text[:500] if len(response.text) > 500 else response.text
+            }), 400
+
+        # Handle BMLT-style responses that wrap data in an array
+        if isinstance(raw_data, dict):
+            # Check common response wrappers
+            if 'meetings' in raw_data:
+                meetings_raw = raw_data['meetings']
+            elif 'data' in raw_data:
+                meetings_raw = raw_data['data']
+            else:
+                meetings_raw = [raw_data]
+        elif isinstance(raw_data, list):
+            meetings_raw = raw_data
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Unexpected data format: {type(raw_data).__name__}'
+            }), 400
+
+        # Normalize the meetings
+        normalized_meetings = []
+        errors = []
+        field_stats = {
+            'name': 0, 'address': 0, 'city': 0, 'state': 0,
+            'day': 0, 'time': 0, 'latitude': 0, 'longitude': 0,
+            'types': 0, 'notes': 0, 'location': 0
+        }
+
+        for i, raw_meeting in enumerate(meetings_raw[:100]):  # Limit to 100 for testing
+            try:
+                # Handle BMLT format transformation
+                if feed_type == 'bmlt':
+                    transformed = transform_bmlt_to_tsml(raw_meeting)
+                    normalized = normalize_meeting(transformed, source_name, state, skip_geocoding=True)
+                else:
+                    normalized = normalize_meeting(raw_meeting, source_name, state, skip_geocoding=True)
+
+                normalized_meetings.append(normalized)
+
+                # Track field population stats
+                for field in field_stats:
+                    if normalized.get(field):
+                        field_stats[field] += 1
+
+            except Exception as e:
+                errors.append(f"Meeting {i}: {str(e)}")
+
+        # Calculate quality metrics
+        total = len(normalized_meetings)
+        quality_score = 0
+        if total > 0:
+            # Weight key fields more heavily
+            weighted_fields = {
+                'name': 15, 'address': 15, 'day': 20, 'time': 20,
+                'city': 10, 'state': 5, 'latitude': 5, 'longitude': 5,
+                'types': 3, 'notes': 1, 'location': 1
+            }
+            for field, weight in weighted_fields.items():
+                quality_score += (field_stats[field] / total) * weight
+
+        return jsonify({
+            'success': True,
+            'totalRaw': len(meetings_raw),
+            'totalNormalized': total,
+            'qualityScore': round(quality_score, 1),
+            'fieldStats': field_stats,
+            'sampleMeetings': normalized_meetings[:10],  # First 10 for preview
+            'errors': errors[:10] if errors else [],
+            'canSaveAsSource': quality_score >= 50 and total >= 1
+        })
+
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'success': False,
+            'error': 'Request timed out after 30 seconds'
+        }), 504
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to fetch URL: {str(e)}'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Unexpected error: {str(e)}'
+        }), 500
+
+
+@app.route('/api/intergroup-research/sources', methods=['GET'])
+def get_custom_sources():
+    """Get all custom research sources"""
+    state = request.args.get('state')
+
+    sources = custom_research_sources.copy()
+
+    if state:
+        sources = [s for s in sources if s.get('state') == state]
+
+    return jsonify({
+        'success': True,
+        'sources': sources,
+        'total': len(sources)
+    })
+
+
+@app.route('/api/intergroup-research/sources', methods=['POST'])
+def save_custom_source():
+    """Save a tested script as a custom source"""
+    data = request.json
+
+    url = data.get('url', '')
+    if not url:
+        return jsonify({
+            'success': False,
+            'error': 'URL is required'
+        }), 400
+
+    # Check for duplicate URL
+    for source in custom_research_sources:
+        if source['url'] == url:
+            return jsonify({
+                'success': False,
+                'error': 'A source with this URL already exists'
+            }), 409
+
+    source = {
+        'id': len(custom_research_sources) + 1,
+        'name': data.get('name', 'Custom Source'),
+        'url': url,
+        'state': data.get('state', ''),
+        'feedType': data.get('feedType', 'tsml'),
+        'meetingCount': data.get('meetingCount', 0),
+        'qualityScore': data.get('qualityScore', 0),
+        'scriptId': data.get('scriptId'),  # Link to original script if applicable
+        'enabled': True,
+        'lastTested': datetime.now().isoformat(),
+        'createdAt': datetime.now().isoformat()
+    }
+
+    custom_research_sources.append(source)
+
+    return jsonify({
+        'success': True,
+        'source': source
+    })
+
+
+@app.route('/api/intergroup-research/sources/<int:source_id>', methods=['DELETE'])
+def delete_custom_source(source_id):
+    """Delete a custom source"""
+    global custom_research_sources
+
+    original_len = len(custom_research_sources)
+    custom_research_sources = [s for s in custom_research_sources if s['id'] != source_id]
+
+    if len(custom_research_sources) == original_len:
+        return jsonify({
+            'success': False,
+            'error': 'Source not found'
+        }), 404
+
+    return jsonify({
+        'success': True,
+        'message': 'Source deleted'
+    })
+
+
+@app.route('/api/intergroup-research/sources/<int:source_id>/toggle', methods=['POST'])
+def toggle_custom_source(source_id):
+    """Toggle a custom source enabled/disabled"""
+    for source in custom_research_sources:
+        if source['id'] == source_id:
+            source['enabled'] = not source['enabled']
+            return jsonify({
+                'success': True,
+                'source': source
+            })
+
+    return jsonify({
+        'success': False,
+        'error': 'Source not found'
+    }), 404
 
 
 if __name__ == '__main__':
