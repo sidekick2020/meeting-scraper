@@ -10246,7 +10246,8 @@ a.sidebar-nav-item {
 /* Mobile Responsive */
 @media (max-width: 1024px) {
   .airbnb-search-bar {
-    display: none;
+    max-width: 400px;
+    flex: 1;
   }
 
   .airbnb-map-panel {
