@@ -3,7 +3,7 @@ import time
 import json
 import threading
 import math
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import requests
 import random
@@ -5628,6 +5628,227 @@ def autofill_task_source():
         'similarFeeds': similar_feeds[:3],  # Example feeds from other states
         'state': state,
         'stateName': state_name
+    })
+
+
+@app.route('/api/tasks/research-stream', methods=['POST'])
+def research_stream():
+    """Streaming research endpoint that provides real-time progress updates.
+    Uses Server-Sent Events to stream progress, notes, and results."""
+    data = request.json
+    state = data.get('state', '')
+    title = data.get('title', '')
+    description = data.get('description', '')
+    task_type = data.get('type', '')
+
+    if not state:
+        return jsonify({
+            'success': False,
+            'error': 'State is required for research'
+        }), 400
+
+    def generate():
+        state_name = US_STATE_NAMES.get(state, state)
+        notes = []
+        suggestions = []
+        tested_results = []
+
+        # Step 1: Initialize research
+        yield f"data: {json.dumps({'type': 'progress', 'step': 1, 'total': 5, 'message': 'Starting research...', 'notes': notes})}\n\n"
+        time.sleep(0.3)
+
+        notes.append(f"Researching meeting sources for {state_name} ({state})")
+        yield f"data: {json.dumps({'type': 'note', 'note': notes[-1], 'notes': notes})}\n\n"
+        time.sleep(0.2)
+
+        # Step 2: Check existing feeds
+        yield f"data: {json.dumps({'type': 'progress', 'step': 2, 'total': 5, 'message': 'Checking existing sources...', 'notes': notes})}\n\n"
+
+        all_feeds = get_all_feeds()
+        existing_for_state = [
+            {'name': name, 'url': config.get('url'), 'type': config.get('type', 'tsml')}
+            for name, config in all_feeds.items()
+            if config.get('state') == state
+        ]
+
+        if existing_for_state:
+            notes.append(f"Found {len(existing_for_state)} existing source(s) for {state}")
+            for feed in existing_for_state[:3]:
+                notes.append(f"  - {feed['name']}: {feed['type'].upper()}")
+        else:
+            notes.append(f"No existing sources found for {state}")
+
+        yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+        time.sleep(0.3)
+
+        # Step 3: Generate URL patterns
+        yield f"data: {json.dumps({'type': 'progress', 'step': 3, 'total': 5, 'message': 'Generating potential URLs...', 'notes': notes})}\n\n"
+
+        notes.append("Generating URL patterns based on common intergroup formats...")
+        yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+        time.sleep(0.2)
+
+        # Generate TSML patterns
+        tsml_patterns = [
+            (f'https://aa{state.lower()}.org/wp-admin/admin-ajax.php?action=meetings', f'{state_name} AA Intergroup'),
+            (f'https://{state.lower()}aa.org/wp-admin/admin-ajax.php?action=meetings', f'{state_name} AA'),
+            (f'https://aa{state_name.lower().replace(" ", "")}.org/wp-admin/admin-ajax.php?action=meetings', f'{state_name} AA (Full Name)'),
+        ]
+
+        # Generate BMLT patterns
+        bmlt_patterns = [
+            (f'https://bmlt.{state.lower()}-na.org/main_server/client_interface/json/?switcher=GetSearchResults&data_field_key=meeting_name', f'{state_name} NA Region'),
+            (f'https://na{state.lower()}.org/main_server/client_interface/json/?switcher=GetSearchResults&data_field_key=meeting_name', f'{state_name} NA'),
+        ]
+
+        # Code4Recovery fallback
+        code4recovery_url = f'https://sheets.code4recovery.org/sheet/{state.lower()}'
+
+        all_patterns = [
+            {'url': url, 'name': name, 'feedType': 'tsml', 'confidence': 0.6} for url, name in tsml_patterns
+        ] + [
+            {'url': url, 'name': name, 'feedType': 'bmlt', 'confidence': 0.5} for url, name in bmlt_patterns
+        ] + [
+            {'url': code4recovery_url, 'name': f'{state_name} AA (Code4Recovery)', 'feedType': 'tsml', 'confidence': 0.4}
+        ]
+
+        notes.append(f"Generated {len(all_patterns)} potential URL patterns to test")
+        yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+        time.sleep(0.3)
+
+        # Step 4: Test URLs
+        yield f"data: {json.dumps({'type': 'progress', 'step': 4, 'total': 5, 'message': 'Testing URLs...', 'notes': notes})}\n\n"
+
+        for i, pattern in enumerate(all_patterns[:4]):  # Test first 4 patterns
+            url = pattern['url']
+            name = pattern['name']
+            feed_type = pattern['feedType']
+
+            notes.append(f"Testing: {name}...")
+            yield f"data: {json.dumps({'type': 'note', 'notes': notes, 'testing': {'url': url, 'name': name}})}\n\n"
+
+            try:
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0)',
+                    'Accept': 'application/json'
+                }
+                response = requests.get(url, headers=headers, timeout=10)
+
+                if response.status_code == 200:
+                    try:
+                        data = response.json()
+                        if isinstance(data, list) and len(data) > 0:
+                            meeting_count = len(data)
+                            notes[-1] = f"Testing: {name}... SUCCESS ({meeting_count} meetings)"
+
+                            # Extract sample meetings
+                            sample_meetings = []
+                            for m in data[:3]:
+                                sample_meetings.append({
+                                    'name': m.get('name', 'Unknown'),
+                                    'city': m.get('city', ''),
+                                    'state': m.get('state', state)
+                                })
+
+                            # Count by state
+                            state_breakdown = {}
+                            for m in data:
+                                m_state = m.get('state', 'Unknown')
+                                state_breakdown[m_state] = state_breakdown.get(m_state, 0) + 1
+
+                            tested_results.append({
+                                'url': url,
+                                'name': name,
+                                'feedType': feed_type,
+                                'success': True,
+                                'totalMeetings': meeting_count,
+                                'sampleMeetings': sample_meetings,
+                                'stateBreakdown': state_breakdown,
+                                'confidence': pattern['confidence'] + 0.3  # Boost confidence for working URLs
+                            })
+
+                            suggestions.append({
+                                'url': url,
+                                'name': name,
+                                'feedType': feed_type,
+                                'confidence': pattern['confidence'] + 0.3,
+                                'verified': True,
+                                'meetingCount': meeting_count
+                            })
+                        else:
+                            notes[-1] = f"Testing: {name}... Empty or invalid response"
+                    except json.JSONDecodeError:
+                        notes[-1] = f"Testing: {name}... Not valid JSON"
+                else:
+                    notes[-1] = f"Testing: {name}... HTTP {response.status_code}"
+            except requests.exceptions.Timeout:
+                notes[-1] = f"Testing: {name}... Timeout"
+            except requests.exceptions.RequestException as e:
+                notes[-1] = f"Testing: {name}... Connection failed"
+
+            yield f"data: {json.dumps({'type': 'note', 'notes': notes, 'tested': tested_results})}\n\n"
+            time.sleep(0.2)
+
+        # Add Code4Recovery as a fallback suggestion if no working URLs found
+        if not suggestions:
+            suggestions.append({
+                'url': code4recovery_url,
+                'name': f'{state_name} AA (Code4Recovery)',
+                'feedType': 'tsml',
+                'confidence': 0.4,
+                'verified': False,
+                'note': 'Fallback option - may not have data for this state'
+            })
+            notes.append("No working feeds found, added Code4Recovery as fallback option")
+            yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+
+        # Step 5: Generate script for best result
+        yield f"data: {json.dumps({'type': 'progress', 'step': 5, 'total': 5, 'message': 'Generating script...', 'notes': notes})}\n\n"
+        time.sleep(0.2)
+
+        generated_script = None
+        best_result = None
+
+        if tested_results:
+            # Find the best result (most meetings)
+            best_result = max(tested_results, key=lambda x: x.get('totalMeetings', 0))
+            notes.append(f"Best source: {best_result['name']} with {best_result['totalMeetings']} meetings")
+            yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+
+            # Generate script
+            generated_script = _generate_script_content(
+                best_result['url'],
+                best_result['name'],
+                state,
+                best_result['feedType']
+            )
+            notes.append("Generated Python scraping script")
+        else:
+            notes.append("No working sources found to generate script")
+
+        yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+        time.sleep(0.2)
+
+        # Final result
+        final_result = {
+            'type': 'complete',
+            'success': len(tested_results) > 0,
+            'suggestions': suggestions,
+            'testedResults': tested_results,
+            'bestResult': best_result,
+            'generatedScript': generated_script,
+            'notes': notes,
+            'state': state,
+            'stateName': state_name,
+            'existingFeeds': existing_for_state
+        }
+
+        yield f"data: {json.dumps(final_result)}\n\n"
+
+    return Response(generate(), mimetype='text/event-stream', headers={
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
     })
 
 

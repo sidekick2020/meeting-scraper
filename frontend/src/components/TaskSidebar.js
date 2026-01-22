@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -34,6 +34,13 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
   const [researchResults, setResearchResults] = useState(null);
   const [researchError, setResearchError] = useState(null);
 
+  // Streaming research state
+  const [researchProgress, setResearchProgress] = useState({ step: 0, total: 5, message: '' });
+  const [researchNotes, setResearchNotes] = useState([]);
+  const [testedUrls, setTestedUrls] = useState([]);
+  const [generatedScript, setGeneratedScript] = useState(null);
+  const notesEndRef = useRef(null);
+
   // Test scrape state
   const [isTesting, setIsTesting] = useState(false);
   const [testResults, setTestResults] = useState(null);
@@ -50,6 +57,13 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
 
   // Script expansion state
   const [isScriptExpanded, setIsScriptExpanded] = useState(false);
+
+  // Scroll research notes to bottom when new notes arrive
+  useEffect(() => {
+    if (notesEndRef.current && researchNotes.length > 0) {
+      notesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [researchNotes]);
 
   // Initialize form from task data when task changes
   useEffect(() => {
@@ -71,14 +85,20 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
       setSubmitSuccess(false);
       setIsScriptExpanded(false);
 
+      // Reset streaming research state
+      setResearchProgress({ step: 0, total: 5, message: '' });
+      setResearchNotes([]);
+      setTestedUrls([]);
+      setGeneratedScript(null);
+
       // Auto-research on open if we have state info
       if (task.state && !task.url) {
-        autoResearch();
+        streamResearch();
       }
     }
   }, [task, isOpen]);
 
-  // Auto-research function to find potential URLs
+  // Auto-research function to find potential URLs (legacy, non-streaming)
   const autoResearch = useCallback(async () => {
     if (!task) return;
 
@@ -126,6 +146,113 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
       setIsResearching(false);
     }
   }, [task, sourceState, sourceUrl, sourceName]);
+
+  // Streaming research function with real-time progress updates
+  const streamResearch = useCallback(async () => {
+    if (!task) return;
+
+    setIsResearching(true);
+    setResearchError(null);
+    setResearchResults(null);
+    setResearchProgress({ step: 0, total: 5, message: 'Initializing...' });
+    setResearchNotes([]);
+    setTestedUrls([]);
+    setGeneratedScript(null);
+
+    try {
+      // Use fetch with ReadableStream for SSE
+      const response = await fetch(`${BACKEND_URL}/api/tasks/research-stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          state: task.state || sourceState,
+          title: task.title,
+          description: task.description,
+          type: task.type
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Research stream failed');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete SSE messages
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.type === 'progress') {
+                setResearchProgress({
+                  step: data.step,
+                  total: data.total,
+                  message: data.message
+                });
+              } else if (data.type === 'note') {
+                setResearchNotes(data.notes || []);
+                if (data.tested) {
+                  setTestedUrls(data.tested);
+                }
+              } else if (data.type === 'complete') {
+                // Research complete - populate fields
+                setResearchResults(data);
+
+                if (data.suggestions && data.suggestions.length > 0) {
+                  // Find the best verified suggestion
+                  const bestSuggestion = data.suggestions.find(s => s.verified) || data.suggestions[0];
+                  if (bestSuggestion) {
+                    setSourceUrl(bestSuggestion.url);
+                    setSourceName(bestSuggestion.name);
+                    setFeedType(bestSuggestion.feedType || 'auto');
+                  }
+                }
+
+                if (data.bestResult) {
+                  // Set test results from the best result
+                  setTestResults({
+                    success: true,
+                    totalMeetings: data.bestResult.totalMeetings,
+                    feedType: data.bestResult.feedType,
+                    stateBreakdown: data.bestResult.stateBreakdown,
+                    sampleMeetings: data.bestResult.sampleMeetings,
+                    generatedScript: data.generatedScript
+                  });
+                }
+
+                if (data.generatedScript) {
+                  setGeneratedScript(data.generatedScript);
+                }
+
+                setResearchProgress({ step: 5, total: 5, message: 'Research complete!' });
+              }
+            } catch (e) {
+              console.error('Error parsing SSE data:', e);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error during streaming research:', error);
+      setResearchError('Failed to research. Please enter details manually.');
+      // Fall back to non-streaming research
+      autoResearch();
+    } finally {
+      setIsResearching(false);
+    }
+  }, [task, sourceState, autoResearch]);
 
   // Test the source URL
   const testSource = async (retryWithAlternate = false) => {
@@ -410,6 +537,11 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
     setTestAttempts(0);
     setSaveSuccess(false);
     setSubmitSuccess(false);
+    // Reset streaming research state
+    setResearchProgress({ step: 0, total: 5, message: '' });
+    setResearchNotes([]);
+    setTestedUrls([]);
+    setGeneratedScript(null);
     onClose();
   };
 
@@ -444,19 +576,124 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
 
         {/* Body */}
         <div className="task-sidebar-body">
-          {/* Task Info */}
+          {/* Task Info with Research Button */}
           <div className="task-sidebar-task-info">
-            <div className="task-info-title">{task.title}</div>
-            {task.description && (
-              <div className="task-info-description">{task.description}</div>
-            )}
+            <div className="task-info-row">
+              <div className="task-info-content">
+                <div className="task-info-title">{task.title}</div>
+                {task.description && (
+                  <div className="task-info-description">{task.description}</div>
+                )}
+              </div>
+              {!isResearching && task.state && (
+                <button
+                  className="btn btn-sm btn-secondary research-btn"
+                  onClick={streamResearch}
+                  title="Research meeting sources"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                  </svg>
+                  Research
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Research Section */}
+          {/* Research Progress Section */}
           {isResearching && (
-            <div className="task-sidebar-research-loading">
-              <div className="research-spinner"></div>
-              <span>Researching meeting sources...</span>
+            <div className="research-progress-section">
+              <div className="research-progress-header">
+                <div className="research-spinner"></div>
+                <span className="research-progress-message">{researchProgress.message || 'Researching...'}</span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="research-progress-bar-container">
+                <div
+                  className="research-progress-bar"
+                  style={{ width: `${(researchProgress.step / researchProgress.total) * 100}%` }}
+                />
+                <span className="research-progress-steps">
+                  Step {researchProgress.step} of {researchProgress.total}
+                </span>
+              </div>
+
+              {/* Research notes */}
+              {researchNotes.length > 0 && (
+                <div className="research-notes-section">
+                  <div className="research-notes-header">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                      <polyline points="14,2 14,8 20,8"/>
+                      <line x1="16" y1="13" x2="8" y2="13"/>
+                      <line x1="16" y1="17" x2="8" y2="17"/>
+                    </svg>
+                    <span>Research Notes</span>
+                  </div>
+                  <div className="research-notes-list">
+                    {researchNotes.map((note, index) => (
+                      <div key={index} className={`research-note ${note.includes('SUCCESS') ? 'success' : note.includes('Timeout') || note.includes('failed') || note.includes('HTTP') ? 'error' : ''}`}>
+                        <span className="note-bullet">
+                          {note.includes('SUCCESS') ? '✓' : note.includes('Testing:') ? '→' : '•'}
+                        </span>
+                        <span className="note-text">{note}</span>
+                      </div>
+                    ))}
+                    <div ref={notesEndRef} />
+                  </div>
+                </div>
+              )}
+
+              {/* Tested URLs summary */}
+              {testedUrls.length > 0 && (
+                <div className="tested-urls-section">
+                  <div className="tested-urls-header">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                      <polyline points="22,4 12,14.01 9,11.01"/>
+                    </svg>
+                    <span>Working Sources Found ({testedUrls.length})</span>
+                  </div>
+                  <div className="tested-urls-list">
+                    {testedUrls.map((result, index) => (
+                      <div key={index} className="tested-url-item">
+                        <span className="tested-url-name">{result.name}</span>
+                        <span className="tested-url-count">{result.totalMeetings} meetings</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Research Complete - Show notes history (collapsed) */}
+          {!isResearching && researchNotes.length > 0 && (
+            <div className="research-complete-section">
+              <details className="research-notes-details">
+                <summary className="research-notes-summary">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                  </svg>
+                  <span>Research Notes ({researchNotes.length})</span>
+                  <svg className="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="6,9 12,15 18,9"/>
+                  </svg>
+                </summary>
+                <div className="research-notes-list collapsed">
+                  {researchNotes.map((note, index) => (
+                    <div key={index} className={`research-note ${note.includes('SUCCESS') ? 'success' : note.includes('Timeout') || note.includes('failed') || note.includes('HTTP') ? 'error' : ''}`}>
+                      <span className="note-bullet">
+                        {note.includes('SUCCESS') ? '✓' : note.includes('Testing:') ? '→' : '•'}
+                      </span>
+                      <span className="note-text">{note}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
             </div>
           )}
 
@@ -467,16 +704,32 @@ function TaskSidebar({ task, isOpen, onClose, onTaskUpdate, onSourceAdded }) {
                 {researchResults.suggestions.map((suggestion, index) => (
                   <div
                     key={index}
-                    className={`research-suggestion ${sourceUrl === suggestion.url ? 'selected' : ''}`}
+                    className={`research-suggestion ${sourceUrl === suggestion.url ? 'selected' : ''} ${suggestion.verified ? 'verified' : ''}`}
                     onClick={() => applySuggestion(suggestion)}
                   >
-                    <div className="suggestion-name">{suggestion.name}</div>
+                    <div className="suggestion-header">
+                      <div className="suggestion-name">{suggestion.name}</div>
+                      {suggestion.verified && (
+                        <span className="suggestion-verified">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                            <polyline points="22,4 12,14.01 9,11.01"/>
+                          </svg>
+                          Verified
+                        </span>
+                      )}
+                    </div>
                     <div className="suggestion-url">{suggestion.url?.substring(0, 50)}...</div>
                     <div className="suggestion-meta">
                       <span className={`suggestion-type ${suggestion.feedType}`}>
                         {suggestion.feedType?.toUpperCase()}
                       </span>
-                      {suggestion.confidence && (
+                      {suggestion.meetingCount && (
+                        <span className="suggestion-meetings">
+                          {suggestion.meetingCount} meetings
+                        </span>
+                      )}
+                      {suggestion.confidence && !suggestion.meetingCount && (
                         <span className="suggestion-confidence">
                           {Math.round(suggestion.confidence * 100)}% match
                         </span>
