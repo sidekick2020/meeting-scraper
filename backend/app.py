@@ -3830,6 +3830,7 @@ def get_meetings():
         city = request.args.get('city', '')
         online = request.args.get('online', '')
         hybrid = request.args.get('hybrid', '')
+        meeting_format = request.args.get('format', '')
 
         # Geographic bounding box parameters
         north = request.args.get('north', type=float)
@@ -3854,6 +3855,8 @@ def get_meetings():
             where['isOnline'] = True
         if hybrid == 'true':
             where['isHybrid'] = True
+        if meeting_format:
+            where['format'] = meeting_format
 
         # Add geographic bounds filtering
         if all(v is not None for v in [north, south, east, west]):
@@ -3935,6 +3938,7 @@ def get_meetings_heatmap():
         city_filter = request.args.get('city')
         online_filter = request.args.get('online')
         hybrid_filter = request.args.get('hybrid')
+        format_filter = request.args.get('format')
 
         # Determine grid size based on zoom level
         # Lower zoom = larger grid cells = fewer clusters
@@ -3973,6 +3977,8 @@ def get_meetings_heatmap():
             where['isOnline'] = True
         if hybrid_filter == 'true':
             where['isHybrid'] = True
+        if format_filter:
+            where['format'] = format_filter
 
         import urllib.parse
 

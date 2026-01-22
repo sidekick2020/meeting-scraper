@@ -352,6 +352,10 @@ function MeetingsExplorer({ onAdminClick }) {
       if (filters.hybrid) {
         url += `&hybrid=true`;
       }
+      // Add format filter
+      if (filters.format) {
+        url += `&format=${encodeURIComponent(filters.format)}`;
+      }
 
       const response = await fetch(url);
       if (response.ok) {
@@ -431,10 +435,11 @@ function MeetingsExplorer({ onAdminClick }) {
       if (showOnlineOnly) filters.online = true;
       if (showHybridOnly) filters.hybrid = true;
       if (selectedCity) filters.city = selectedCity;
+      if (selectedFormat) filters.format = selectedFormat;
 
       fetchMeetings({ loadMore: true, bounds: mapBounds, filters });
     }
-  }, [fetchMeetings, isLoadingMore, hasMore, mapBounds, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity]);
+  }, [fetchMeetings, isLoadingMore, hasMore, mapBounds, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity, selectedFormat]);
 
   // Check backend configuration status
   const checkBackendConfig = useCallback(async () => {
@@ -1103,13 +1108,14 @@ function MeetingsExplorer({ onAdminClick }) {
     if (showOnlineOnly) filters.online = true;
     if (showHybridOnly) filters.hybrid = true;
     if (selectedCity) filters.city = selectedCity;
+    if (selectedFormat) filters.format = selectedFormat;
 
     // Always fetch meetings when map moves - reset to first page
     // Don't clear meetingsRef here - let fetchMeetings update it when new data arrives
     // This keeps the old data visible while loading
     setCurrentPage(0);
     fetchMeetings({ bounds, reset: true, filters });
-  }, [fetchMeetings, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity]);
+  }, [fetchMeetings, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity, selectedFormat]);
 
   // Build filters object to pass to the map
   const mapFilters = useMemo(() => {
@@ -1143,8 +1149,12 @@ function MeetingsExplorer({ onAdminClick }) {
     if (selectedCity) {
       filters.city = selectedCity;
     }
+    // Pass format filter
+    if (selectedFormat) {
+      filters.format = selectedFormat;
+    }
     return filters;
-  }, [showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity]);
+  }, [showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity, selectedFormat]);
 
   return (
     <div className="airbnb-explorer">
