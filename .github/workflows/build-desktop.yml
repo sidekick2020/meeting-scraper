@@ -98,7 +98,7 @@ jobs:
 
       - name: Build Mac App (${{ matrix.arch }})
         working-directory: desktop
-        run: electron-builder --mac --${{ matrix.arch }}
+        run: npx electron-builder --mac --${{ matrix.arch }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
