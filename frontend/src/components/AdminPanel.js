@@ -218,10 +218,10 @@ function AdminPanel({ onBackToPublic }) {
       if (search) url += `&search=${encodeURIComponent(search)}`;
       if (state) url += `&state=${encodeURIComponent(state)}`;
       if (day !== '') url += `&day=${encodeURIComponent(day)}`;
-      if (type) url += `&meetingType=${encodeURIComponent(type)}`;
-      if (online === 'online') url += `&isOnline=true`;
-      if (online === 'hybrid') url += `&isHybrid=true`;
-      if (online === 'in-person') url += `&isOnline=false`;
+      if (type) url += `&type=${encodeURIComponent(type)}`;
+      if (online === 'online') url += `&online=true`;
+      if (online === 'hybrid') url += `&hybrid=true`;
+      if (online === 'in-person') url += `&online=false`;
 
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -257,10 +257,10 @@ function AdminPanel({ onBackToPublic }) {
       if (directorySearch) url += `&search=${encodeURIComponent(directorySearch)}`;
       if (directoryState) url += `&state=${encodeURIComponent(directoryState)}`;
       if (directoryDay !== '') url += `&day=${encodeURIComponent(directoryDay)}`;
-      if (directoryType) url += `&meetingType=${encodeURIComponent(directoryType)}`;
-      if (directoryOnline === 'online') url += `&isOnline=true`;
-      if (directoryOnline === 'hybrid') url += `&isHybrid=true`;
-      if (directoryOnline === 'in-person') url += `&isOnline=false`;
+      if (directoryType) url += `&type=${encodeURIComponent(directoryType)}`;
+      if (directoryOnline === 'online') url += `&online=true`;
+      if (directoryOnline === 'hybrid') url += `&hybrid=true`;
+      if (directoryOnline === 'in-person') url += `&online=false`;
 
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
