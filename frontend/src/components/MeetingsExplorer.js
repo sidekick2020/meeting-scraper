@@ -215,7 +215,10 @@ function MeetingsExplorer({ onAdminClick }) {
   // Search autocomplete
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [locationResults, setLocationResults] = useState([]);
+  const [isSearchingLocations, setIsSearchingLocations] = useState(false);
   const searchInputRef = useRef(null);
+  const locationSearchTimeout = useRef(null);
 
   const listRef = useRef(null);
   const boundsTimeoutRef = useRef(null);
@@ -337,8 +340,10 @@ function MeetingsExplorer({ onAdminClick }) {
           const cities = [...new Set(newMeetings.map(m => m.city).filter(Boolean))].sort();
           setAvailableCities(cities);
 
-          const types = [...new Set(newMeetings.map(m => m.meetingType).filter(Boolean))].sort();
-          setAvailableTypes(types);
+          // Always show all defined meeting types, with 'Other' at the end
+          const allTypes = Object.keys(MEETING_TYPES).filter(t => t !== 'Other');
+          allTypes.push('Other');
+          setAvailableTypes(allTypes);
 
           const formats = [...new Set(newMeetings.map(m => m.format).filter(Boolean))].sort();
           setAvailableFormats(formats);
@@ -617,6 +622,55 @@ function MeetingsExplorer({ onAdminClick }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Search locations using Nominatim API
+  const searchLocations = useCallback(async (query) => {
+    if (!query || query.length < 2) {
+      setLocationResults([]);
+      return;
+    }
+
+    // Clear any pending search
+    if (locationSearchTimeout.current) {
+      clearTimeout(locationSearchTimeout.current);
+    }
+
+    // Debounce the API call
+    locationSearchTimeout.current = setTimeout(async () => {
+      setIsSearchingLocations(true);
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?` +
+          `format=json&q=${encodeURIComponent(query)}&countrycodes=us&limit=5&addressdetails=1`,
+          {
+            headers: {
+              'User-Agent': 'MeetingScraper/1.0'
+            }
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const locations = data.map(item => ({
+            type: 'nominatim',
+            value: item.display_name.split(',').slice(0, 2).join(','),
+            label: item.display_name.split(',').slice(0, 2).join(','),
+            fullLabel: item.display_name,
+            lat: parseFloat(item.lat),
+            lon: parseFloat(item.lon),
+            city: item.address?.city || item.address?.town || item.address?.village || '',
+            state: item.address?.state || '',
+            group: 'places'
+          }));
+          setLocationResults(locations);
+        }
+      } catch (error) {
+        console.error('Location search error:', error);
+      } finally {
+        setIsSearchingLocations(false);
+      }
+    }, 300);
+  }, []);
+
   // Compute autocomplete suggestions with grouping
   const computeSuggestions = useCallback((query, showRecent = false) => {
     const results = [];
@@ -727,6 +781,7 @@ function MeetingsExplorer({ onAdminClick }) {
     const value = e.target.value;
     setSearchQuery(value);
     computeSuggestions(value, false);
+    searchLocations(value);
     setShowSuggestions(value.length >= 1 || recentSearches.length > 0);
   };
 
@@ -759,6 +814,8 @@ function MeetingsExplorer({ onAdminClick }) {
       saveRecentSearch(searchQuery);
     }
     setShowSuggestions(false);
+    // Re-fetch meetings with current filters
+    fetchMeetings({ stateFilter: selectedStates.length > 0 ? selectedStates : undefined });
   };
 
   // Close suggestions when clicking outside
@@ -844,7 +901,7 @@ function MeetingsExplorer({ onAdminClick }) {
                 </button>
               )}
             </div>
-            {showSuggestions && suggestions.length > 0 && (
+            {showSuggestions && (suggestions.length > 0 || locationResults.length > 0 || isSearchingLocations) && (
               <div className="search-suggestions">
                 {/* Group: Recent Searches */}
                 {suggestions.some(s => s.group === 'recent') && (
@@ -960,6 +1017,36 @@ function MeetingsExplorer({ onAdminClick }) {
                           </span>
                           {suggestion.subLabel && (
                             <span className="suggestion-sublabel">{suggestion.subLabel}</span>
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Group: Places (from Nominatim API) */}
+                {(locationResults.length > 0 || isSearchingLocations) && (
+                  <div className="suggestion-group">
+                    <div className="suggestion-group-header">
+                      Places
+                      {isSearchingLocations && <span className="suggestion-loading"></span>}
+                    </div>
+                    {locationResults.map((location, index) => (
+                      <button
+                        key={`place-${location.lat}-${location.lon}-${index}`}
+                        className="suggestion-item"
+                        onClick={() => handleSuggestionClick(location)}
+                      >
+                        <span className="suggestion-icon suggestion-place">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+                            <path d="M2 12h20"/>
+                          </svg>
+                        </span>
+                        <span className="suggestion-text">
+                          <span className="suggestion-label">{location.label}</span>
+                          {location.state && (
+                            <span className="suggestion-sublabel">{location.state}</span>
                           )}
                         </span>
                       </button>
@@ -1140,7 +1227,7 @@ function MeetingsExplorer({ onAdminClick }) {
               <circle cx="11" cy="11" r="8"/>
               <path d="M21 21l-4.35-4.35"/>
             </svg>
-            {hasActiveFilters && <span className="search-button-badge" />}
+            {hasActiveFilters && <span className="search-button-text">Search</span>}
           </button>
         </div>
 
