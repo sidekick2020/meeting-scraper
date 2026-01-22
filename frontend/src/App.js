@@ -12,7 +12,7 @@ import DevDocs from './components/DevDocs';
 import DownloadPage from './components/DownloadPage';
 import NotFound from './components/NotFound';
 import LoadingOverlay from './components/LoadingOverlay';
-import PublicSidebar from './components/PublicSidebar';
+import PublicSidebar, { SidebarToggleButton } from './components/PublicSidebar';
 
 function SignInModal({ onClose }) {
   const { signIn, authError, clearError, allowedDomains } = useAuth();
@@ -66,6 +66,7 @@ function AppContent() {
   const [currentView, setCurrentView] = useState('public'); // 'public' or 'admin'
   const [showSignIn, setShowSignIn] = useState(false);
   const [isBackendReady, setIsBackendReady] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleAdminClick = () => {
     if (isAuthenticated) {
@@ -124,8 +125,16 @@ function AppContent() {
 
       {currentView === 'public' ? (
         <>
-          <MeetingsExplorer onAdminClick={handleAdminClick} />
-          <PublicSidebar onAdminClick={handleAdminClick} />
+          <MeetingsExplorer
+            onAdminClick={handleAdminClick}
+            sidebarOpen={sidebarOpen}
+            onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
+          />
+          <PublicSidebar
+            onAdminClick={handleAdminClick}
+            isOpen={sidebarOpen}
+            onToggle={setSidebarOpen}
+          />
         </>
       ) : (
         <>

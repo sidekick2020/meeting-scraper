@@ -5923,6 +5923,26 @@ a.sidebar-nav-item {
   box-sizing: border-box;
 }
 
+.airbnb-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Header sidebar toggle - inline, not fixed position */
+.header-sidebar-toggle {
+  position: relative;
+  top: auto;
+  left: auto;
+  box-shadow: none;
+  background: transparent;
+  border: none;
+}
+
+.header-sidebar-toggle:hover {
+  background: var(--bg-hover);
+}
+
 .airbnb-logo {
   display: flex;
   align-items: center;
