@@ -1147,9 +1147,15 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle }) {
             } else if (mapZoom >= 10 && city) {
               // Medium zoom: show city + state
               locationName = state ? `${city}, ${state}` : city;
-            } else if (mapZoom >= 7 && (county || state)) {
-              // Low-medium zoom: show county with state
-              locationName = county && state ? `${county}, ${state}` : (county || state);
+            } else if (mapZoom >= 7 && (city || county || state)) {
+              // Low-medium zoom: show city with state, fallback to county with state
+              if (city && state) {
+                locationName = `${city}, ${state}`;
+              } else if (county && state) {
+                locationName = `${county}, ${state}`;
+              } else {
+                locationName = city || county || state;
+              }
             } else if (state) {
               // Low zoom: show state or country
               locationName = country && country !== 'United States' ? `${state}, ${country}` : state;
