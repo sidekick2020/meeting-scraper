@@ -1,0 +1,51 @@
+{
+  "name": "meeting-scraper",
+  "version": "1.0.0",
+  "description": "Meeting Scraper Desktop App",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac",
+    "build:dmg": "electron-builder --mac dmg",
+    "build:all": "electron-builder --mac --win --linux"
+  },
+  "author": "Meeting Scraper",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.meetingscraper.app",
+    "productName": "Meeting Scraper",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "icon.icns"
+    },
+    "dmg": {
+      "title": "Meeting Scraper",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "files": [
+      "main.js",
+      "preload.js"
+    ]
+  }
+}
