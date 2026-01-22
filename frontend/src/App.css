@@ -5930,17 +5930,23 @@ a.sidebar-nav-item {
 }
 
 /* Header sidebar toggle - inline, not fixed position */
-.header-sidebar-toggle {
+/* Use combined selector for higher specificity to override .public-sidebar-toggle */
+.public-sidebar-toggle.header-sidebar-toggle {
   position: relative;
   top: auto;
   left: auto;
+  z-index: auto;
   box-shadow: none;
   background: transparent;
   border: none;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
 }
 
-.header-sidebar-toggle:hover {
+.public-sidebar-toggle.header-sidebar-toggle:hover {
   background: var(--bg-hover);
+  transform: none;
 }
 
 .airbnb-logo {
