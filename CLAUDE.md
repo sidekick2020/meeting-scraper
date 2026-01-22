@@ -41,11 +41,11 @@ Always use changelog fragments. Direct edits to `CHANGELOG.md` will cause merge 
 
 ## Post-Change Checklist
 
-After completing significant code changes, Claude should ask the user:
+After completing significant code changes, Claude should **always**:
 
-1. **Generate a PR?** - Create a pull request with summary and test plan
-2. **Add changelog fragment?** - Create a fragment file for the changes
-3. **Provide git tag commands?** - Give copy-paste commands for version tagging
+1. **Create a PR** - Always create a pull request with summary and test plan after making significant changes. Do not ask - just create it.
+2. **Add changelog fragment** - Create a fragment file for the changes
+3. **Provide git tag commands** - Give copy-paste commands for version tagging (after PR is merged)
 
 Provide all commands without comments for easy copy-paste.
 
