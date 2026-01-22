@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 
 const dayAbbrev = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -62,6 +63,8 @@ function PublicSidebar({
 
   const { toggleTheme, isDark } = useTheme();
   const sidebarRef = useRef(null);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Expand/collapse state for mobile nav sections
   const [expandedSection, setExpandedSection] = useState(null);
@@ -415,6 +418,46 @@ function PublicSidebar({
               </span>
               <span className="public-sidebar-item-badge">
                 {isDark ? 'Dark' : 'Light'}
+              </span>
+            </button>
+          </div>
+
+          {/* Browse Section */}
+          <div className="public-sidebar-section">
+            <div className="public-sidebar-section-title">Browse</div>
+            <button
+              className={`public-sidebar-item ${location.pathname === '/online-meetings' ? 'active' : ''}`}
+              onClick={() => {
+                navigate('/online-meetings');
+                setIsOpen(false);
+              }}
+            >
+              <span className="public-sidebar-item-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2"/>
+                  <path d="M8 21h8"/>
+                  <path d="M12 17v4"/>
+                </svg>
+              </span>
+              <span className="public-sidebar-item-label">
+                Online Meetings
+              </span>
+            </button>
+            <button
+              className={`public-sidebar-item ${location.pathname === '/' ? 'active' : ''}`}
+              onClick={() => {
+                navigate('/');
+                setIsOpen(false);
+              }}
+            >
+              <span className="public-sidebar-item-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                  <circle cx="12" cy="10" r="3"/>
+                </svg>
+              </span>
+              <span className="public-sidebar-item-label">
+                All Meetings
               </span>
             </button>
           </div>
