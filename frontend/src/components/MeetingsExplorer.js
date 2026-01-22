@@ -318,9 +318,13 @@ function MeetingsExplorer({ onAdminClick }) {
       const skip = loadMore ? meetingsRef.current.length : 0;
       let url = `${BACKEND_URL}/api/meetings?limit=${PAGE_SIZE}&skip=${skip}`;
 
-      // Add bounds parameters if provided
+      // Add bounds parameters if provided (including center for distance-based sorting)
       if (bounds) {
         url += `&north=${bounds.north}&south=${bounds.south}&east=${bounds.east}&west=${bounds.west}`;
+        // Add center coordinates for prioritizing results by proximity
+        if (bounds.center_lat !== undefined && bounds.center_lng !== undefined) {
+          url += `&center_lat=${bounds.center_lat}&center_lng=${bounds.center_lng}`;
+        }
       }
 
       // Add state filter if provided (from param or filters object)
