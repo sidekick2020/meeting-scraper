@@ -5634,12 +5634,15 @@ def autofill_task_source():
 @app.route('/api/tasks/research-stream', methods=['POST'])
 def research_stream():
     """Streaming research endpoint that provides real-time progress updates.
-    Uses Server-Sent Events to stream progress, notes, and results."""
+    Uses Server-Sent Events to stream progress, notes, and results.
+    Supports excluded URLs for retry functionality - won't try same URLs twice."""
     data = request.json
     state = data.get('state', '')
     title = data.get('title', '')
     description = data.get('description', '')
     task_type = data.get('type', '')
+    excluded_urls = data.get('excludedUrls', [])  # URLs to skip (already tried)
+    previous_failures = data.get('previousFailures', [])  # Info about past failures
 
     if not state:
         return jsonify({
@@ -5654,10 +5657,17 @@ def research_stream():
         tested_results = []
 
         # Step 1: Initialize research
-        yield f"data: {json.dumps({'type': 'progress', 'step': 1, 'total': 5, 'message': 'Starting research...', 'notes': notes})}\n\n"
-        time.sleep(0.3)
+        is_retry = len(excluded_urls) > 0
+        if is_retry:
+            yield f"data: {json.dumps({'type': 'progress', 'step': 1, 'total': 5, 'message': 'Researching new sources...', 'notes': notes})}\n\n"
+            time.sleep(0.3)
+            notes.append(f"Retry research for {state_name} - will try different sources")
+            notes.append(f"Excluding {len(excluded_urls)} previously tried URL(s)")
+        else:
+            yield f"data: {json.dumps({'type': 'progress', 'step': 1, 'total': 5, 'message': 'Starting research...', 'notes': notes})}\n\n"
+            time.sleep(0.3)
+            notes.append(f"Researching meeting sources for {state_name} ({state})")
 
-        notes.append(f"Researching meeting sources for {state_name} ({state})")
         yield f"data: {json.dumps({'type': 'note', 'note': notes[-1], 'notes': notes})}\n\n"
         time.sleep(0.2)
 
@@ -5684,15 +5694,28 @@ def research_stream():
         # Step 3: Generate URL patterns
         yield f"data: {json.dumps({'type': 'progress', 'step': 3, 'total': 5, 'message': 'Generating potential URLs...', 'notes': notes})}\n\n"
 
-        notes.append("Generating URL patterns based on common intergroup formats...")
+        if is_retry:
+            notes.append("Generating alternative URL patterns (avoiding previously tried)...")
+        else:
+            notes.append("Generating URL patterns based on common intergroup formats...")
         yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
         time.sleep(0.2)
 
-        # Generate TSML patterns
+        # Generate TSML patterns - primary patterns
         tsml_patterns = [
             (f'https://aa{state.lower()}.org/wp-admin/admin-ajax.php?action=meetings', f'{state_name} AA Intergroup'),
             (f'https://{state.lower()}aa.org/wp-admin/admin-ajax.php?action=meetings', f'{state_name} AA'),
             (f'https://aa{state_name.lower().replace(" ", "")}.org/wp-admin/admin-ajax.php?action=meetings', f'{state_name} AA (Full Name)'),
+        ]
+
+        # Additional TSML patterns for retries
+        tsml_patterns_alt = [
+            (f'https://aahome{state.lower()}.org/wp-admin/admin-ajax.php?action=meetings', f'{state_name} AA Home'),
+            (f'https://{state.lower()}intergroup.org/wp-admin/admin-ajax.php?action=meetings', f'{state_name} Intergroup'),
+            (f'https://aa{state.lower()}intergroup.org/wp-admin/admin-ajax.php?action=meetings', f'{state_name} AA Intergroup (Alt)'),
+            (f'https://{state_name.lower().replace(" ", "")}aa.org/wp-admin/admin-ajax.php?action=meetings', f'{state_name} AA (Alt)'),
+            (f'https://meetings.aa{state.lower()}.org/wp-admin/admin-ajax.php?action=meetings', f'{state_name} AA Meetings'),
+            (f'https://www.aa{state.lower()}.org/wp-admin/admin-ajax.php?action=meetings', f'{state_name} AA (www)'),
         ]
 
         # Generate BMLT patterns
@@ -5701,16 +5724,37 @@ def research_stream():
             (f'https://na{state.lower()}.org/main_server/client_interface/json/?switcher=GetSearchResults&data_field_key=meeting_name', f'{state_name} NA'),
         ]
 
+        # Additional BMLT patterns for retries
+        bmlt_patterns_alt = [
+            (f'https://{state.lower()}na.org/main_server/client_interface/json/?switcher=GetSearchResults&data_field_key=meeting_name', f'{state_name} NA (Alt)'),
+            (f'https://na{state_name.lower().replace(" ", "")}.org/main_server/client_interface/json/?switcher=GetSearchResults&data_field_key=meeting_name', f'{state_name} NA (Full)'),
+            (f'https://bmlt.na{state.lower()}.org/main_server/client_interface/json/?switcher=GetSearchResults&data_field_key=meeting_name', f'{state_name} BMLT NA'),
+        ]
+
         # Code4Recovery fallback
         code4recovery_url = f'https://sheets.code4recovery.org/sheet/{state.lower()}'
 
+        # Build all patterns - include alternate patterns for retries
         all_patterns = [
             {'url': url, 'name': name, 'feedType': 'tsml', 'confidence': 0.6} for url, name in tsml_patterns
         ] + [
             {'url': url, 'name': name, 'feedType': 'bmlt', 'confidence': 0.5} for url, name in bmlt_patterns
         ] + [
-            {'url': code4recovery_url, 'name': f'{state_name} AA (Code4Recovery)', 'feedType': 'tsml', 'confidence': 0.4}
+            {'url': url, 'name': name, 'feedType': 'tsml', 'confidence': 0.4} for url, name in tsml_patterns_alt
+        ] + [
+            {'url': url, 'name': name, 'feedType': 'bmlt', 'confidence': 0.35} for url, name in bmlt_patterns_alt
+        ] + [
+            {'url': code4recovery_url, 'name': f'{state_name} AA (Code4Recovery)', 'feedType': 'tsml', 'confidence': 0.3}
         ]
+
+        # Filter out excluded URLs (previously tried)
+        if excluded_urls:
+            original_count = len(all_patterns)
+            all_patterns = [p for p in all_patterns if p['url'] not in excluded_urls]
+            skipped_count = original_count - len(all_patterns)
+            if skipped_count > 0:
+                notes.append(f"Skipping {skipped_count} previously tried URL(s)")
+                yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
 
         notes.append(f"Generated {len(all_patterns)} potential URL patterns to test")
         yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
@@ -5719,7 +5763,9 @@ def research_stream():
         # Step 4: Test URLs
         yield f"data: {json.dumps({'type': 'progress', 'step': 4, 'total': 5, 'message': 'Testing URLs...', 'notes': notes})}\n\n"
 
-        for i, pattern in enumerate(all_patterns[:4]):  # Test first 4 patterns
+        # Test up to 6 patterns (more for retries since we have more options)
+        max_tests = 6 if is_retry else 4
+        for i, pattern in enumerate(all_patterns[:max_tests]):
             url = pattern['url']
             name = pattern['name']
             feed_type = pattern['feedType']
