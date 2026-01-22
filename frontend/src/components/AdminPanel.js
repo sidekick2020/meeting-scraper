@@ -988,9 +988,27 @@ function AdminPanel({ onBackToPublic }) {
             </div>
 
             {directoryLoading ? (
-              <div className="directory-loading">
-                <div className="loading-spinner"></div>
-                <p>Loading meetings...</p>
+              <div className="skeleton-directory-container">
+                <div className="skeleton-directory-table">
+                  <div className="skeleton-directory-header">
+                    <div className="skeleton-directory-header-cell"></div>
+                    <div className="skeleton-directory-header-cell"></div>
+                    <div className="skeleton-directory-header-cell"></div>
+                    <div className="skeleton-directory-header-cell"></div>
+                    <div className="skeleton-directory-header-cell"></div>
+                    <div className="skeleton-directory-header-cell"></div>
+                  </div>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <div key={i} className="skeleton-directory-row">
+                      <div className="skeleton-directory-cell name"></div>
+                      <div className="skeleton-directory-cell location"></div>
+                      <div className="skeleton-directory-cell day"></div>
+                      <div className="skeleton-directory-cell time"></div>
+                      <div className="skeleton-directory-cell type"></div>
+                      <div className="skeleton-directory-cell state"></div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : directoryMeetings.length === 0 ? (
               <div className="directory-empty">
