@@ -6,6 +6,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { DataCacheProvider } from './contexts/DataCacheContext';
 import { ParseProvider, useParse } from './contexts/ParseContext';
 import MeetingsExplorer from './components/MeetingsExplorer';
+import OnlineMeetings from './components/OnlineMeetings';
 import AdminPanel from './components/AdminPanel';
 import DeploymentIndicator from './components/DeploymentIndicator';
 import DevDocs from './components/DevDocs';
@@ -175,6 +176,28 @@ function DownloadPageWrapper() {
   );
 }
 
+function OnlineMeetingsPage() {
+  const handleAdminClick = () => {
+    window.location.href = '/?admin=1';
+  };
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  return (
+    <div className="App">
+      <DeploymentIndicator />
+      <OnlineMeetings
+        sidebarOpen={sidebarOpen}
+        onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
+      />
+      <PublicSidebar
+        onAdminClick={handleAdminClick}
+        isOpen={sidebarOpen}
+        onToggle={setSidebarOpen}
+      />
+    </div>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -184,6 +207,7 @@ function App() {
             <DataCacheProvider>
               <Routes>
                 <Route path="/" element={<AppContent />} />
+                <Route path="/online-meetings" element={<OnlineMeetingsPage />} />
                 <Route path="/docs" element={<DocsPage />} />
                 <Route path="/download" element={<DownloadPageWrapper />} />
                 <Route path="*" element={<NotFound />} />
