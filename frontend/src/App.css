@@ -3962,6 +3962,11 @@ a.sidebar-nav-item {
   margin-bottom: 0.75rem;
 }
 
+.sources-count-loading {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .source-meta {
   display: flex;
   align-items: center;
@@ -4269,6 +4274,52 @@ a.sidebar-nav-item {
 .sources-table-row:focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: -2px;
+}
+
+/* Sources Table Skeleton Loading */
+.sources-table-row.skeleton-row {
+  cursor: default;
+  pointer-events: none;
+}
+
+.sources-table-row.skeleton-row td {
+  padding: 0.875rem 1rem;
+}
+
+.skeleton-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-light) 50%, var(--bg-secondary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  flex-shrink: 0;
+}
+
+.skeleton-text {
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-light) 50%, var(--bg-secondary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-badge {
+  width: 32px;
+  height: 20px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-light) 50%, var(--bg-secondary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.skeleton-status-badge {
+  width: 80px;
+  height: 20px;
+  border-radius: 1rem;
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-light) 50%, var(--bg-secondary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
 }
 
 /* Dropdown Items (shared) */

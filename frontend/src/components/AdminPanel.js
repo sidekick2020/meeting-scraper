@@ -1050,17 +1050,51 @@ function AdminPanel({ onBackToPublic }) {
               )}
             </div>
             <div className="sources-count">
-              {sortedSources.length} of {feeds.length} source{feeds.length !== 1 ? 's' : ''}
+              {feedsLoading ? (
+                <span className="sources-count-loading">Loading sources...</span>
+              ) : (
+                <>{sortedSources.length} of {feeds.length} source{feeds.length !== 1 ? 's' : ''}</>
+              )}
             </div>
 
-            {feeds.length === 0 ? (
+            {feedsLoading ? (
+              <div className="sources-table-wrapper">
+                <table className="sources-table">
+                  <thead>
+                    <tr>
+                      <th><span>Name</span></th>
+                      <th><span>State</span></th>
+                      <th><span>Last Run</span></th>
+                      <th><span>Meetings</span></th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...Array(8)].map((_, index) => (
+                      <tr key={index} className="sources-table-row skeleton-row">
+                        <td className="source-name-cell">
+                          <div className="source-name-content">
+                            <div className="skeleton-icon"></div>
+                            <div className="skeleton-text" style={{ width: `${60 + (index % 3) * 15}%` }}></div>
+                          </div>
+                        </td>
+                        <td><div className="skeleton-badge"></div></td>
+                        <td><div className="skeleton-text" style={{ width: '70%' }}></div></td>
+                        <td><div className="skeleton-text" style={{ width: '40%' }}></div></td>
+                        <td><div className="skeleton-status-badge"></div></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : feeds.length === 0 ? (
               <div className="sources-empty">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <ellipse cx="12" cy="5" rx="9" ry="3"/>
                   <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
                   <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
                 </svg>
-                <p>Loading sources...</p>
+                <p>No sources configured</p>
               </div>
             ) : sortedSources.length === 0 ? (
               <div className="sources-empty">
