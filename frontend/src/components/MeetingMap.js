@@ -188,6 +188,10 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
   const stateDataFetchedRef = useRef(false);
   const filtersRef = useRef(filters);
   const pendingFetchRef = useRef(null);
+  const initialFetchDoneRef = useRef(false);
+  // Store callbacks in refs to avoid effect re-runs when they change
+  const onBoundsChangeRef = useRef(onBoundsChange);
+  const onZoomChangeRef = useRef(onZoomChange);
 
   // Fetch state-level data (cached, very fast)
   const fetchStateData = useCallback(async () => {
@@ -208,10 +212,18 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
     }
   }, [onStateDataLoaded, onLoadingChange]);
 
-  // Keep filtersRef updated
+  // Keep refs updated
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
+
+  useEffect(() => {
+    onBoundsChangeRef.current = onBoundsChange;
+  }, [onBoundsChange]);
+
+  useEffect(() => {
+    onZoomChangeRef.current = onZoomChange;
+  }, [onZoomChange]);
 
   const fetchHeatmapData = useCallback(async (forceRefresh = false) => {
     const bounds = map.getBounds();
@@ -318,20 +330,19 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
       const zoom = map.getZoom();
       const bounds = map.getBounds();
       const center = map.getCenter();
-      onZoomChange(zoom);
+      // Use refs to avoid triggering effect re-runs when callbacks change
+      onZoomChangeRef.current?.(zoom);
 
       // Notify parent of bounds change for meeting list sync (include center for prioritization)
-      if (onBoundsChange) {
-        onBoundsChange({
-          north: bounds.getNorth(),
-          south: bounds.getSouth(),
-          east: bounds.getEast(),
-          west: bounds.getWest(),
-          zoom: zoom,
-          center_lat: center.lat,
-          center_lng: center.lng
-        });
-      }
+      onBoundsChangeRef.current?.({
+        north: bounds.getNorth(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        west: bounds.getWest(),
+        zoom: zoom,
+        center_lat: center.lat,
+        center_lng: center.lng
+      });
 
       // Debounce the fetch
       if (fetchTimeoutRef.current) {
@@ -340,18 +351,21 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
       fetchTimeoutRef.current = setTimeout(() => fetchHeatmapData(false), 300);
     };
 
-    // Fetch state data immediately (cached)
-    fetchStateData();
+    // Only run initial fetches once, not every time callbacks change
+    if (!initialFetchDoneRef.current) {
+      initialFetchDoneRef.current = true;
 
-    // Initial fetch for clusters/meetings
-    fetchHeatmapData(false);
+      // Fetch state data immediately (cached)
+      fetchStateData();
 
-    // Trigger onBoundsChange on initial mount to populate the meeting list
-    if (onBoundsChange) {
+      // Initial fetch for clusters/meetings
+      fetchHeatmapData(false);
+
+      // Trigger onBoundsChange on initial mount to populate the meeting list
       const bounds = map.getBounds();
       const center = map.getCenter();
       const zoom = map.getZoom();
-      onBoundsChange({
+      onBoundsChangeRef.current?.({
         north: bounds.getNorth(),
         south: bounds.getSouth(),
         east: bounds.getEast(),
@@ -372,7 +386,7 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [map, fetchHeatmapData, fetchStateData, onZoomChange, onBoundsChange]);
+  }, [map, fetchHeatmapData, fetchStateData]);
 
   // Refetch when filters change
   useEffect(() => {
