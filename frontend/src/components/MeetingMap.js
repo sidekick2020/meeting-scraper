@@ -161,10 +161,10 @@ function HeatmapLayer({ clusters }) {
           blur: 20,
           maxZoom: 12,
           gradient: {
-            0.0: '#667eea',
-            0.3: '#764ba2',
-            0.6: '#f59e0b',
-            1.0: '#ef4444'
+            0.0: '#94a3b8',
+            0.3: '#78716c',
+            0.6: '#a8a29e',
+            1.0: '#57534e'
           }
         }).addTo(map);
       }
@@ -678,7 +678,7 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           className="map-tiles"
         />
 
@@ -722,7 +722,7 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
         {/* Show individual meeting markers at higher zoom levels */}
         {showIndividualMeetings && validMeetings.map((meeting, index) => {
           const isHovered = hoveredMeeting?.objectId === meeting.objectId;
-          const color = meeting.isOnline || meeting.isHybrid ? '#22c55e' : '#667eea';
+          const color = meeting.isOnline || meeting.isHybrid ? '#78716c' : '#475569';
           const icon = isHovered ? createHighlightedIcon(color) : createCustomIcon(color);
           return (
           <Marker
@@ -779,11 +779,11 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
 
       <div className="map-legend">
         <div className="legend-item">
-          <span className="legend-dot" style={{ background: '#667eea' }}></span>
+          <span className="legend-dot" style={{ background: '#475569' }}></span>
           <span>In-Person</span>
         </div>
         <div className="legend-item">
-          <span className="legend-dot" style={{ background: '#22c55e' }}></span>
+          <span className="legend-dot" style={{ background: '#78716c' }}></span>
           <span>Online/Hybrid</span>
         </div>
         {showHeatmap && showClusters && (

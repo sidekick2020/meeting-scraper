@@ -2491,7 +2491,7 @@ html, body {
   width: 60px;
   height: 12px;
   border-radius: 6px;
-  background: linear-gradient(90deg, #2f5dff 0%, #0f2ccf 33%, #f59e0b 66%, #ef4444 100%);
+  background: linear-gradient(90deg, #94a3b8 0%, #78716c 33%, #a8a29e 66%, #57534e 100%);
 }
 
 /* Map Popup */
@@ -2549,19 +2549,19 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
   color: white;
   font-weight: 600;
   border-radius: 50%;
   border: 3px solid white;
-  box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4), 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 3px 10px rgba(71, 85, 105, 0.4), 0 1px 3px rgba(0, 0, 0, 0.2);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .cluster-marker-inner:hover {
   transform: scale(1.1);
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5), 0 2px 5px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 15px rgba(71, 85, 105, 0.5), 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 
 /* Cluster Popup */
@@ -2601,7 +2601,7 @@ html, body {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: 2px solid #667eea;
+  border: 2px solid #475569;
   animation: marker-pulse 1.5s ease-out infinite;
 }
 
@@ -2611,8 +2611,8 @@ html, body {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: 4px solid #667eea;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(102, 126, 234, 0.4);
+  border: 4px solid #475569;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(71, 85, 105, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2623,7 +2623,7 @@ html, body {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #667eea;
+  background: #475569;
 }
 
 @keyframes marker-pulse {
@@ -2660,11 +2660,11 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #64748b 0%, #334155 100%);
   color: white;
   border-radius: 50%;
   border: 3px solid white;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4), 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(51, 65, 85, 0.4), 0 2px 4px rgba(0, 0, 0, 0.2);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   padding: 4px;
@@ -2672,7 +2672,7 @@ html, body {
 
 .state-marker-inner:hover {
   transform: scale(1.15);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5), 0 3px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 20px rgba(51, 65, 85, 0.5), 0 3px 8px rgba(0, 0, 0, 0.3);
 }
 
 .state-marker-inner .state-code {
@@ -2702,7 +2702,7 @@ html, body {
 
 .state-popup-count {
   font-size: 0.9rem;
-  color: #3b82f6;
+  color: #475569;
   font-weight: 600;
 }
 
@@ -5152,7 +5152,7 @@ a.sidebar-nav-item {
 .state-heatmap-legend .legend-gradient {
   width: 120px;
   height: 8px;
-  background: linear-gradient(to right, #667eea, #764ba2, #f59e0b, #ef4444);
+  background: linear-gradient(to right, #94a3b8, #78716c, #a8a29e, #57534e);
   border-radius: 4px;
 }
 
