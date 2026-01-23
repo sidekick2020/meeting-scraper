@@ -114,18 +114,74 @@ coverage_gaps_cache = CacheManager('coverage_gaps', ttl_seconds=300, max_entries
 feeds_cache = CacheManager('feeds', ttl_seconds=600, max_entries=5)  # 10 min TTL for feeds (rarely changes)
 meetings_count_cache = CacheManager('meetings_count', ttl_seconds=120, max_entries=50)  # 2 min TTL for meeting counts
 
+# =============================================================================
+# PARSE/BACK4APP INITIALIZATION WITH LOGGING
+# =============================================================================
+parse_init_log = []
+
+def log_parse_init(message, level="info"):
+    """Log a Parse initialization message with timestamp."""
+    entry = {
+        "timestamp": datetime.now().isoformat(),
+        "level": level,
+        "message": message
+    }
+    parse_init_log.append(entry)
+    print(f"[PARSE-INIT] [{level.upper()}] {message}")
+
+log_parse_init("Starting Parse/Back4App initialization...")
+
 # Back4app Configuration - read from environment variables
 # NOTE: These must be defined BEFORE back4app_session which uses them in headers
 BACK4APP_APP_ID = os.environ.get('BACK4APP_APP_ID')
 BACK4APP_REST_KEY = os.environ.get('BACK4APP_REST_KEY')
 BACK4APP_URL = "https://parseapi.back4app.com/classes/Meetings"
 
+# Log environment variable status
+log_parse_init(f"BACK4APP_APP_ID from env: {'SET (' + BACK4APP_APP_ID[:8] + '...)' if BACK4APP_APP_ID else 'NOT SET'}")
+log_parse_init(f"BACK4APP_REST_KEY from env: {'SET (' + BACK4APP_REST_KEY[:8] + '...)' if BACK4APP_REST_KEY else 'NOT SET'}")
+log_parse_init(f"BACK4APP_URL: {BACK4APP_URL}")
+
 # HTTP Session for connection pooling - reuse connections to Back4app
 back4app_session = requests.Session()
+session_app_id = BACK4APP_APP_ID or ""
+session_rest_key = BACK4APP_REST_KEY or ""
 back4app_session.headers.update({
-    "X-Parse-Application-Id": BACK4APP_APP_ID or "",
-    "X-Parse-REST-API-Key": BACK4APP_REST_KEY or "",
+    "X-Parse-Application-Id": session_app_id,
+    "X-Parse-REST-API-Key": session_rest_key,
 })
+
+# Log session header status
+log_parse_init(f"Session X-Parse-Application-Id header: {'SET (' + session_app_id[:8] + '...)' if session_app_id else 'EMPTY'}")
+log_parse_init(f"Session X-Parse-REST-API-Key header: {'SET (' + session_rest_key[:8] + '...)' if session_rest_key else 'EMPTY'}")
+
+# Test the connection at startup
+def test_back4app_connection():
+    """Test Back4App connection and log result."""
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        log_parse_init("Skipping connection test - credentials not configured", "warning")
+        return False
+
+    try:
+        log_parse_init("Testing Back4App connection...")
+        test_url = f"{BACK4APP_URL}?limit=1"
+        response = back4app_session.get(test_url, timeout=10)
+
+        if response.status_code == 200:
+            data = response.json()
+            count = len(data.get('results', []))
+            log_parse_init(f"Connection test SUCCESS - status {response.status_code}, got {count} result(s)", "success")
+            return True
+        else:
+            log_parse_init(f"Connection test FAILED - status {response.status_code}, response: {response.text[:200]}", "error")
+            return False
+    except Exception as e:
+        log_parse_init(f"Connection test EXCEPTION: {type(e).__name__}: {str(e)}", "error")
+        return False
+
+# Run connection test at startup
+parse_connection_ok = test_back4app_connection()
+log_parse_init(f"Initialization complete. Connection OK: {parse_connection_ok}")
 
 # Fields to return for meeting listings (reduces payload size by ~60%)
 MEETING_LIST_FIELDS = "objectId,name,day,time,city,state,latitude,longitude,locationName,meetingType,isOnline,isHybrid,format,address,thumbnailUrl"
@@ -2606,6 +2662,62 @@ def get_config():
         "configured": bool(BACK4APP_APP_ID and BACK4APP_REST_KEY),
         "hasAppId": bool(BACK4APP_APP_ID),
         "hasRestKey": bool(BACK4APP_REST_KEY)
+    })
+
+@app.route('/api/parse-diagnostics', methods=['GET'])
+def get_parse_diagnostics():
+    """Get Parse/Back4App initialization diagnostics for debugging."""
+    # Re-test connection on demand
+    current_test = {
+        "timestamp": datetime.now().isoformat(),
+        "level": "info",
+        "message": "Running live connection test..."
+    }
+
+    test_result = None
+    try:
+        if BACK4APP_APP_ID and BACK4APP_REST_KEY:
+            test_url = f"{BACK4APP_URL}?limit=1"
+            response = back4app_session.get(test_url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                test_result = {
+                    "success": True,
+                    "status_code": response.status_code,
+                    "results_count": len(data.get('results', [])),
+                    "message": "Connection successful"
+                }
+            else:
+                test_result = {
+                    "success": False,
+                    "status_code": response.status_code,
+                    "response_text": response.text[:500],
+                    "message": f"HTTP {response.status_code}"
+                }
+        else:
+            test_result = {
+                "success": False,
+                "message": "Credentials not configured"
+            }
+    except Exception as e:
+        test_result = {
+            "success": False,
+            "message": f"{type(e).__name__}: {str(e)}"
+        }
+
+    return jsonify({
+        "initialization_log": parse_init_log,
+        "current_state": {
+            "BACK4APP_APP_ID": f"{BACK4APP_APP_ID[:8]}..." if BACK4APP_APP_ID else None,
+            "BACK4APP_REST_KEY": f"{BACK4APP_REST_KEY[:8]}..." if BACK4APP_REST_KEY else None,
+            "BACK4APP_URL": BACK4APP_URL,
+            "session_headers": {
+                "X-Parse-Application-Id": back4app_session.headers.get("X-Parse-Application-Id", "")[:12] + "..." if back4app_session.headers.get("X-Parse-Application-Id") else "EMPTY",
+                "X-Parse-REST-API-Key": back4app_session.headers.get("X-Parse-REST-API-Key", "")[:12] + "..." if back4app_session.headers.get("X-Parse-REST-API-Key") else "EMPTY",
+            },
+            "initial_connection_ok": parse_connection_ok
+        },
+        "live_test": test_result
     })
 
 @app.route('/api/config', methods=['POST'])

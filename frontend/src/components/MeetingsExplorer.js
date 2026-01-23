@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import MeetingMap from './MeetingMap';
 import MeetingDetail from './MeetingDetail';
+import ParseDiagnostics from './ParseDiagnostics';
 import { SidebarToggleButton } from './PublicSidebar';
 import { useDataCache } from '../contexts/DataCacheContext';
 import { useParse } from '../contexts/ParseContext';
@@ -196,6 +197,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const [isLoading, setIsLoading] = useState(!cachedMeetings?.data);
   const [error, setError] = useState(null);
   const [isMapCollapsed, setIsMapCollapsed] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   // Derive configStatus from Parse context (maps to legacy status values for UI compatibility)
   const configStatus = useMemo(() => {
@@ -2207,9 +2209,14 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
               ) : (
                 <p>{error}</p>
               )}
-              <button className="btn btn-primary" onClick={() => fetchMeetings()}>
-                Try Again
-              </button>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button className="btn btn-primary" onClick={() => fetchMeetings()}>
+                  Try Again
+                </button>
+                <button className="btn btn-secondary" onClick={() => setShowDiagnostics(true)}>
+                  View Diagnostics
+                </button>
+              </div>
             </div>
           ) : filteredMeetings.length === 0 && mapMeetingCount === 0 && !isLoading && !isLoadingMore && !hasMore ? (
             <div className="list-empty">
@@ -2678,6 +2685,12 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
           </div>
         </>
       )}
+
+      {/* Parse Diagnostics Modal */}
+      <ParseDiagnostics
+        isOpen={showDiagnostics}
+        onClose={() => setShowDiagnostics(false)}
+      />
     </div>
   );
 }

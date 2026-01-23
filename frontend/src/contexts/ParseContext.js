@@ -22,20 +22,37 @@ let isInitialized = false;
 let initializationError = null;
 let initialConnectionStatus = 'not_configured';
 
+// Initialization log for diagnostics
+const frontendInitLog = [];
+
+function logInit(message, level = 'info') {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level,
+    message
+  };
+  frontendInitLog.push(entry);
+  console.log(`[PARSE-FRONTEND] [${level.toUpperCase()}] ${message}`);
+}
+
+logInit('Starting frontend Parse SDK initialization...');
+logInit(`REACT_APP_BACK4APP_APP_ID: ${PARSE_APP_ID ? 'SET (' + PARSE_APP_ID.substring(0, 8) + '...)' : 'NOT SET'}`);
+logInit(`REACT_APP_BACK4APP_JS_KEY: ${PARSE_JS_KEY ? 'SET (' + PARSE_JS_KEY.substring(0, 8) + '...)' : 'NOT SET'}`);
+logInit(`PARSE_SERVER_URL: ${PARSE_SERVER_URL}`);
+
 function initializeParse() {
   if (isInitialized) return true;
 
   if (!PARSE_APP_ID || !PARSE_JS_KEY) {
-    console.warn(
-      'Parse SDK not initialized: Missing REACT_APP_BACK4APP_APP_ID or REACT_APP_BACK4APP_JS_KEY environment variables. ' +
-      'The app will continue to work via the backend API proxy.'
-    );
+    logInit('Parse SDK not initialized: Missing environment variables', 'warning');
+    logInit('App will continue via backend API proxy', 'info');
     initializationError = new Error('Missing Parse configuration');
     initialConnectionStatus = 'not_configured';
     return false;
   }
 
   try {
+    logInit('Calling Parse.initialize()...');
     Parse.initialize(PARSE_APP_ID, PARSE_JS_KEY);
     Parse.serverURL = PARSE_SERVER_URL;
 
@@ -44,10 +61,10 @@ function initializeParse() {
 
     isInitialized = true;
     initialConnectionStatus = 'connected';
-    console.log('Parse SDK initialized successfully');
+    logInit('Parse SDK initialized successfully', 'success');
     return true;
   } catch (error) {
-    console.error('Failed to initialize Parse SDK:', error);
+    logInit(`Failed to initialize Parse SDK: ${error.message}`, 'error');
     initializationError = error;
     initialConnectionStatus = 'error';
     return false;
@@ -57,6 +74,7 @@ function initializeParse() {
 // Initialize immediately when this module is imported
 // This ensures Parse is ready before any React component mounts
 initializeParse();
+logInit(`Initialization complete. Status: ${initialConnectionStatus}`);
 
 /**
  * ParseProvider - Provides Parse SDK access to React components
@@ -192,6 +210,27 @@ export function isParseAvailable() {
  */
 export function getParseInstance() {
   return isInitialized ? Parse : null;
+}
+
+/**
+ * Get frontend initialization log for diagnostics
+ */
+export function getFrontendInitLog() {
+  return {
+    log: [...frontendInitLog],
+    state: {
+      isInitialized,
+      connectionStatus: initialConnectionStatus,
+      error: initializationError?.message || null,
+      config: {
+        hasAppId: !!PARSE_APP_ID,
+        hasJsKey: !!PARSE_JS_KEY,
+        serverUrl: PARSE_SERVER_URL,
+        appIdPrefix: PARSE_APP_ID ? PARSE_APP_ID.substring(0, 8) + '...' : null,
+        jsKeyPrefix: PARSE_JS_KEY ? PARSE_JS_KEY.substring(0, 8) + '...' : null,
+      }
+    }
+  };
 }
 
 export default ParseContext;
