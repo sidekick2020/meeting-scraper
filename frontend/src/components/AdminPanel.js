@@ -14,7 +14,6 @@ import CoverageAnalysis from './CoverageAnalysis';
 import DevDocs from './DevDocs';
 import FeedDetailPanel from './FeedDetailPanel';
 import TasksPanel from './TasksPanel';
-import SubmissionsPanel from './SubmissionsPanel';
 import IntergroupResearchPanel from './IntergroupResearchPanel';
 import { SourceCreationPanel } from './SourceCreation';
 
@@ -686,12 +685,6 @@ function AdminPanel({ onBackToPublic }) {
         <path d="M21 21l-4.35-4.35"/>
       </svg>
     )},
-    { id: 'submissions', label: 'Submissions', icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M22 2L11 13"/>
-        <path d="M22 2L15 22l-4-9-9-4 20-7z"/>
-      </svg>
-    )},
     { id: 'history', label: 'History', icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="12" cy="12" r="10"/>
@@ -856,9 +849,6 @@ function AdminPanel({ onBackToPublic }) {
             onToggleExpand={() => setResearchPanelExpanded(!researchPanelExpanded)}
           />
         );
-
-      case 'submissions':
-        return <SubmissionsPanel />;
 
       case 'history':
         return <ScrapeHistory />;
