@@ -1,5 +1,5 @@
-**Deployment Indicator False Positives**: Fixed deployment indicator appearing when no deployment is occurring
-- Increased failure thresholds to be more tolerant of Render cold starts and network hiccups
-- Increased backend timeout from 15s to 20s to handle slow cold starts
-- Fixed interval not resetting to normal speed after connection recovers
-- Indicator now requires 30+ seconds of failures before showing deployment status
+**Deployment Indicator Simplified**: Removed complex polling loop that caused false positives
+- Removed continuous 5-second polling and failure threshold logic
+- Single 60-second check for version updates (not aggressive polling)
+- Indicator only appears when an actual update is available
+- No more "deployment in progress" false positives from network hiccups
