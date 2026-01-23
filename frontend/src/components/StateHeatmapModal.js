@@ -93,10 +93,10 @@ function HeatmapLayer({ clusters }) {
           blur: 15,
           maxZoom: 12,
           gradient: {
-            0.0: '#667eea',
-            0.3: '#764ba2',
-            0.6: '#f59e0b',
-            1.0: '#ef4444'
+            0.0: '#94a3b8',
+            0.3: '#78716c',
+            0.6: '#a8a29e',
+            1.0: '#57534e'
           }
         }).addTo(map);
       }
@@ -287,7 +287,7 @@ function StateHeatmapModal({ state, onClose, avgCoverage }) {
             >
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
               />
 
               <StateMapController
