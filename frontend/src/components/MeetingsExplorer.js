@@ -307,6 +307,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const thumbnailRequestsRef = useRef(new Set());
   const initialFetchDoneRef = useRef(false);
   const meetingsRef = useRef(cachedMeetings?.data || []);
+  // Track the bounds we've auto-fetched for to prevent duplicate fetches
+  const autoFetchedBoundsRef = useRef(null);
   const loadMoreSentinelRef = useRef(null);
 
   // Fetch thumbnail for a single meeting with timeout
@@ -659,54 +661,30 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     initNetworkSpeed();
   }, []);
 
-  // Initial data fetch - run only once after connection is established, skip if cached
-  // Note: Backend config status now comes from ParseContext (no separate fetch needed)
-  //
-  // IMPORTANT: This effect uses isEffectActive to handle React Strict Mode properly.
-  // In Strict Mode, effects run twice (mount -> cleanup -> mount). We must:
-  // 1. Track if the effect is still active before updating state
-  // 2. Only set initialFetchDoneRef AFTER fetch completes, not before
-  // 3. Provide cleanup to prevent stale state updates
+  // Mark initial setup as done when connection is ready
+  // Note: We don't fetch meetings without bounds here - instead, we rely on:
+  // 1. handleMapBoundsChange to fetch meetings when the map initializes with bounds
+  // 2. The auto-fetch effect to ensure meetings are loaded when the map has data
+  // This prevents race conditions where a no-bounds fetch could overwrite bounds-filtered results.
   useEffect(() => {
-    // Track if this effect instance is still active (not cleaned up)
-    let isEffectActive = true;
-
-    // Skip if we've already completed an initial fetch
+    // Skip if we've already marked as done
     if (initialFetchDoneRef.current) return;
 
-    // Wait for connection status to resolve before fetching
-    // This prevents fetch attempts before the backend connection is verified
+    // Wait for connection status to resolve
     if (!isConnectionReady) {
-      // Connection still initializing - wait for it to resolve
       return;
     }
 
-    // If we have cached meetings, mark as done and skip fetch
+    // If we have cached meetings, use them
     if (cachedMeetings?.data && cachedMeetings.data.length > 0) {
       initialFetchDoneRef.current = true;
       return;
     }
 
-    // Perform the initial fetch
-    const doInitialFetch = async () => {
-      try {
-        await fetchMeetings();
-      } finally {
-        // Only mark as done if this effect instance is still active
-        // This prevents issues with React Strict Mode double-mounting
-        if (isEffectActive) {
-          initialFetchDoneRef.current = true;
-        }
-      }
-    };
-
-    doInitialFetch();
-
-    // Cleanup: mark effect as inactive to prevent stale state updates
-    return () => {
-      isEffectActive = false;
-    };
-  }, [fetchMeetings, cachedMeetings, isConnectionReady]);
+    // Mark as done - let bounds-based fetching take over
+    // The map's onBoundsChange callback and auto-fetch effect will load meetings
+    initialFetchDoneRef.current = true;
+  }, [cachedMeetings, isConnectionReady]);
 
   // Infinite scroll - load more meetings when sentinel becomes visible
   useEffect(() => {
@@ -742,15 +720,24 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     // - List is empty but map has meetings
     // - We have bounds to fetch with
     // - Not currently loading
-    // - Initial fetch has completed
     if (
       meetings.length === 0 &&
       mapMeetingCount > 0 &&
       mapBounds &&
       !isLoading &&
-      !isLoadingMore &&
-      initialFetchDoneRef.current
+      !isLoadingMore
     ) {
+      // Create a bounds key to track if we've already fetched for these bounds
+      const boundsKey = `${mapBounds.north.toFixed(2)},${mapBounds.south.toFixed(2)},${mapBounds.east.toFixed(2)},${mapBounds.west.toFixed(2)}`;
+
+      // Skip if we've already auto-fetched for these bounds
+      if (autoFetchedBoundsRef.current === boundsKey) {
+        return;
+      }
+
+      // Mark these bounds as fetched
+      autoFetchedBoundsRef.current = boundsKey;
+
       // Build filters from current state
       const filters = {};
       if (showTodayOnly) {
