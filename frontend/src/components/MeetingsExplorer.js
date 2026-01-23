@@ -5,16 +5,6 @@ import ParseDiagnostics from './ParseDiagnostics';
 import { SidebarToggleButton } from './PublicSidebar';
 import { useDataCache } from '../contexts/DataCacheContext';
 import { useParse } from '../contexts/ParseContext';
-import {
-  measureNetworkSpeed,
-  calculateBatchSize,
-  calculateParallelRequests,
-  updateSpeedFromRequest,
-  getNetworkInfo,
-  categorizeSpeed,
-  fetchWithTimeout,
-  calculateThumbnailBatchSize,
-} from '../utils/networkSpeed';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -238,20 +228,11 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const daysDropdownRef = useRef(null);
   const typesDropdownRef = useRef(null);
 
-  // Pagination with adaptive batch sizing - restore total from cache
+  // Pagination - simple limit of 50
   const [totalMeetings, setTotalMeetings] = useState(cachedTotal?.data || 0);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-
-  // Network-adaptive batch loading state
-  const [batchSize, setBatchSize] = useState(50); // Default 50 for pagination, may adjust based on network
-  const [networkSpeed, setNetworkSpeed] = useState(null);
-  const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0, percentage: 0 });
-  const networkInitializedRef = useRef(false);
 
   // Map bounds for dynamic loading
   const [mapBounds, setMapBounds] = useState(null);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   // Target location for map pan/zoom when user selects a location from search
   const [targetLocation, setTargetLocation] = useState(null);
   // Map center location name from reverse geocoding
@@ -305,50 +286,35 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
 
   const listRef = useRef(null);
   const thumbnailRequestsRef = useRef(new Set());
-  const initialFetchDoneRef = useRef(false);
-  const meetingsRef = useRef(cachedMeetings?.data || []);
-  // Track the bounds we've auto-fetched for to prevent duplicate fetches
-  const autoFetchedBoundsRef = useRef(null);
-  const loadMoreSentinelRef = useRef(null);
 
-  // Fetch thumbnail for a single meeting with timeout
+  // Fetch thumbnail for a single meeting
   const fetchThumbnail = useCallback(async (meetingId) => {
     if (thumbnailRequestsRef.current.has(meetingId)) return null;
     thumbnailRequestsRef.current.add(meetingId);
 
     try {
-      const response = await fetchWithTimeout(`${BACKEND_URL}/api/thumbnail/${meetingId}`, {}, 10000);
+      const response = await fetch(`${BACKEND_URL}/api/thumbnail/${meetingId}`);
       if (response.ok) {
         const data = await response.json();
         return { meetingId, thumbnailUrl: data.thumbnailUrl };
       }
     } catch (error) {
-      // Don't log timeout errors as they're expected on slow connections
-      if (error.name !== 'TimeoutError') {
-        console.error(`Error fetching thumbnail for ${meetingId}:`, error);
-      }
+      console.error(`Error fetching thumbnail for ${meetingId}:`, error);
     }
     return null;
   }, []);
 
-  // Request thumbnails for meetings without them (batched with adaptive sizing)
+  // Request thumbnails for meetings without them (batch of 20)
   const requestMissingThumbnails = useCallback(async (meetingsList) => {
-    // Calculate adaptive batch size based on network speed
-    const thumbnailBatchSize = networkSpeed
-      ? calculateThumbnailBatchSize(networkSpeed)
-      : 20; // Default to 20 if network speed not yet measured
-
     const meetingsWithoutThumbnails = meetingsList
       .filter(m => !m.thumbnailUrl && m.objectId && !thumbnailRequestsRef.current.has(m.objectId))
-      .slice(0, thumbnailBatchSize); // Adaptive batch size (10-100 based on network)
+      .slice(0, 20);
 
     if (meetingsWithoutThumbnails.length === 0) return;
 
-    // Fetch thumbnails in parallel (with limit)
     const thumbnailPromises = meetingsWithoutThumbnails.map(m => fetchThumbnail(m.objectId));
     const results = await Promise.all(thumbnailPromises);
 
-    // Update meetings with new thumbnails
     const thumbnailMap = {};
     results.forEach(result => {
       if (result?.thumbnailUrl) {
@@ -361,402 +327,84 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         thumbnailMap[m.objectId] ? { ...m, thumbnailUrl: thumbnailMap[m.objectId] } : m
       ));
     }
-  }, [fetchThumbnail, networkSpeed]);
+  }, [fetchThumbnail]);
 
-  // Build URL with filters for meeting fetch
-  const buildMeetingsUrl = useCallback((currentBatchSize, skip, bounds, stateFilter, filters) => {
-    let url = `${BACKEND_URL}/api/meetings?limit=${currentBatchSize}&skip=${skip}`;
+  // Simple fetch function - fetches meetings based on bounds and filters, limit 50
+  const fetchMeetings = useCallback(async (bounds) => {
+    if (!bounds) return;
 
-    // Add bounds parameters if provided (including center for distance-based sorting)
-    if (bounds) {
-      url += `&north=${bounds.north}&south=${bounds.south}&east=${bounds.east}&west=${bounds.west}`;
-      // Add center coordinates for prioritizing results by proximity
-      if (bounds.center_lat !== undefined && bounds.center_lng !== undefined) {
-        url += `&center_lat=${bounds.center_lat}&center_lng=${bounds.center_lng}`;
-      }
-    }
-
-    // Add state filter if provided (from param or filters object)
-    if (stateFilter && stateFilter.length > 0) {
-      url += `&state=${encodeURIComponent(stateFilter[0])}`;
-    } else if (filters.state) {
-      url += `&state=${encodeURIComponent(filters.state)}`;
-    }
-
-    // Add day filter
-    if (filters.day !== undefined && filters.day !== null) {
-      url += `&day=${filters.day}`;
-    }
-
-    // Add type filter
-    if (filters.type) {
-      url += `&type=${encodeURIComponent(filters.type)}`;
-    }
-
-    // Add city filter
-    if (filters.city) {
-      url += `&city=${encodeURIComponent(filters.city)}`;
-    }
-
-    // Add online/hybrid filters
-    if (filters.online) {
-      url += `&online=true`;
-    }
-    if (filters.hybrid) {
-      url += `&hybrid=true`;
-    }
-
-    return url;
-  }, []);
-
-  const fetchMeetings = useCallback(async (options = {}) => {
-    const { bounds = null, loadMore = false, stateFilter = null, reset = false, filters = {}, bulkLoad = false } = options;
-
-    if (loadMore) {
-      setIsLoadingMore(true);
-    } else if (bounds && !reset) {
-      setIsLoadingMore(true);
-    } else {
-      setIsLoading(true);
-    }
+    setIsLoading(true);
     setError(null);
 
     try {
-      // Get current network-optimized batch size
-      const currentBatchSize = batchSize;
+      // Build URL with bounds (required) and limit of 50
+      let url = `${BACKEND_URL}/api/meetings?limit=50`;
+      url += `&north=${bounds.north}&south=${bounds.south}&east=${bounds.east}&west=${bounds.west}`;
 
-      // Use ref for skip to avoid dependency on meetings.length
-      const skip = loadMore ? meetingsRef.current.length : 0;
-
-      // For bulk loading, use parallel requests if network is fast enough
-      if (bulkLoad && networkSpeed) {
-        const parallelCount = calculateParallelRequests(networkSpeed);
-
-        if (parallelCount > 1) {
-          // Fetch multiple batches in parallel
-          const batchPromises = [];
-          for (let i = 0; i < parallelCount; i++) {
-            const batchSkip = skip + (i * currentBatchSize);
-            const url = buildMeetingsUrl(currentBatchSize, batchSkip, bounds, stateFilter, filters);
-            const startTime = performance.now();
-            batchPromises.push(
-              fetchWithTimeout(url, {}, 15000).then(async (response) => {
-                const endTime = performance.now();
-                if (response.ok) {
-                  const data = await response.json();
-                  // Update network speed estimate based on actual performance
-                  const responseSize = JSON.stringify(data).length;
-                  updateSpeedFromRequest(responseSize, endTime - startTime);
-                  return { skip: batchSkip, data };
-                }
-                return { skip: batchSkip, data: { meetings: [], total: 0 } };
-              }).catch(() => ({ skip: batchSkip, data: { meetings: [], total: 0 } }))
-            );
-          }
-
-          const results = await Promise.all(batchPromises);
-          // Sort by skip to maintain order
-          results.sort((a, b) => a.skip - b.skip);
-
-          // Combine all results
-          const allNewMeetings = [];
-          let total = 0;
-          results.forEach(({ data }) => {
-            allNewMeetings.push(...(data.meetings || []));
-            total = Math.max(total, data.total || 0);
-          });
-
-          setTotalMeetings(total);
-          const totalLoaded = skip + allNewMeetings.length;
-          setHasMore(totalLoaded < total);
-
-          // Update progress
-          setLoadingProgress({
-            loaded: totalLoaded,
-            total,
-            percentage: total > 0 ? Math.round((totalLoaded / total) * 100) : 0
-          });
-
-          if (loadMore) {
-            setMeetings(prev => {
-              const existingIds = new Set(prev.map(m => m.objectId));
-              const uniqueNew = allNewMeetings.filter(m => !existingIds.has(m.objectId));
-              const updated = [...prev, ...uniqueNew];
-              meetingsRef.current = updated;
-              return updated;
-            });
-            setCurrentPage(prev => prev + parallelCount);
-          } else {
-            meetingsRef.current = allNewMeetings;
-            setMeetings(allNewMeetings);
-            setCurrentPage(0);
-
-            if (bounds) {
-              const cities = [...new Set(allNewMeetings.map(m => m.city).filter(Boolean))].sort();
-              setAvailableCities(cities);
-            }
-          }
-
-          // Extract unique values (only on initial load without bounds)
-          if (!bounds && !loadMore) {
-            const states = [...new Set(allNewMeetings.map(m => m.state).filter(Boolean))].sort();
-            setAvailableStates(states);
-
-            const cities = [...new Set(allNewMeetings.map(m => m.city).filter(Boolean))].sort();
-            setAvailableCities(cities);
-
-            const allTypes = Object.keys(MEETING_TYPES).filter(t => t !== 'Other');
-            allTypes.push('Other');
-            setAvailableTypes(allTypes);
-
-            const formats = [...new Set(allNewMeetings.map(m => m.format).filter(Boolean))].sort();
-            setAvailableFormats(formats);
-          }
-
-          setIsLoading(false);
-          setIsLoadingMore(false);
-          return;
-        }
+      // Add center for distance-based sorting
+      if (bounds.center_lat !== undefined && bounds.center_lng !== undefined) {
+        url += `&center_lat=${bounds.center_lat}&center_lng=${bounds.center_lng}`;
       }
 
-      // Standard single batch fetch with timeout
-      const url = buildMeetingsUrl(currentBatchSize, skip, bounds, stateFilter, filters);
-      const startTime = performance.now();
-      const response = await fetchWithTimeout(url, {}, 15000);
-      const endTime = performance.now();
+      // Add filters if present
+      if (selectedStates.length > 0) {
+        url += `&state=${encodeURIComponent(selectedStates[0])}`;
+      }
+      if (showTodayOnly) {
+        url += `&day=${new Date().getDay()}`;
+      } else if (selectedDays.length === 1) {
+        url += `&day=${selectedDays[0]}`;
+      }
+      if (selectedTypes.length === 1) {
+        url += `&type=${encodeURIComponent(selectedTypes[0])}`;
+      }
+      if (selectedCity) {
+        url += `&city=${encodeURIComponent(selectedCity)}`;
+      }
+      if (showOnlineOnly) {
+        url += `&online=true`;
+      }
+      if (showHybridOnly) {
+        url += `&hybrid=true`;
+      }
+      if (selectedFormat) {
+        url += `&format=${encodeURIComponent(selectedFormat)}`;
+      }
+
+      const response = await fetch(url);
 
       if (response.ok) {
         const data = await response.json();
         const newMeetings = data.meetings || [];
         const total = data.total || newMeetings.length;
 
-        // Update network speed estimate based on actual performance
-        const responseSize = JSON.stringify(data).length;
-        updateSpeedFromRequest(responseSize, endTime - startTime);
-
-        // Update batch size based on new speed estimate
-        const networkInfo = getNetworkInfo();
-        const newBatchSize = networkInfo.batchSize;
-        if (newBatchSize !== currentBatchSize) {
-          setBatchSize(newBatchSize);
-        }
-
         setTotalMeetings(total);
-        setHasMore(skip + newMeetings.length < total);
+        setMeetings(newMeetings);
 
-        // Update progress
-        setLoadingProgress({
-          loaded: skip + newMeetings.length,
-          total,
-          percentage: total > 0 ? Math.round(((skip + newMeetings.length) / total) * 100) : 0
-        });
+        // Update available cities from results
+        const cities = [...new Set(newMeetings.map(m => m.city).filter(Boolean))].sort();
+        setAvailableCities(cities);
 
-        if (loadMore) {
-          // Append new meetings
-          setMeetings(prev => {
-            const existingIds = new Set(prev.map(m => m.objectId));
-            const uniqueNew = newMeetings.filter(m => !existingIds.has(m.objectId));
-            const updated = [...prev, ...uniqueNew];
-            meetingsRef.current = updated;
-            return updated;
-          });
-          setCurrentPage(prev => prev + 1);
-        } else if (bounds) {
-          // Accumulate meetings when exploring new areas - merge with existing
-          setMeetings(prev => {
-            const existingIds = new Set(prev.map(m => m.objectId));
-            const uniqueNew = newMeetings.filter(m => !existingIds.has(m.objectId));
-            const updated = [...prev, ...uniqueNew];
-            meetingsRef.current = updated;
-            return updated;
-          });
-
-          // Update available cities from current results
-          const cities = [...new Set(newMeetings.map(m => m.city).filter(Boolean))].sort();
-          setAvailableCities(prev => {
-            const combined = new Set([...prev, ...cities]);
-            return [...combined].sort();
-          });
-        } else if (reset) {
-          // Only reset when explicitly requested (not on bounds change)
-          meetingsRef.current = newMeetings;
-          setMeetings(newMeetings);
-          setCurrentPage(0);
-        } else {
-          meetingsRef.current = newMeetings;
-          setMeetings(newMeetings);
-          setCurrentPage(0);
-        }
-
-        // Extract unique values (only on initial load without bounds)
-        if (!bounds && !loadMore) {
-          const states = [...new Set(newMeetings.map(m => m.state).filter(Boolean))].sort();
-          setAvailableStates(states);
-
-          const cities = [...new Set(newMeetings.map(m => m.city).filter(Boolean))].sort();
-          setAvailableCities(cities);
-
-          // Always show all defined meeting types, with 'Other' at the end
-          const allTypes = Object.keys(MEETING_TYPES).filter(t => t !== 'Other');
-          allTypes.push('Other');
-          setAvailableTypes(allTypes);
-
-          const formats = [...new Set(newMeetings.map(m => m.format).filter(Boolean))].sort();
-          setAvailableFormats(formats);
-        }
+        // Set available types (all defined types)
+        const allTypes = Object.keys(MEETING_TYPES).filter(t => t !== 'Other');
+        allTypes.push('Other');
+        setAvailableTypes(allTypes);
       } else {
-        if (!bounds && !loadMore) setError('Failed to load meetings');
+        setError('Failed to load meetings');
       }
     } catch (err) {
-      if (!bounds && !loadMore) setError('Unable to connect to server');
+      setError('Unable to connect to server');
     } finally {
       setIsLoading(false);
-      setIsLoadingMore(false);
     }
-  }, [batchSize, networkSpeed, buildMeetingsUrl]);
+  }, [selectedStates, selectedDays, selectedTypes, selectedCity, showOnlineOnly, showHybridOnly, showTodayOnly, selectedFormat]);
 
-  const loadMoreMeetings = useCallback(() => {
-    if (!isLoadingMore && hasMore) {
-      // Build filters from current state
-      const filters = {};
-      if (showTodayOnly) {
-        filters.day = new Date().getDay();
-      } else if (selectedDays.length === 1) {
-        const dayIndex = dayNames.indexOf(selectedDays[0]);
-        if (dayIndex !== -1) filters.day = dayIndex;
-      }
-      if (selectedTypes.length === 1) filters.type = selectedTypes[0];
-      if (selectedStates.length === 1) filters.state = selectedStates[0];
-      if (showOnlineOnly) filters.online = true;
-      if (showHybridOnly) filters.hybrid = true;
-      if (selectedCity) filters.city = selectedCity;
-      if (selectedFormat) filters.format = selectedFormat;
-
-      // Use bulk loading with parallel requests for faster loading
-      fetchMeetings({ loadMore: true, bounds: mapBounds, filters, bulkLoad: true });
-    }
-  }, [fetchMeetings, isLoadingMore, hasMore, mapBounds, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity, selectedFormat]);
-
-  // Initialize network speed detection
-  // Small batch size of 5 for faster initial load with infinite scroll
-  const MIN_PAGINATION_BATCH_SIZE = 5;
+  // Fetch meetings when bounds or filters change
   useEffect(() => {
-    if (networkInitializedRef.current) return;
-    networkInitializedRef.current = true;
-
-    const initNetworkSpeed = async () => {
-      try {
-        const speed = await measureNetworkSpeed();
-        setNetworkSpeed(speed);
-        // Use network-optimized batch size but ensure minimum of 50 for pagination
-        const optimalBatch = Math.max(calculateBatchSize(speed), MIN_PAGINATION_BATCH_SIZE);
-        setBatchSize(optimalBatch);
-        console.log(`Network speed: ${speed.toFixed(2)} Mbps, using batch size: ${optimalBatch}`);
-      } catch (err) {
-        console.warn('Failed to measure network speed, using default batch size');
-        setBatchSize(MIN_PAGINATION_BATCH_SIZE);
-      }
-    };
-
-    initNetworkSpeed();
-  }, []);
-
-  // Mark initial setup as done when connection is ready
-  // Note: We don't fetch meetings without bounds here - instead, we rely on:
-  // 1. handleMapBoundsChange to fetch meetings when the map initializes with bounds
-  // 2. The auto-fetch effect to ensure meetings are loaded when the map has data
-  // This prevents race conditions where a no-bounds fetch could overwrite bounds-filtered results.
-  useEffect(() => {
-    // Skip if we've already marked as done
-    if (initialFetchDoneRef.current) return;
-
-    // Wait for connection status to resolve
-    if (!isConnectionReady) {
-      return;
+    if (mapBounds) {
+      fetchMeetings(mapBounds);
     }
-
-    // If we have cached meetings, use them
-    if (cachedMeetings?.data && cachedMeetings.data.length > 0) {
-      initialFetchDoneRef.current = true;
-      return;
-    }
-
-    // Mark as done - let bounds-based fetching take over
-    // The map's onBoundsChange callback and auto-fetch effect will load meetings
-    initialFetchDoneRef.current = true;
-  }, [cachedMeetings, isConnectionReady]);
-
-  // Infinite scroll - load more meetings when sentinel becomes visible
-  useEffect(() => {
-    const sentinel = loadMoreSentinelRef.current;
-    const listContainer = listRef.current;
-    if (!sentinel || !listContainer) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        if (entry.isIntersecting && hasMore && !isLoadingMore && !isLoading) {
-          loadMoreMeetings();
-        }
-      },
-      {
-        root: listContainer,
-        rootMargin: '200px',
-        threshold: 0,
-      }
-    );
-
-    observer.observe(sentinel);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [hasMore, isLoadingMore, isLoading, loadMoreMeetings]);
-
-  // Auto-fetch meetings when map has data but list is empty
-  // This ensures the list always shows meetings when there are meetings on the map
-  useEffect(() => {
-    // Only trigger if:
-    // - List is empty but map has meetings
-    // - We have bounds to fetch with
-    // - Not currently loading
-    if (
-      meetings.length === 0 &&
-      mapMeetingCount > 0 &&
-      mapBounds &&
-      !isLoading &&
-      !isLoadingMore
-    ) {
-      // Create a bounds key to track if we've already fetched for these bounds
-      const boundsKey = `${mapBounds.north.toFixed(2)},${mapBounds.south.toFixed(2)},${mapBounds.east.toFixed(2)},${mapBounds.west.toFixed(2)}`;
-
-      // Skip if we've already auto-fetched for these bounds
-      if (autoFetchedBoundsRef.current === boundsKey) {
-        return;
-      }
-
-      // Mark these bounds as fetched
-      autoFetchedBoundsRef.current = boundsKey;
-
-      // Build filters from current state
-      const filters = {};
-      if (showTodayOnly) {
-        filters.day = new Date().getDay();
-      } else if (selectedDays.length === 1) {
-        const dayIndex = dayNames.indexOf(selectedDays[0]);
-        if (dayIndex !== -1) filters.day = dayIndex;
-      }
-      if (selectedTypes.length === 1) filters.type = selectedTypes[0];
-      if (selectedStates.length === 1) filters.state = selectedStates[0];
-      if (showOnlineOnly) filters.online = true;
-      if (showHybridOnly) filters.hybrid = true;
-      if (selectedCity) filters.city = selectedCity;
-      if (selectedFormat) filters.format = selectedFormat;
-
-      // Fetch meetings for the current map bounds
-      fetchMeetings({ bounds: mapBounds, filters, bulkLoad: true });
-    }
-  }, [meetings.length, mapMeetingCount, mapBounds, isLoading, isLoadingMore, fetchMeetings, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity, selectedFormat]);
+  }, [mapBounds, fetchMeetings]);
 
   // Cache meetings data when it changes
   useEffect(() => {
@@ -816,78 +464,9 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     setCache(CACHE_KEYS.FILTER_STATE, filterState, MEETINGS_CACHE_TTL);
   }, [searchQuery, selectedStates, selectedCity, selectedDays, selectedTypes, showOnlineOnly, showTodayOnly, showHybridOnly, selectedFormat, selectedAccessibility, setCache]);
 
-  // Fetch meetings when state filter changes (server-side filtering)
-  const prevSelectedStatesRef = useRef([]);
-  useEffect(() => {
-    // Skip initial render
-    if (!initialFetchDoneRef.current) return;
-
-    // Check if selectedStates actually changed
-    const prevStates = prevSelectedStatesRef.current;
-    const statesChanged = selectedStates.length !== prevStates.length ||
-      selectedStates.some((s, i) => s !== prevStates[i]);
-
-    if (statesChanged) {
-      prevSelectedStatesRef.current = selectedStates;
-      if (selectedStates.length > 0) {
-        // Fetch from server with state filter
-        // Don't clear meetingsRef here - let fetchMeetings update it when new data arrives
-        // This keeps the old data visible while loading
-        fetchMeetings({ stateFilter: selectedStates });
-      } else {
-        // Reset to all meetings
-        // Don't clear meetingsRef here - let fetchMeetings update it when new data arrives
-        fetchMeetings();
-      }
-    }
-  }, [selectedStates, fetchMeetings]);
-
-  // Fetch meetings when filters change (server-side filtering for better results)
-  const prevFiltersRef = useRef({});
-  useEffect(() => {
-    // Skip initial render
-    if (!initialFetchDoneRef.current) return;
-
-    // Build current filter state
-    const currentFilters = {
-      showTodayOnly,
-      showOnlineOnly,
-      showHybridOnly,
-      selectedTypes: selectedTypes.join(','),
-      selectedDays: selectedDays.join(','),
-      selectedFormat,
-    };
-
-    // Check if filters actually changed (excluding state which has its own effect)
-    const prevFilters = prevFiltersRef.current;
-    const filtersChanged = Object.keys(currentFilters).some(
-      key => currentFilters[key] !== prevFilters[key]
-    );
-
-    if (filtersChanged) {
-      prevFiltersRef.current = currentFilters;
-
-      // Build filters object for fetch
-      const filters = {};
-      if (showTodayOnly) {
-        filters.day = new Date().getDay();
-      } else if (selectedDays.length === 1) {
-        filters.day = selectedDays[0];
-      }
-      if (selectedTypes.length === 1) filters.type = selectedTypes[0];
-      if (selectedStates.length === 1) filters.state = selectedStates[0];
-      if (showOnlineOnly) filters.online = true;
-      if (showHybridOnly) filters.hybrid = true;
-
-      // Reset to first page and fetch with new filters
-      fetchMeetings({ filters, reset: true });
-    }
-  }, [showTodayOnly, showOnlineOnly, showHybridOnly, selectedTypes, selectedDays, selectedFormat, selectedStates, fetchMeetings]);
-
   // Request thumbnails for visible meetings that don't have them
   useEffect(() => {
     if (filteredMeetings.length > 0) {
-      // Small delay to avoid blocking initial render
       const timer = setTimeout(() => {
         requestMissingThumbnails(filteredMeetings);
       }, 500);
@@ -904,15 +483,11 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     };
   }, []);
 
-  // Apply filters
+  // Apply client-side filters (search query and accessibility only - rest handled server-side)
   useEffect(() => {
     let filtered = [...meetings];
 
-    // Note: We don't filter by map bounds client-side anymore because:
-    // 1. Server already filters meetings by bounds when fetching
-    // 2. Client-side filtering caused empty results when panning to new areas
-    // 3. Meetings accumulate as user explores, so old meetings outside bounds are kept for reference
-
+    // Search query - filter client-side for instant feedback
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(m =>
@@ -923,56 +498,15 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
       );
     }
 
-    if (selectedStates.length > 0) {
-      filtered = filtered.filter(m => selectedStates.includes(m.state));
-    }
-
-    if (selectedCity) {
-      filtered = filtered.filter(m => m.city === selectedCity);
-    }
-
-    if (selectedDays.length > 0) {
-      filtered = filtered.filter(m => selectedDays.includes(m.day));
-    }
-
-    if (selectedTypes.length > 0) {
-      filtered = filtered.filter(m => selectedTypes.includes(m.meetingType));
-    }
-
-    if (showOnlineOnly) {
-      filtered = filtered.filter(m => m.isOnline);
-    }
-
-    if (showTodayOnly) {
-      const today = new Date().getDay();
-      filtered = filtered.filter(m => m.day === today);
-    }
-
-    if (showHybridOnly) {
-      filtered = filtered.filter(m => m.isHybrid);
-    }
-
-    if (selectedFormat) {
-      filtered = filtered.filter(m => m.format === selectedFormat);
-    }
-
+    // Accessibility - client-side only (not supported server-side)
     if (selectedAccessibility.length > 0) {
       filtered = filtered.filter(m =>
         selectedAccessibility.every(key => m[key] === true)
       );
     }
 
-    // Sort by distance from map center if we have a center point
-    if (mapBounds?.center_lat && mapBounds?.center_lng) {
-      filtered.sort((a, b) => {
-        const distA = calculateDistance(mapBounds.center_lat, mapBounds.center_lng, a.latitude, a.longitude);
-        const distB = calculateDistance(mapBounds.center_lat, mapBounds.center_lng, b.latitude, b.longitude);
-        return distA - distB;
-      });
-    }
-
     setFilteredMeetings(filtered);
-  }, [meetings, mapBounds, searchQuery, selectedStates, selectedCity, selectedDays, selectedTypes, showOnlineOnly, showTodayOnly, showHybridOnly, selectedFormat, selectedAccessibility]);
+  }, [meetings, searchQuery, selectedAccessibility]);
 
   // Update available cities when states change
   useEffect(() => {
@@ -1068,8 +602,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         searchQuery,
         onSearchChange: setSearchQuery,
         onSearchSubmit: () => {
-          // Trigger search/filter update
-          setCurrentPage(0);
+          // Trigger search/filter update via bounds change
+          if (mapBounds) fetchMeetings(mapBounds);
         },
         // Quick filters
         showTodayOnly,
@@ -1127,7 +661,9 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     selectedStates,
     availableStates,
     hasActiveFilters,
-    clearFilters
+    clearFilters,
+    fetchMeetings,
+    mapBounds
   ]);
 
   // Close dropdowns when clicking outside
@@ -1560,12 +1096,10 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const handleSearchSubmit = () => {
     if (searchQuery) {
       saveRecentSearch(searchQuery);
-      // Geocode and pan map to the searched location
+      // Geocode and pan map to the searched location - this will trigger bounds change and fetch
       geocodeAndPanMap(searchQuery, selectedStates.length === 1 ? selectedStates[0] : null);
     }
     setShowSuggestions(false);
-    // Re-fetch meetings with current filters
-    fetchMeetings({ stateFilter: selectedStates.length > 0 ? selectedStates : undefined });
   };
 
   // Handle city dropdown selection - pans map immediately
@@ -1636,44 +1170,22 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   };
 
   // Handle map bounds change - fetch meetings for the visible area
+  // Handle map bounds change - just update state, effect handles fetching
   const handleMapBoundsChange = useCallback((bounds) => {
     setMapBounds(bounds);
 
-    // Only update location display and clear filters when user manually pans the map
-    // (not when map pans from search/filter selection)
+    // Only update location display when user manually pans the map
     if (isProgrammaticPanRef.current) {
-      // Reset the flag after programmatic pan completes
       isProgrammaticPanRef.current = false;
     } else {
-      // User manually dragged the map - clear filters and reverse geocode
+      // User manually dragged the map - clear state/city filters and reverse geocode
       setSelectedStates([]);
       setSelectedCity('');
-      // Reverse geocode to update location display based on map center and zoom
       if (bounds.center_lat !== undefined && bounds.center_lng !== undefined) {
         reverseGeocodeMapCenter(bounds.center_lat, bounds.center_lng, bounds.zoom);
       }
     }
-
-    // Build filters from current state
-    const filters = {};
-    if (showTodayOnly) {
-      filters.day = new Date().getDay();
-    } else if (selectedDays.length === 1) {
-      const dayIndex = dayNames.indexOf(selectedDays[0]);
-      if (dayIndex !== -1) filters.day = dayIndex;
-    }
-    if (selectedTypes.length === 1) filters.type = selectedTypes[0];
-    if (selectedStates.length === 1) filters.state = selectedStates[0];
-    if (selectedCity) filters.city = selectedCity;
-    if (showOnlineOnly) filters.online = true;
-    if (showHybridOnly) filters.hybrid = true;
-    if (selectedFormat) filters.format = selectedFormat;
-
-    // Fetch meetings for new area - use bulk loading for faster results
-    // Accumulate with existing cache as user explores
-    setCurrentPage(0);
-    fetchMeetings({ bounds, filters, bulkLoad: true });
-  }, [fetchMeetings, showTodayOnly, selectedDays, selectedTypes, selectedStates, selectedCity, showOnlineOnly, showHybridOnly, selectedFormat, reverseGeocodeMapCenter]);
+  }, [reverseGeocodeMapCenter]);
 
   // Build filters object to pass to the map
   const mapFilters = useMemo(() => {
@@ -2239,7 +1751,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                 <p>{error}</p>
               )}
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <button className="btn btn-primary" onClick={() => fetchMeetings()}>
+                <button className="btn btn-primary" onClick={() => mapBounds && fetchMeetings(mapBounds)}>
                   Try Again
                 </button>
                 <button className="btn btn-secondary" onClick={() => setShowDiagnostics(true)}>
@@ -2247,7 +1759,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                 </button>
               </div>
             </div>
-          ) : filteredMeetings.length === 0 && mapMeetingCount === 0 && !isLoading && !isLoadingMore && !hasMore ? (
+          ) : filteredMeetings.length === 0 && mapMeetingCount === 0 && !isLoading ? (
             <div className="list-empty">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="11" cy="11" r="8"/>
@@ -2270,12 +1782,12 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
           ) : (
             <>
               <div className="list-header">
-                <h2>Meetings in {selectedStates.length > 0 ? selectedStates.join(', ') : selectedCity || mapCenterLocation || 'all areas'}</h2>
+                <h2>Meetings in {selectedStates.length > 0 ? selectedStates.join(', ') : selectedCity || mapCenterLocation || 'this area'}</h2>
                 <p>
-                  {isLoading || isLoadingMore ? (
-                    <>Loading... {meetings.length > 0 && `(${filteredMeetings.length} of ${totalMeetings || '?'})`}</>
+                  {isLoading ? (
+                    'Loading...'
                   ) : (
-                    <>{totalMeetings || filteredMeetings.length} meeting{(totalMeetings || filteredMeetings.length) !== 1 ? 's' : ''} available{totalMeetings && filteredMeetings.length < totalMeetings && ` (${filteredMeetings.length} loaded)`}</>
+                    <>{filteredMeetings.length} meeting{filteredMeetings.length !== 1 ? 's' : ''}{totalMeetings > 50 && ` (showing 50 of ${totalMeetings})`}</>
                   )}
                 </p>
               </div>
@@ -2337,9 +1849,9 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                     </div>
                   </div>
                 ))}
-                {/* Skeleton placeholders while loading - only show when no meetings exist (initial load) or during pagination */}
-                {((isLoading && meetings.length === 0) || isLoadingMore) && (
-                  [...Array(Math.min(batchSize, Math.max(5, (totalMeetings || 5) - meetings.length)))].map((_, index) => (
+                {/* Skeleton placeholders while loading */}
+                {isLoading && meetings.length === 0 && (
+                  [...Array(6)].map((_, index) => (
                     <div key={`skeleton-${index}`} className="skeleton-meeting-card">
                       <div className="skeleton-card-image">
                         <div className="skeleton-card-badge"></div>
@@ -2357,60 +1869,6 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                   ))
                 )}
               </div>
-
-              {/* Sentinel element for infinite scroll detection */}
-              {hasMore && !isLoading && (
-                <div ref={loadMoreSentinelRef} className="infinite-scroll-sentinel" aria-hidden="true" />
-              )}
-
-              {/* Load More Button with Progress - shown as fallback */}
-              {hasMore && (
-                <div className="load-more-container">
-                  {isLoadingMore && loadingProgress.total > 0 && (
-                    <div className="loading-progress">
-                      <div className="loading-progress-bar">
-                        <div
-                          className="loading-progress-fill"
-                          style={{ width: `${loadingProgress.percentage}%` }}
-                        />
-                      </div>
-                      <span className="loading-progress-text">
-                        {loadingProgress.loaded} of {loadingProgress.total} ({loadingProgress.percentage}%)
-                      </span>
-                    </div>
-                  )}
-                  <button
-                    className="btn btn-secondary load-more-btn"
-                    onClick={loadMoreMeetings}
-                    disabled={isLoadingMore}
-                  >
-                    {isLoadingMore ? (
-                      <>
-                        <span className="loading-spinner-small"></span>
-                        Loading {batchSize} meetings...
-                      </>
-                    ) : (
-                      <>
-                        Load More Meetings
-                        <span className="load-more-count">
-                          ({meetings.length} of {totalMeetings})
-                        </span>
-                      </>
-                    )}
-                  </button>
-                  {networkSpeed && (
-                    <div className="network-info">
-                      <span className={`network-speed-indicator ${categorizeSpeed(networkSpeed)}`}>
-                        {categorizeSpeed(networkSpeed) === 'very-fast' ? 'Fast connection' :
-                         categorizeSpeed(networkSpeed) === 'fast' ? 'Good connection' :
-                         categorizeSpeed(networkSpeed) === 'medium' ? 'Moderate connection' :
-                         'Slow connection'}
-                      </span>
-                      <span className="batch-size-info">Batch: {batchSize}</span>
-                    </div>
-                  )}
-                </div>
-              )}
             </>
           )}
         </div>
@@ -2456,13 +1914,10 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                 onMapMeetingCount={setMapMeetingCount}
                 hoveredMeeting={hoveredMeeting}
               />
-              {(isLoading || isLoadingMore) && (
-                <div className={`map-loading-indicator ${isLoading && !isLoadingMore ? 'subtle' : ''}`}>
+              {isLoading && (
+                <div className="map-loading-indicator subtle">
                   <div className="loading-spinner-mini"></div>
-                  <span>{isLoading && !isLoadingMore ? 'Loading meetings...' : 'Loading more...'}</span>
-                  {loadingProgress.total > 0 && (
-                    <span className="loading-count">{loadingProgress.loaded}/{loadingProgress.total}</span>
-                  )}
+                  <span>Loading meetings...</span>
                 </div>
               )}
             </>
