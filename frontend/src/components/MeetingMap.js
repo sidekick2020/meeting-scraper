@@ -133,6 +133,9 @@ function HeatmapLayer({ clusters }) {
   const heatLayerRef = useRef(null);
 
   useEffect(() => {
+    // Track whether component is still mounted to prevent updates after unmount
+    let isMounted = true;
+
     if (!clusters || clusters.length === 0) {
       if (heatLayerRef.current) {
         map.removeLayer(heatLayerRef.current);
@@ -143,6 +146,9 @@ function HeatmapLayer({ clusters }) {
 
     // Dynamically import leaflet.heat
     import('leaflet.heat').then(() => {
+      // Prevent operations if component unmounted during import
+      if (!isMounted) return;
+
       if (heatLayerRef.current) {
         map.removeLayer(heatLayerRef.current);
       }
@@ -171,6 +177,7 @@ function HeatmapLayer({ clusters }) {
     });
 
     return () => {
+      isMounted = false;
       if (heatLayerRef.current) {
         map.removeLayer(heatLayerRef.current);
       }
@@ -370,6 +377,10 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
       map.off('zoomend', handleMoveEnd);
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
+      }
+      // Abort any pending fetch to prevent memory leaks
+      if (pendingFetchRef.current) {
+        pendingFetchRef.current.abort();
       }
     };
   }, [map, fetchHeatmapData, fetchStateData, onZoomChange, onBoundsChange]);
