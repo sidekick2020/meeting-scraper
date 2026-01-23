@@ -2657,7 +2657,7 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
 
 @app.route('/api/config', methods=['GET'])
 def get_config():
-    """Check if back4app is configured"""
+    """Check if back4app is configured via environment variables"""
     return jsonify({
         "configured": bool(BACK4APP_APP_ID and BACK4APP_REST_KEY),
         "hasAppId": bool(BACK4APP_APP_ID),
@@ -2719,20 +2719,6 @@ def get_parse_diagnostics():
         },
         "live_test": test_result
     })
-
-@app.route('/api/config', methods=['POST'])
-def set_config():
-    """Set back4app configuration (overrides env vars)"""
-    global BACK4APP_APP_ID, BACK4APP_REST_KEY
-
-    data = request.json
-    if data.get('appId'):
-        BACK4APP_APP_ID = data.get('appId')
-    if data.get('restKey'):
-        BACK4APP_REST_KEY = data.get('restKey')
-
-    return jsonify({"success": True, "message": "Configuration saved"})
-
 @app.route('/api/test-save', methods=['POST'])
 def test_save():
     """Test saving a single meeting to Back4app - for debugging"""

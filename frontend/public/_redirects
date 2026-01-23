@@ -2,10 +2,11 @@
 # Handle all routes by serving index.html
 
 # Explicit routes (must come before catch-all)
-/docs       /index.html   200
-/docs/*     /index.html   200
-/download   /index.html   200
-/download/* /index.html   200
+/docs             /index.html   200
+/docs/*           /index.html   200
+/download         /index.html   200
+/download/*       /index.html   200
+/online-meetings  /index.html   200
 
 # Catch-all for all other SPA routes
 /*          /index.html   200

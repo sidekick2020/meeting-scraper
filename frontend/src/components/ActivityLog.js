@@ -1,5 +1,34 @@
 import React, { useEffect, useRef, useState } from 'react';
 
+// Clean SVG icons for log entries
+const InfoIcon = () => (
+  <svg viewBox="0 0 16 16" fill="currentColor">
+    <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+    <path d="M8 7v4M8 5h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
+
+const SuccessIcon = () => (
+  <svg viewBox="0 0 16 16" fill="currentColor">
+    <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+    <path d="M5 8l2 2 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const WarningIcon = () => (
+  <svg viewBox="0 0 16 16" fill="currentColor">
+    <path d="M8 1.5l6.5 12H1.5L8 1.5z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+    <path d="M8 6v3M8 11h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
+
+const ErrorIcon = () => (
+  <svg viewBox="0 0 16 16" fill="currentColor">
+    <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+    <path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
+
 function ActivityLog({ logs, currentMeeting }) {
   const containerRef = useRef(null);
   const [errorsOnly, setErrorsOnly] = useState(false);
@@ -14,15 +43,15 @@ function ActivityLog({ logs, currentMeeting }) {
   const formatTime = (timestamp) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
-    return date.toLocaleTimeString();
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
 
   const getLevelIcon = (level) => {
     switch (level) {
-      case 'error': return '❌';
-      case 'warning': return '⚠️';
-      case 'success': return '✅';
-      default: return 'ℹ️';
+      case 'error': return <ErrorIcon />;
+      case 'warning': return <WarningIcon />;
+      case 'success': return <SuccessIcon />;
+      default: return <InfoIcon />;
     }
   };
 

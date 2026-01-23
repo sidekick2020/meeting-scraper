@@ -4,8 +4,9 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'
 const RENDER_DASHBOARD_URL = process.env.REACT_APP_RENDER_DASHBOARD_URL || 'https://dashboard.render.com';
 const CHECK_INTERVAL = 5000; // Check every 5 seconds
 const CHECK_INTERVAL_FAST = 3000; // Faster checks when connection is unstable
-const FAILURE_THRESHOLD = 4; // Number of consecutive failures before showing deploying (more tolerant of slow responses)
-const BACKEND_TIMEOUT = 15000; // 15 second timeout for backend requests (Render can be slow, especially on cold starts)
+const FAILURE_THRESHOLD = 6; // Number of consecutive failures before showing deploying (tolerant of cold starts)
+const CHECKING_THRESHOLD = 3; // Number of failures before showing 'checking' state
+const BACKEND_TIMEOUT = 20000; // 20 second timeout for backend requests (Render cold starts can be slow)
 const TYPICAL_DEPLOY_TIME = 120; // Typical deployment takes ~2 minutes
 
 function DeploymentIndicator() {
@@ -21,7 +22,6 @@ function DeploymentIndicator() {
   const backendFailsRef = useRef(0);
   const frontendFailsRef = useRef(0);
   const deployStartTimeRef = useRef(null);
-  const checkIntervalRef = useRef(CHECK_INTERVAL);
 
   // Track elapsed time when deploying
   useEffect(() => {
@@ -64,6 +64,7 @@ function DeploymentIndicator() {
   // Check backend status
   useEffect(() => {
     let intervalId = null;
+    let usingFastInterval = false;
 
     const checkBackend = async () => {
       try {
@@ -78,7 +79,13 @@ function DeploymentIndicator() {
         if (response.ok) {
           const data = await response.json();
           backendFailsRef.current = 0;
-          checkIntervalRef.current = CHECK_INTERVAL; // Reset to normal interval
+
+          // If we were using fast interval, switch back to normal
+          if (usingFastInterval) {
+            usingFastInterval = false;
+            clearInterval(intervalId);
+            intervalId = setInterval(checkBackend, CHECK_INTERVAL);
+          }
 
           if (!initialBackendVersionRef.current) {
             initialBackendVersionRef.current = data.version;
@@ -110,25 +117,25 @@ function DeploymentIndicator() {
       // Only show indicators after we have an initial version (page has loaded successfully once)
       if (!initialBackendVersionRef.current) return;
 
-      // After 2 failures, show 'checking' state and use faster interval
-      if (backendFailsRef.current === 2) {
+      // After CHECKING_THRESHOLD failures, show 'checking' state and use faster interval
+      if (backendFailsRef.current === CHECKING_THRESHOLD && !usingFastInterval) {
         setBackendStatus('checking');
-        checkIntervalRef.current = CHECK_INTERVAL_FAST;
+        usingFastInterval = true;
         // Restart the interval with faster checking
         clearInterval(intervalId);
         intervalId = setInterval(checkBackend, CHECK_INTERVAL_FAST);
       }
 
-      // After threshold failures (4), show 'deploying' state
+      // After FAILURE_THRESHOLD failures, show 'deploying' state
       if (backendFailsRef.current >= FAILURE_THRESHOLD) {
         setBackendStatus('deploying');
       }
     };
 
     checkBackend();
-    intervalId = setInterval(checkBackend, checkIntervalRef.current);
+    intervalId = setInterval(checkBackend, CHECK_INTERVAL);
     return () => clearInterval(intervalId);
-  }, []); // Remove backendStatus from deps to avoid stale closures
+  }, []); // Empty deps to avoid stale closures
 
   // Check frontend status
   useEffect(() => {
