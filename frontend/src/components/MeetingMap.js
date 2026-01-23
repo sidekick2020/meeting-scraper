@@ -446,6 +446,31 @@ function ClusterMarker({ cluster, onClusterClick }) {
 // Format day number to day name
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+// Component to handle clicks on the heatmap area
+// When heatmap is visible and user clicks, zoom in and center on that location
+function HeatmapClickHandler({ isHeatmapVisible }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!isHeatmapVisible) return;
+
+    const handleClick = (e) => {
+      const currentZoom = map.getZoom();
+      // Zoom in by 3 levels, but cap at zoom 15
+      const targetZoom = Math.min(currentZoom + 3, 15);
+      map.setView([e.latlng.lat, e.latlng.lng], targetZoom, { animate: true });
+    };
+
+    map.on('click', handleClick);
+
+    return () => {
+      map.off('click', handleClick);
+    };
+  }, [map, isHeatmapVisible]);
+
+  return null;
+}
+
 // Component to handle map panning to a target location
 // Note: onPanComplete is intentionally not called here because MapDataLoader
 // already handles the moveend event and triggers data fetching. Calling both
@@ -668,6 +693,9 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
         />
 
         <MapPanHandler targetLocation={targetLocation} />
+
+        {/* Handle clicks on heatmap area to zoom in */}
+        <HeatmapClickHandler isHeatmapVisible={showHeatmap && showHeatmapLayer} />
 
         {/* Show state-level bubbles at very low zoom */}
         {showStateLevel && effectiveStateData.states.map((state) => (
