@@ -114,6 +114,12 @@ coverage_gaps_cache = CacheManager('coverage_gaps', ttl_seconds=300, max_entries
 feeds_cache = CacheManager('feeds', ttl_seconds=600, max_entries=5)  # 10 min TTL for feeds (rarely changes)
 meetings_count_cache = CacheManager('meetings_count', ttl_seconds=120, max_entries=50)  # 2 min TTL for meeting counts
 
+# Back4app Configuration - read from environment variables
+# NOTE: These must be defined BEFORE back4app_session which uses them in headers
+BACK4APP_APP_ID = os.environ.get('BACK4APP_APP_ID')
+BACK4APP_REST_KEY = os.environ.get('BACK4APP_REST_KEY')
+BACK4APP_URL = "https://parseapi.back4app.com/classes/Meetings"
+
 # HTTP Session for connection pooling - reuse connections to Back4app
 back4app_session = requests.Session()
 back4app_session.headers.update({
@@ -123,12 +129,6 @@ back4app_session.headers.update({
 
 # Fields to return for meeting listings (reduces payload size by ~60%)
 MEETING_LIST_FIELDS = "objectId,name,day,time,city,state,latitude,longitude,locationName,meetingType,isOnline,isHybrid,format,address,thumbnailUrl"
-
-
-# Back4app Configuration - read from environment variables
-BACK4APP_APP_ID = os.environ.get('BACK4APP_APP_ID')
-BACK4APP_REST_KEY = os.environ.get('BACK4APP_REST_KEY')
-BACK4APP_URL = "https://parseapi.back4app.com/classes/Meetings"
 
 # Known working AA Meeting Guide API feeds (verified January 2026)
 AA_FEEDS = {
