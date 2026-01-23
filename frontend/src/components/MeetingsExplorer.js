@@ -655,7 +655,17 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
 
   // Initial data fetch - run only once after connection is established, skip if cached
   // Note: Backend config status now comes from ParseContext (no separate fetch needed)
+  //
+  // IMPORTANT: This effect uses isEffectActive to handle React Strict Mode properly.
+  // In Strict Mode, effects run twice (mount -> cleanup -> mount). We must:
+  // 1. Track if the effect is still active before updating state
+  // 2. Only set initialFetchDoneRef AFTER fetch completes, not before
+  // 3. Provide cleanup to prevent stale state updates
   useEffect(() => {
+    // Track if this effect instance is still active (not cleaned up)
+    let isEffectActive = true;
+
+    // Skip if we've already completed an initial fetch
     if (initialFetchDoneRef.current) return;
 
     // Wait for connection status to resolve before fetching
@@ -665,14 +675,31 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
       return;
     }
 
-    initialFetchDoneRef.current = true;
-
-    // If we have cached meetings, don't fetch on initial load
+    // If we have cached meetings, mark as done and skip fetch
     if (cachedMeetings?.data && cachedMeetings.data.length > 0) {
+      initialFetchDoneRef.current = true;
       return;
     }
 
-    fetchMeetings();
+    // Perform the initial fetch
+    const doInitialFetch = async () => {
+      try {
+        await fetchMeetings();
+      } finally {
+        // Only mark as done if this effect instance is still active
+        // This prevents issues with React Strict Mode double-mounting
+        if (isEffectActive) {
+          initialFetchDoneRef.current = true;
+        }
+      }
+    };
+
+    doInitialFetch();
+
+    // Cleanup: mark effect as inactive to prevent stale state updates
+    return () => {
+      isEffectActive = false;
+    };
   }, [fetchMeetings, cachedMeetings, isConnectionReady]);
 
   // Infinite scroll - load more meetings when sentinel becomes visible
