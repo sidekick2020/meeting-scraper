@@ -46,7 +46,7 @@ const DEFAULT_API_VERSIONS = [
   }
 ];
 
-function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
+function SettingsModal({ onClose, currentUser }) {
   const { getCache, setCache } = useDataCache();
 
   // Initialize from cache
@@ -56,9 +56,7 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
   const cachedApiVersions = getCache(SETTINGS_CACHE_KEYS.API_VERSIONS);
   const cachedChangelog = getCache(SETTINGS_CACHE_KEYS.CHANGELOG);
 
-  const [activeTab, setActiveTab] = useState('config');
-  const [appId, setAppId] = useState(config.appId);
-  const [restKey, setRestKey] = useState(config.restKey);
+  const [activeTab, setActiveTab] = useState('users');
 
   // API Version state
   const [apiVersion, setApiVersion] = useState(localStorage.getItem('api_version') || 'v1');
@@ -413,11 +411,6 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
     return '📝';
   };
 
-  const handleConfigSubmit = (e) => {
-    e.preventDefault();
-    onSave({ appId, restKey });
-  };
-
   const handleInviteUser = async (e) => {
     e.preventDefault();
     setInviting(true);
@@ -541,20 +534,10 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
       <div className="settings-panel">
         <div className="settings-header">
           <h2>Settings</h2>
-          <button className="modal-close" onClick={onClose} disabled={isSaving}>&times;</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
 
         <div className="settings-tabs">
-          <button
-            className={`settings-tab ${activeTab === 'config' ? 'active' : ''}`}
-            onClick={() => setActiveTab('config')}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
-            </svg>
-            Configuration
-          </button>
           {isAdmin && (
             <button
               className={`settings-tab ${activeTab === 'users' ? 'active' : ''}`}
@@ -594,52 +577,6 @@ function SettingsModal({ config, onSave, onClose, isSaving, currentUser }) {
         </div>
 
         <div className="settings-content">
-          {activeTab === 'config' && (
-            <form onSubmit={handleConfigSubmit} className="settings-form">
-              <div className="form-group">
-                <label htmlFor="appId">Application ID</label>
-                <input
-                  type="text"
-                  id="appId"
-                  value={appId}
-                  onChange={(e) => setAppId(e.target.value)}
-                  placeholder="Enter your Back4app Application ID"
-                  disabled={isSaving}
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="restKey">REST API Key</label>
-                <input
-                  type="password"
-                  id="restKey"
-                  value={restKey}
-                  onChange={(e) => setRestKey(e.target.value)}
-                  placeholder="Enter your Back4app REST API Key"
-                  disabled={isSaving}
-                />
-              </div>
-
-              <div className="form-help">
-                <p>Find these credentials in your Back4app dashboard:</p>
-                <ol>
-                  <li>Go to App Settings</li>
-                  <li>Click Security & Keys</li>
-                  <li>Copy Application ID and REST API Key</li>
-                </ol>
-              </div>
-
-              <div className="settings-actions">
-                <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isSaving}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Save Configuration'}
-                </button>
-              </div>
-            </form>
-          )}
-
           {activeTab === 'users' && isAdmin && (
             <div className="users-section">
               {userError && (

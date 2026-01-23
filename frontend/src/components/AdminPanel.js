@@ -94,12 +94,7 @@ function AdminPanel({ onBackToPublic }) {
     activity_log: []
   });
   const [recentMeetings, setRecentMeetings] = useState([]);
-  const [showConfig, setShowConfig] = useState(false);
-  const [isSavingConfig, setIsSavingConfig] = useState(false);
-  const [config, setConfig] = useState({
-    appId: localStorage.getItem('back4app_app_id') || '',
-    restKey: localStorage.getItem('back4app_rest_key') || ''
-  });
+  const [showSettings, setShowSettings] = useState(false);
   // Derive backendConfigured from Parse context
   const backendConfigured = parseInitialized && parseConfig.hasAppId && parseConfig.hasJsKey;
   const [selectedMeeting, setSelectedMeeting] = useState(null);
@@ -665,30 +660,6 @@ function AdminPanel({ onBackToPublic }) {
     }
   };
 
-  const saveConfig = async (newConfig) => {
-    setIsSavingConfig(true);
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newConfig)
-      });
-      const data = await response.json();
-      if (data.success) {
-        setConfig(newConfig);
-        localStorage.setItem('back4app_app_id', newConfig.appId);
-        localStorage.setItem('back4app_rest_key', newConfig.restKey);
-        setShowConfig(false);
-        alert('Configuration saved!');
-      }
-    } catch (error) {
-      console.error('Error saving config:', error);
-      alert('Failed to save configuration');
-    } finally {
-      setIsSavingConfig(false);
-    }
-  };
-
   const menuItems = [
     { id: 'scraper', label: 'Scraper', icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -821,11 +792,6 @@ function AdminPanel({ onBackToPublic }) {
                 </p>
               )}
 
-              {isConnected && !backendConfigured && !config.appId && !config.restKey && (
-                <div className="warning-box">
-                  Configure Back4app credentials to save meetings to database
-                </div>
-              )}
               {backendConfigured && (
                 <div className="success-box">
                   Back4app configured via environment variables
@@ -1461,7 +1427,7 @@ function AdminPanel({ onBackToPublic }) {
         </nav>
 
         <div className="sidebar-footer">
-          <button className="sidebar-nav-item" onClick={() => setShowConfig(true)}>
+          <button className="sidebar-nav-item" onClick={() => setShowSettings(true)}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="3"/>
               <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
@@ -1581,12 +1547,9 @@ function AdminPanel({ onBackToPublic }) {
       </main>
 
       {/* Modals */}
-      {showConfig && (
+      {showSettings && (
         <SettingsModal
-          config={config}
-          onSave={saveConfig}
-          onClose={() => setShowConfig(false)}
-          isSaving={isSavingConfig}
+          onClose={() => setShowSettings(false)}
           currentUser={{
             email: user?.email,
             name: user?.name,
