@@ -5367,6 +5367,598 @@ def _get_tasks_by_state(state_code):
 pending_submissions = []
 submission_id_counter = 1
 
+# Source drafts - generated scripts from URL validation that haven't been saved yet
+source_drafts = []
+draft_id_counter = 1
+
+
+# =============================================================================
+# URL VALIDATION AND DRAFT MANAGEMENT
+# =============================================================================
+
+@app.route('/api/sources/validate-url', methods=['POST'])
+def validate_source_url():
+    """Validate a URL to check if it returns valid meeting data.
+
+    This endpoint checks if a URL is reachable and returns meeting data,
+    without saving anything. Used to validate URL patterns before suggesting them.
+    """
+    data = request.json
+    url = data.get('url', '')
+
+    if not url:
+        return jsonify({
+            'success': False,
+            'error': 'URL is required'
+        }), 400
+
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0)',
+            'Accept': 'application/json'
+        }
+        response = requests.get(url, headers=headers, timeout=15)
+
+        result = {
+            'url': url,
+            'reachable': True,
+            'httpStatus': response.status_code,
+            'valid': False,
+            'meetingCount': 0
+        }
+
+        if response.status_code == 200:
+            try:
+                json_data = response.json()
+                if isinstance(json_data, list) and len(json_data) > 0:
+                    # Check if first item looks like a meeting (has name field)
+                    first_item = json_data[0]
+                    if isinstance(first_item, dict) and ('name' in first_item or 'meeting_name' in first_item):
+                        result['valid'] = True
+                        result['meetingCount'] = len(json_data)
+                        result['feedType'] = _detect_feed_type(url, json_data)
+            except json.JSONDecodeError:
+                result['valid'] = False
+                result['error'] = 'Response is not valid JSON'
+        else:
+            result['error'] = f'HTTP {response.status_code}'
+
+        return jsonify({
+            'success': True,
+            **result
+        })
+
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'success': True,
+            'url': url,
+            'reachable': False,
+            'valid': False,
+            'error': 'Connection timeout'
+        })
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'success': True,
+            'url': url,
+            'reachable': False,
+            'valid': False,
+            'error': str(e)[:100]
+        })
+
+
+def _detect_feed_type(url, data):
+    """Detect the feed type from URL and data structure."""
+    url_lower = url.lower()
+
+    # Check URL patterns
+    if 'admin-ajax.php' in url_lower or 'action=meetings' in url_lower:
+        return 'tsml'
+    elif 'main_server' in url_lower or 'client_interface' in url_lower or 'switcher=' in url_lower:
+        return 'bmlt'
+    elif 'sheets.code4recovery.org' in url_lower or '.json' in url_lower:
+        return 'json'
+
+    # Check data structure
+    if data and len(data) > 0:
+        first = data[0]
+        if isinstance(first, dict):
+            # BMLT has specific fields
+            if 'meeting_name' in first or 'service_body_bigint' in first:
+                return 'bmlt'
+
+    return 'tsml'  # default
+
+
+@app.route('/api/sources/drafts', methods=['GET'])
+def get_source_drafts():
+    """Get all draft scripts, optionally filtered by state."""
+    state_filter = request.args.get('state')
+
+    drafts = source_drafts.copy()
+
+    if state_filter:
+        drafts = [d for d in drafts if d.get('state') == state_filter]
+
+    # Sort by creation date, newest first
+    drafts.sort(key=lambda d: d.get('createdAt', ''), reverse=True)
+
+    return jsonify({
+        'success': True,
+        'drafts': drafts,
+        'total': len(drafts)
+    })
+
+
+@app.route('/api/sources/drafts', methods=['POST'])
+def save_source_draft():
+    """Save a generated script as a draft.
+
+    Drafts are generated scripts that haven't been saved as permanent sources yet.
+    They allow users to review and expand scripts before committing them.
+    """
+    global draft_id_counter
+
+    data = request.json
+    url = data.get('url', '')
+    name = data.get('name', '')
+    state = data.get('state', '')
+    feed_type = data.get('feedType', 'tsml')
+    script_content = data.get('scriptContent', '')
+    test_results = data.get('testResults', {})
+
+    if not url or not script_content:
+        return jsonify({
+            'success': False,
+            'error': 'URL and scriptContent are required'
+        }), 400
+
+    # Check for duplicate draft (same URL)
+    for draft in source_drafts:
+        if draft['url'] == url:
+            # Update existing draft instead
+            draft['name'] = name or draft['name']
+            draft['scriptContent'] = script_content
+            draft['testResults'] = test_results
+            draft['updatedAt'] = datetime.now().isoformat()
+            return jsonify({
+                'success': True,
+                'draft': draft,
+                'updated': True
+            })
+
+    draft = {
+        'id': draft_id_counter,
+        'url': url,
+        'name': name or f'Draft {draft_id_counter}',
+        'state': state,
+        'feedType': feed_type,
+        'scriptContent': script_content,
+        'testResults': test_results,
+        'meetingCount': test_results.get('totalMeetings', 0),
+        'createdAt': datetime.now().isoformat(),
+        'updatedAt': datetime.now().isoformat()
+    }
+
+    draft_id_counter += 1
+    source_drafts.insert(0, draft)  # Add to beginning for newest-first
+
+    return jsonify({
+        'success': True,
+        'draft': draft,
+        'updated': False
+    })
+
+
+@app.route('/api/sources/drafts/<int:draft_id>', methods=['GET'])
+def get_source_draft(draft_id):
+    """Get a specific draft by ID."""
+    for draft in source_drafts:
+        if draft['id'] == draft_id:
+            return jsonify({
+                'success': True,
+                'draft': draft
+            })
+
+    return jsonify({
+        'success': False,
+        'error': 'Draft not found'
+    }), 404
+
+
+@app.route('/api/sources/drafts/<int:draft_id>', methods=['DELETE'])
+def delete_source_draft(draft_id):
+    """Delete a draft."""
+    global source_drafts
+
+    original_len = len(source_drafts)
+    source_drafts = [d for d in source_drafts if d['id'] != draft_id]
+
+    if len(source_drafts) == original_len:
+        return jsonify({
+            'success': False,
+            'error': 'Draft not found'
+        }), 404
+
+    return jsonify({
+        'success': True,
+        'message': 'Draft deleted'
+    })
+
+
+@app.route('/api/sources/try-scrape', methods=['POST'])
+def try_scrape_source():
+    """Try to scrape a source URL and generate a Python script.
+
+    This endpoint:
+    1. Validates the URL is reachable
+    2. Attempts to scrape meeting data
+    3. Analyzes the data structure
+    4. Generates a Python script based on findings
+    5. Returns the script (optionally saving as draft)
+    """
+    global draft_id_counter
+
+    data = request.json
+    url = data.get('url', '')
+    name = data.get('name', '')
+    state = data.get('state', '')
+    save_as_draft = data.get('saveAsDraft', True)
+
+    if not url:
+        return jsonify({
+            'success': False,
+            'error': 'URL is required'
+        }), 400
+
+    state_name = US_STATE_NAMES.get(state, state) if state else 'Unknown'
+
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0)',
+            'Accept': 'application/json, text/html, */*'
+        }
+        response = requests.get(url, headers=headers, timeout=30)
+
+        result = {
+            'url': url,
+            'httpStatus': response.status_code,
+            'success': False
+        }
+
+        if response.status_code != 200:
+            result['error'] = f'HTTP {response.status_code}'
+            return jsonify(result)
+
+        content_type = response.headers.get('Content-Type', '')
+
+        # Try to parse as JSON first
+        try:
+            json_data = response.json()
+
+            if isinstance(json_data, list) and len(json_data) > 0:
+                first_item = json_data[0]
+
+                # Detect feed type
+                feed_type = _detect_feed_type(url, json_data)
+
+                # Extract sample meetings and field info
+                sample_meetings = []
+                fields_found = set()
+                state_breakdown = {}
+
+                for m in json_data[:5]:
+                    if isinstance(m, dict):
+                        fields_found.update(m.keys())
+                        m_state = m.get('state', m.get('location_province', state))
+                        sample_meetings.append({
+                            'name': m.get('name', m.get('meeting_name', 'Unknown')),
+                            'city': m.get('city', m.get('location_municipality', '')),
+                            'state': m_state,
+                            'day': m.get('day', m.get('weekday_tinyint', '')),
+                            'time': m.get('time', m.get('start_time', ''))
+                        })
+                        state_breakdown[m_state] = state_breakdown.get(m_state, 0) + 1
+
+                # Count all meetings by state
+                for m in json_data:
+                    if isinstance(m, dict):
+                        m_state = m.get('state', m.get('location_province', state))
+                        if m_state not in state_breakdown:
+                            state_breakdown[m_state] = 0
+                        state_breakdown[m_state] += 1
+
+                # Generate script
+                script_content = _generate_script_content(url, name or 'Meeting Source', state, feed_type)
+
+                result['success'] = True
+                result['feedType'] = feed_type
+                result['totalMeetings'] = len(json_data)
+                result['sampleMeetings'] = sample_meetings
+                result['fieldsFound'] = list(fields_found)[:20]
+                result['stateBreakdown'] = state_breakdown
+                result['generatedScript'] = script_content
+
+                # Save as draft if requested
+                if save_as_draft:
+                    # Check for existing draft with same URL
+                    existing_draft = None
+                    for draft in source_drafts:
+                        if draft['url'] == url:
+                            existing_draft = draft
+                            break
+
+                    if existing_draft:
+                        existing_draft['name'] = name or existing_draft['name']
+                        existing_draft['scriptContent'] = script_content
+                        existing_draft['testResults'] = result
+                        existing_draft['meetingCount'] = len(json_data)
+                        existing_draft['updatedAt'] = datetime.now().isoformat()
+                        result['draft'] = existing_draft
+                    else:
+                        draft = {
+                            'id': draft_id_counter,
+                            'url': url,
+                            'name': name or f'Draft for {state}',
+                            'state': state,
+                            'feedType': feed_type,
+                            'scriptContent': script_content,
+                            'testResults': result,
+                            'meetingCount': len(json_data),
+                            'createdAt': datetime.now().isoformat(),
+                            'updatedAt': datetime.now().isoformat()
+                        }
+                        draft_id_counter += 1
+                        source_drafts.insert(0, draft)
+                        result['draft'] = draft
+
+                return jsonify(result)
+
+            else:
+                result['error'] = 'Response is not a valid meeting array'
+                return jsonify(result)
+
+        except json.JSONDecodeError:
+            # Not JSON - might be HTML, generate HTML scraper template
+            if '<html' in response.text[:500].lower() or 'html' in content_type:
+                # Check if HTML contains meeting-related content
+                has_meeting_content = any(term in response.text.lower() for term in
+                    ['meeting', 'schedule', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'])
+
+                if has_meeting_content:
+                    script_content = _generate_html_scraper_script(url, name or 'Meeting Source', state)
+
+                    result['success'] = True
+                    result['feedType'] = 'html'
+                    result['totalMeetings'] = 0
+                    result['generatedScript'] = script_content
+                    result['note'] = 'HTML page detected with meeting content. Generated template scraper - requires customization.'
+
+                    if save_as_draft:
+                        draft = {
+                            'id': draft_id_counter,
+                            'url': url,
+                            'name': name or f'HTML Draft for {state}',
+                            'state': state,
+                            'feedType': 'html',
+                            'scriptContent': script_content,
+                            'testResults': result,
+                            'meetingCount': 0,
+                            'needsCustomization': True,
+                            'createdAt': datetime.now().isoformat(),
+                            'updatedAt': datetime.now().isoformat()
+                        }
+                        draft_id_counter += 1
+                        source_drafts.insert(0, draft)
+                        result['draft'] = draft
+
+                    return jsonify(result)
+                else:
+                    result['error'] = 'HTML page does not appear to contain meeting data'
+                    return jsonify(result)
+            else:
+                result['error'] = 'Response is not JSON or HTML'
+                return jsonify(result)
+
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'success': False,
+            'url': url,
+            'error': 'Connection timeout - server took too long to respond'
+        })
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'success': False,
+            'url': url,
+            'error': f'Connection failed: {str(e)[:100]}'
+        })
+
+
+def _generate_html_scraper_script(url, name, state):
+    """Generate a template Python script for HTML scraping."""
+    state_name = US_STATE_NAMES.get(state, state) if state else 'Unknown'
+
+    return f'''#!/usr/bin/env python3
+"""
+HTML Scraping script for: {name}
+State: {state_name} ({state})
+Feed Type: HTML (requires customization)
+Generated: {datetime.now().isoformat()}
+
+IMPORTANT: This is a template script that needs customization.
+You will need to inspect the HTML structure and update the selectors.
+"""
+
+import requests
+from bs4 import BeautifulSoup
+import json
+import re
+
+def fetch_meetings():
+    """Fetch and parse meetings from HTML page."""
+    url = "{url}"
+
+    headers = {{
+        'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0)',
+        'Accept': 'text/html,application/xhtml+xml'
+    }}
+
+    response = requests.get(url, headers=headers, timeout=30)
+    response.raise_for_status()
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+    meetings = []
+
+    # TODO: Customize these selectors based on the page structure
+    # Common patterns to look for:
+
+    # Pattern 1: Table rows
+    # for row in soup.select('table.meetings tbody tr'):
+    #     meeting = {{
+    #         'name': row.select_one('td.name').get_text(strip=True),
+    #         'day': row.select_one('td.day').get_text(strip=True),
+    #         'time': row.select_one('td.time').get_text(strip=True),
+    #         'address': row.select_one('td.address').get_text(strip=True),
+    #         'city': row.select_one('td.city').get_text(strip=True),
+    #         'state': '{state}',
+    #     }}
+    #     meetings.append(meeting)
+
+    # Pattern 2: Div containers
+    # for card in soup.select('.meeting-card, .meeting-item, .meeting'):
+    #     meeting = {{
+    #         'name': card.select_one('.meeting-name, h3, h4').get_text(strip=True),
+    #         'day': card.select_one('.day, .weekday').get_text(strip=True),
+    #         'time': card.select_one('.time, .start-time').get_text(strip=True),
+    #         'address': card.select_one('.address, .location').get_text(strip=True),
+    #         'city': '',  # Extract from address if needed
+    #         'state': '{state}',
+    #     }}
+    #     meetings.append(meeting)
+
+    # Pattern 3: Embedded JSON
+    # scripts = soup.select('script')
+    # for script in scripts:
+    #     if 'meetings' in script.text.lower():
+    #         # Try to extract JSON from script tag
+    #         match = re.search(r'var\\s+meetings\\s*=\\s*(\\[.*?\\]);', script.text, re.DOTALL)
+    #         if match:
+    #             meetings = json.loads(match.group(1))
+    #             break
+
+    print(f"Found {{len(meetings)}} meetings")
+    return meetings
+
+
+if __name__ == '__main__':
+    meetings = fetch_meetings()
+    print(json.dumps(meetings[:5], indent=2))
+'''
+
+
+@app.route('/api/intergroup-research/discover-validated', methods=['POST'])
+def discover_intergroups_validated():
+    """Discover intergroups for a state and validate URLs before returning.
+
+    This enhanced version of discover actually tests each URL pattern
+    and only returns patterns that are verified to work.
+    """
+    data = request.json
+    state = data.get('state', '')
+    session_id = data.get('sessionId')
+    validate_urls = data.get('validateUrls', True)
+
+    if not state:
+        return jsonify({
+            'success': False,
+            'error': 'State is required'
+        }), 400
+
+    state_name = US_STATE_NAMES.get(state, state)
+
+    # Get known intergroups for this state
+    known = KNOWN_INTERGROUPS.get(state, [])
+
+    # Generate search suggestions based on common patterns
+    generated = []
+    state_lower = state.lower()
+    state_name_lower = state_name.lower().replace(' ', '')
+
+    domain_patterns = [
+        (f'aa{state_lower}.org', f'{state_name} AA'),
+        (f'{state_lower}aa.org', f'{state_name} AA (Alt)'),
+        (f'aa{state_name_lower}.org', f'{state_name} AA (Full)'),
+        (f'{state_name_lower}aa.org', f'{state_name} AA (Full Alt)'),
+        (f'aa-{state_lower}.org', f'{state_name} AA (Hyphen)'),
+    ]
+
+    validated_patterns = []
+
+    if validate_urls:
+        # Test each pattern to see if it returns valid data
+        for domain, name in domain_patterns:
+            if any(k['domain'] == domain for k in known):
+                continue
+
+            url = f'https://{domain}/wp-admin/admin-ajax.php?action=meetings'
+
+            try:
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0)',
+                    'Accept': 'application/json'
+                }
+                response = requests.get(url, headers=headers, timeout=8)
+
+                if response.status_code == 200:
+                    try:
+                        json_data = response.json()
+                        if isinstance(json_data, list) and len(json_data) > 0:
+                            # Valid meeting data found
+                            validated_patterns.append({
+                                'name': name,
+                                'domain': domain,
+                                'type': 'tsml',
+                                'generated': True,
+                                'validated': True,
+                                'meetingCount': len(json_data),
+                                'url': url
+                            })
+                    except json.JSONDecodeError:
+                        pass
+            except:
+                pass
+
+        generated = validated_patterns
+    else:
+        # Return unvalidated patterns (original behavior)
+        for domain, name in domain_patterns:
+            if not any(k['domain'] == domain for k in known):
+                generated.append({
+                    'name': name,
+                    'domain': domain,
+                    'type': 'unknown',
+                    'generated': True,
+                    'validated': False
+                })
+
+    # Update session if provided
+    if session_id:
+        for session in intergroup_research_sessions:
+            if session['id'] == session_id:
+                session['intergroups_found'] = len(known) + len(generated)
+                session['updatedAt'] = datetime.now().isoformat()
+                break
+
+    return jsonify({
+        'success': True,
+        'state': state,
+        'stateName': state_name,
+        'known': known,
+        'generated': generated,
+        'validated': validate_urls,
+        'total': len(known) + len(generated)
+    })
+
+
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
     """Get research tasks with optional filtering.

@@ -1,6 +1,104 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+
+// Expandable script preview component
+function ScriptDraftPreview({ draft, onDelete, onUse }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(draft.scriptContent);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className={`draft-card ${isExpanded ? 'expanded' : ''}`}>
+      <div
+        className="draft-header"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="draft-info">
+          <span className={`draft-status ${draft.meetingCount > 0 ? 'valid' : 'needs-work'}`}>
+            {draft.meetingCount > 0 ? '✓' : '⚠'}
+          </span>
+          <div className="draft-details">
+            <span className="draft-name">{draft.name}</span>
+            <span className="draft-meta">
+              {draft.feedType?.toUpperCase()} • {draft.meetingCount} meetings • {draft.state}
+            </span>
+          </div>
+        </div>
+        <div className="draft-actions-header">
+          <span className={`feed-type-badge ${draft.feedType}`}>{draft.feedType}</span>
+          <svg
+            className={`expand-icon ${isExpanded ? 'expanded' : ''}`}
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="draft-content">
+          <div className="draft-url">
+            <strong>URL:</strong> {draft.url}
+          </div>
+
+          <div className="script-preview-container">
+            <div className="script-preview-header">
+              <span>Python Script</span>
+              <button
+                className="btn btn-ghost btn-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyToClipboard();
+                }}
+              >
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+            <pre className="script-code-preview">
+              <code>{draft.scriptContent}</code>
+            </pre>
+          </div>
+
+          <div className="draft-actions">
+            <button
+              className="btn btn-sm btn-ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(draft.id);
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+              </svg>
+              Delete
+            </button>
+            <button
+              className="btn btn-sm btn-primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUse(draft);
+              }}
+            >
+              Use This Script
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // State abbreviation to full name mapping
 const stateNames = {
@@ -44,30 +142,57 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [discoveryNotes, setDiscoveryNotes] = useState([]);
   const [intergroups, setIntergroups] = useState({ known: [], generated: [] });
+  const [validateUrls, setValidateUrls] = useState(true);
 
   // Testing state
   const [isTesting, setIsTesting] = useState(false);
   const [testResults, setTestResults] = useState(null);
   const [attemptHistory, setAttemptHistory] = useState([]);
+  const [isTryingScrape, setIsTryingScrape] = useState(null); // Track which intergroup is being scraped
+
+  // Drafts state
+  const [drafts, setDrafts] = useState([]);
+  const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
+  const [showDrafts, setShowDrafts] = useState(false);
 
   // Save state
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Load drafts for the selected state
+  const loadDrafts = useCallback(async (state) => {
+    if (!state) return;
+
+    setIsLoadingDrafts(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/sources/drafts?state=${state}`);
+      const data = await response.json();
+      if (data.success) {
+        setDrafts(data.drafts || []);
+      }
+    } catch (error) {
+      console.error('Error loading drafts:', error);
+    } finally {
+      setIsLoadingDrafts(false);
+    }
+  }, []);
 
   // Initialize from props
   useEffect(() => {
     if (isOpen) {
       if (initialState) {
         setSelectedState(initialState);
+        loadDrafts(initialState);
       }
       if (existingSession) {
         setSelectedState(existingSession.state);
         setSourceName(existingSession.sourceName || '');
         setSourceUrl(existingSession.sourceUrl || '');
         setCurrentStep(existingSession.status === 'testing' ? 'test' : 'discover');
+        loadDrafts(existingSession.state);
       }
     }
-  }, [isOpen, initialState, existingSession]);
+  }, [isOpen, initialState, existingSession, loadDrafts]);
 
   // Reset state when closing
   const handleClose = () => {
@@ -79,15 +204,123 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
     setIsDiscovering(false);
     setDiscoveryNotes([]);
     setIntergroups({ known: [], generated: [] });
+    setValidateUrls(true);
     setIsTesting(false);
     setTestResults(null);
     setAttemptHistory([]);
+    setIsTryingScrape(null);
+    setDrafts([]);
+    setIsLoadingDrafts(false);
+    setShowDrafts(false);
     setIsSaving(false);
     setSaveSuccess(false);
     onClose();
   };
 
-  // Run discovery - calls real API endpoint
+  // Try to scrape a URL and generate a draft script
+  const tryScrape = async (ig) => {
+    const domain = ig.domain;
+    const url = ig.url || `https://${domain}/wp-admin/admin-ajax.php?action=meetings`;
+
+    setIsTryingScrape(domain);
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/sources/try-scrape`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: url,
+          name: ig.name,
+          state: selectedState,
+          saveAsDraft: true
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Add or update draft in local state
+        if (data.draft) {
+          setDrafts(prev => {
+            const exists = prev.find(d => d.id === data.draft.id);
+            if (exists) {
+              return prev.map(d => d.id === data.draft.id ? data.draft : d);
+            }
+            return [data.draft, ...prev];
+          });
+          setShowDrafts(true);
+        }
+
+        // Update the intergroup with validation result
+        setIntergroups(prev => ({
+          ...prev,
+          generated: prev.generated.map(g =>
+            g.domain === domain
+              ? { ...g, validated: true, meetingCount: data.totalMeetings, triedAt: new Date().toISOString() }
+              : g
+          )
+        }));
+
+        // If successful, update discovery notes
+        setDiscoveryNotes(prev => [
+          ...prev,
+          `✓ Scraped ${ig.name}: Found ${data.totalMeetings} meetings, script saved as draft`
+        ]);
+      } else {
+        // Mark as failed validation
+        setIntergroups(prev => ({
+          ...prev,
+          generated: prev.generated.map(g =>
+            g.domain === domain
+              ? { ...g, validated: false, validationError: data.error, triedAt: new Date().toISOString() }
+              : g
+          )
+        }));
+
+        setDiscoveryNotes(prev => [
+          ...prev,
+          `✗ ${ig.name}: ${data.error || 'Could not scrape meeting data'}`
+        ]);
+      }
+    } catch (error) {
+      console.error('Error trying scrape:', error);
+      setDiscoveryNotes(prev => [...prev, `✗ ${ig.name}: Network error`]);
+    } finally {
+      setIsTryingScrape(null);
+    }
+  };
+
+  // Delete a draft
+  const deleteDraft = async (draftId) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/sources/drafts/${draftId}`, {
+        method: 'DELETE'
+      });
+      const data = await response.json();
+      if (data.success) {
+        setDrafts(prev => prev.filter(d => d.id !== draftId));
+      }
+    } catch (error) {
+      console.error('Error deleting draft:', error);
+    }
+  };
+
+  // Use a draft to populate the form
+  const useDraft = (draft) => {
+    setSourceName(draft.name);
+    setSourceUrl(draft.url);
+    setFeedType(draft.feedType || 'auto');
+    setTestResults({
+      success: draft.meetingCount > 0,
+      totalMeetings: draft.meetingCount,
+      feedType: draft.feedType,
+      generatedScript: draft.scriptContent,
+      ...draft.testResults
+    });
+    setCurrentStep('review');
+  };
+
+  // Run discovery - calls real API endpoint with optional URL validation
   const runDiscovery = async () => {
     if (!selectedState) return;
 
@@ -96,20 +329,33 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
     setIntergroups({ known: [], generated: [] });
 
     // Add initial discovery note
-    setDiscoveryNotes([`Searching for AA intergroups in ${stateNames[selectedState]}...`]);
+    const initialNote = validateUrls
+      ? `Searching and validating AA intergroups in ${stateNames[selectedState]}...`
+      : `Searching for AA intergroups in ${stateNames[selectedState]}...`;
+    setDiscoveryNotes([initialNote]);
+
+    // Also load any existing drafts for this state
+    loadDrafts(selectedState);
 
     try {
-      // Call the discover API
-      const response = await fetch(`${BACKEND_URL}/api/intergroup-research/discover`, {
+      // Use validated endpoint if validation is enabled
+      const endpoint = validateUrls
+        ? `${BACKEND_URL}/api/intergroup-research/discover-validated`
+        : `${BACKEND_URL}/api/intergroup-research/discover`;
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state: selectedState })
+        body: JSON.stringify({
+          state: selectedState,
+          validateUrls: validateUrls
+        })
       });
 
       const data = await response.json();
 
       if (data.success) {
-        const notes = [`Searching for AA intergroups in ${stateNames[selectedState]}...`];
+        const notes = [initialNote];
 
         // Add notes about what was found
         if (data.known && data.known.length > 0) {
@@ -120,10 +366,19 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
         }
 
         if (data.generated && data.generated.length > 0) {
-          notes.push(`Generated ${data.generated.length} potential domain pattern(s)`);
-          for (const ig of data.generated) {
-            notes.push(`→ Checking ${ig.domain}...`);
+          if (validateUrls) {
+            notes.push(`Found ${data.generated.length} validated source(s) with live meeting data`);
+            for (const ig of data.generated) {
+              notes.push(`✓ ${ig.name}: ${ig.meetingCount} meetings`);
+            }
+          } else {
+            notes.push(`Generated ${data.generated.length} potential domain pattern(s)`);
+            for (const ig of data.generated) {
+              notes.push(`→ ${ig.domain} (unverified)`);
+            }
           }
+        } else if (validateUrls && data.generated?.length === 0) {
+          notes.push(`No automatically validated sources found. Try clicking "Try" on unvalidated patterns.`);
         }
 
         notes.push(`Discovery complete! Found ${data.total} potential source(s)`);
@@ -344,7 +599,10 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
         <label>Select State</label>
         <select
           value={selectedState}
-          onChange={(e) => setSelectedState(e.target.value)}
+          onChange={(e) => {
+            setSelectedState(e.target.value);
+            if (e.target.value) loadDrafts(e.target.value);
+          }}
           disabled={isDiscovering}
         >
           <option value="">Choose a state...</option>
@@ -356,6 +614,24 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
         </select>
       </div>
 
+      {/* URL Validation Toggle */}
+      <div className="validation-toggle">
+        <label className="toggle-label">
+          <input
+            type="checkbox"
+            checked={validateUrls}
+            onChange={(e) => setValidateUrls(e.target.checked)}
+            disabled={isDiscovering}
+          />
+          <span className="toggle-text">
+            Only show validated URLs
+            <span className="toggle-hint">
+              {validateUrls ? '(Tests each URL - slower but more accurate)' : '(Shows all patterns - faster but includes dead links)'}
+            </span>
+          </span>
+        </label>
+      </div>
+
       <button
         className="btn btn-primary discover-btn"
         onClick={runDiscovery}
@@ -364,7 +640,7 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
         {isDiscovering ? (
           <>
             <span className="btn-spinner"></span>
-            Discovering...
+            {validateUrls ? 'Validating URLs...' : 'Discovering...'}
           </>
         ) : (
           <>
@@ -391,10 +667,10 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
             {discoveryNotes.map((note, index) => (
               <div
                 key={index}
-                className={`discovery-note ${note.includes('SUCCESS') ? 'success' : note.includes('Error') ? 'error' : ''}`}
+                className={`discovery-note ${note.startsWith('✓') ? 'success' : note.startsWith('✗') ? 'error' : note.includes('Error') ? 'error' : ''}`}
               >
                 <span className="note-bullet">
-                  {note.includes('SUCCESS') ? '✓' : note.includes('Checking') || note.includes('Testing') ? '→' : '•'}
+                  {note.startsWith('✓') ? '' : note.startsWith('✗') ? '' : note.includes('SUCCESS') ? '✓' : note.includes('Checking') || note.includes('Testing') ? '→' : '•'}
                 </span>
                 <span className="note-text">{note}</span>
               </div>
@@ -433,26 +709,105 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
 
           {intergroups.generated.length > 0 && (
             <div className="intergroups-section">
-              <h4>Suggested Patterns</h4>
+              <h4>{validateUrls ? 'Validated Sources' : 'Suggested Patterns'}</h4>
               <div className="intergroups-list">
                 {intergroups.generated.map((ig, index) => (
-                  <div key={index} className="intergroup-item generated">
+                  <div key={index} className={`intergroup-item generated ${ig.validated ? 'validated' : ig.validationError ? 'failed' : ''}`}>
                     <div className="intergroup-info">
                       <span className="intergroup-name">{ig.name}</span>
                       <span className="intergroup-domain">{ig.domain}</span>
+                      {ig.meetingCount > 0 && (
+                        <span className="intergroup-meeting-count">{ig.meetingCount} meetings</span>
+                      )}
+                      {ig.validationError && (
+                        <span className="intergroup-error">{ig.validationError}</span>
+                      )}
                     </div>
                     <div className="intergroup-actions">
-                      <span className="intergroup-type type-unknown">Unverified</span>
-                      <button
-                        className="btn btn-sm btn-ghost"
-                        onClick={() => selectIntergroup(ig)}
-                      >
-                        Try
-                      </button>
+                      {ig.validated ? (
+                        <span className="intergroup-type type-validated">✓ Validated</span>
+                      ) : ig.validationError ? (
+                        <span className="intergroup-type type-failed">✗ Failed</span>
+                      ) : (
+                        <span className="intergroup-type type-unknown">Unverified</span>
+                      )}
+                      {!ig.validated && !ig.validationError && (
+                        <button
+                          className="btn btn-sm btn-ghost"
+                          onClick={() => tryScrape(ig)}
+                          disabled={isTryingScrape === ig.domain}
+                        >
+                          {isTryingScrape === ig.domain ? (
+                            <>
+                              <span className="btn-spinner-sm"></span>
+                              Scraping...
+                            </>
+                          ) : (
+                            'Try'
+                          )}
+                        </button>
+                      )}
+                      {ig.validated && (
+                        <button
+                          className="btn btn-sm btn-primary"
+                          onClick={() => selectIntergroup(ig)}
+                        >
+                          Use This
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Saved Drafts Section */}
+      {(drafts.length > 0 || isLoadingDrafts) && (
+        <div className="drafts-section">
+          <button
+            className="drafts-toggle"
+            onClick={() => setShowDrafts(!showDrafts)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14,2 14,8 20,8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            <span>Saved Drafts ({drafts.length})</span>
+            <svg
+              className={`expand-icon ${showDrafts ? 'expanded' : ''}`}
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+
+          {showDrafts && (
+            <div className="drafts-list">
+              {isLoadingDrafts ? (
+                <div className="drafts-loading">
+                  <span className="btn-spinner"></span>
+                  Loading drafts...
+                </div>
+              ) : (
+                drafts.map(draft => (
+                  <ScriptDraftPreview
+                    key={draft.id}
+                    draft={draft}
+                    onDelete={deleteDraft}
+                    onUse={useDraft}
+                  />
+                ))
+              )}
             </div>
           )}
         </div>
