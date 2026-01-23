@@ -6,7 +6,7 @@ const ParseContext = createContext(null);
 // Parse configuration from environment variables
 const PARSE_APP_ID = process.env.REACT_APP_BACK4APP_APP_ID;
 const PARSE_JS_KEY = process.env.REACT_APP_BACK4APP_JS_KEY;
-const PARSE_SERVER_URL = process.env.REACT_APP_PARSE_SERVER_URL || 'https://parseapi.back4app.com';
+const PARSE_SERVER_URL = process.env.REACT_APP_PARSE_SERVER_URL || 'https://parseapi.back4app.com/';
 
 /**
  * Initialize Parse SDK synchronously at module load time.

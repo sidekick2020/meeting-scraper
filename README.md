@@ -407,7 +407,7 @@ npm run build
 | `REACT_APP_GOOGLE_CLIENT_ID` | Google OAuth client ID | - |
 | `REACT_APP_BACK4APP_APP_ID` | Back4App Application ID (optional) | - |
 | `REACT_APP_BACK4APP_JS_KEY` | Back4App JavaScript Key (optional) | - |
-| `REACT_APP_PARSE_SERVER_URL` | Parse Server URL | https://parseapi.back4app.com |
+| `REACT_APP_PARSE_SERVER_URL` | Parse Server URL | https://parseapi.back4app.com/ |
 
 </details>
 
