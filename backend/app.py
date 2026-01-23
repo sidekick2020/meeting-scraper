@@ -1880,10 +1880,10 @@ US_STATE_CENTERS = {
 }
 
 # Cached state meeting counts (refreshed periodically)
+# Now uses filter-based caching for accurate filtered counts
 state_meeting_counts_cache = {
-    "data": {},
-    "last_updated": None,
-    "ttl": 300  # 5 minutes cache
+    "entries": {},  # keyed by filter hash
+    "ttl": 120  # 2 minutes cache for filtered queries
 }
 
 # Global state
@@ -3262,10 +3262,10 @@ def get_cache_stats():
             feeds_cache.stats(),
             {
                 "name": "state_meeting_counts",
-                "entries": 1 if state_meeting_counts_cache["data"] else 0,
-                "max_entries": 1,
+                "entries": len(state_meeting_counts_cache["entries"]),
+                "max_entries": 20,
                 "ttl_seconds": state_meeting_counts_cache["ttl"],
-                "last_updated": state_meeting_counts_cache["last_updated"]
+                "description": "Filter-keyed cache for state counts"
             },
             {
                 "name": "geocode",
@@ -4396,17 +4396,40 @@ def get_meetings_by_state():
     """Get meeting counts by state for efficient map overview display.
 
     Returns cached aggregated counts with state center coordinates.
-    This is very fast and avoids fetching individual meetings.
+    Supports filters to show accurate counts when filters are applied.
     """
     import time
+    import hashlib
+
+    # Get filter parameters
+    day_filter = request.args.get('day', type=int)
+    type_filter = request.args.get('type')
+    state_filter = request.args.get('state')
+    city_filter = request.args.get('city')
+    online_filter = request.args.get('online')
+    hybrid_filter = request.args.get('hybrid')
+    format_filter = request.args.get('format')
+
+    # Build filter key for caching
+    filter_key = json.dumps({
+        'day': day_filter,
+        'type': type_filter,
+        'state': state_filter,
+        'city': city_filter,
+        'online': online_filter,
+        'hybrid': hybrid_filter,
+        'format': format_filter
+    }, sort_keys=True)
+    cache_key = hashlib.md5(filter_key.encode()).hexdigest()
 
     # Check cache
     cache = state_meeting_counts_cache
     current_time = time.time()
 
-    if cache["last_updated"] and (current_time - cache["last_updated"]) < cache["ttl"]:
-        # Return cached data
-        return jsonify(cache["data"])
+    if cache_key in cache["entries"]:
+        entry = cache["entries"][cache_key]
+        if (current_time - entry["timestamp"]) < cache["ttl"]:
+            return jsonify(entry["data"])
 
     if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
         return jsonify({"states": [], "total": 0})
@@ -4418,15 +4441,42 @@ def get_meetings_by_state():
 
     try:
         from collections import Counter
+        import urllib.parse
 
-        # Fetch all meetings with only state field (very efficient)
+        # Build where clause for filters
+        where = {}
+        if day_filter is not None:
+            where['day'] = day_filter
+        if type_filter:
+            where['meetingType'] = type_filter
+        if state_filter:
+            where['state'] = state_filter
+        if city_filter:
+            where['city'] = city_filter
+        if online_filter == 'true':
+            where['isOnline'] = True
+        if hybrid_filter == 'true':
+            where['isHybrid'] = True
+        if format_filter:
+            where['format'] = format_filter
+
+        # Fetch meetings with state field (efficient, paginated)
         meetings_by_state = Counter()
         total_meetings = 0
         skip = 0
         batch_size = 1000
 
         while True:
-            url = f"{BACK4APP_URL}?keys=state&limit={batch_size}&skip={skip}"
+            params = {
+                'keys': 'state',
+                'limit': batch_size,
+                'skip': skip
+            }
+            if where:
+                params['where'] = json.dumps(where)
+
+            query_string = urllib.parse.urlencode(params)
+            url = f"{BACK4APP_URL}?{query_string}"
             response = requests.get(url, headers=headers, timeout=30)
             if response.status_code != 200:
                 break
@@ -4469,9 +4519,17 @@ def get_meetings_by_state():
             "statesWithMeetings": len(states)
         }
 
-        # Update cache
-        cache["data"] = result
-        cache["last_updated"] = current_time
+        # Update cache with filter-specific entry
+        cache["entries"][cache_key] = {
+            "data": result,
+            "timestamp": current_time
+        }
+
+        # Clean old cache entries (keep max 20)
+        if len(cache["entries"]) > 20:
+            sorted_entries = sorted(cache["entries"].items(), key=lambda x: x[1]["timestamp"])
+            for old_key, _ in sorted_entries[:-20]:
+                del cache["entries"][old_key]
 
         return jsonify(result)
 
