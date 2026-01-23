@@ -39,6 +39,10 @@ services:
       - type: rewrite
         source: /download/*
         destination: /index.html
+      # Online meetings page route
+      - type: rewrite
+        source: /online-meetings
+        destination: /index.html
       # Catch-all for all other SPA routes
       - type: rewrite
         source: /*
