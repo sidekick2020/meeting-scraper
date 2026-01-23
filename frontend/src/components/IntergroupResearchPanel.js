@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import ScriptRunner from './ScriptRunner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -61,6 +62,16 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
 
   // View state
   const [activeTab, setActiveTab] = useState('discover'); // discover, notes, scripts, history
+
+  // Multi-select state for intergroups
+  const [selectedIntergroups, setSelectedIntergroups] = useState([]);
+  const [isAddingToSource, setIsAddingToSource] = useState(false);
+
+  // Script runner state
+  const [showScriptRunner, setShowScriptRunner] = useState(false);
+
+  // Sample meeting viewer state
+  const [selectedSampleMeeting, setSelectedSampleMeeting] = useState(null);
 
   // Scroll probe notes to bottom
   useEffect(() => {
@@ -470,6 +481,43 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
     loadCustomSources();
   }, []);
 
+  // Toggle intergroup selection
+  const toggleIntergroupSelection = (intergroup) => {
+    setSelectedIntergroups(prev => {
+      const exists = prev.find(ig => ig.domain === intergroup.domain);
+      if (exists) {
+        return prev.filter(ig => ig.domain !== intergroup.domain);
+      }
+      return [...prev, intergroup];
+    });
+  };
+
+  // Check if intergroup is selected
+  const isIntergroupSelected = (intergroup) => {
+    return selectedIntergroups.some(ig => ig.domain === intergroup.domain);
+  };
+
+  // Add selected intergroups to source (probe all selected)
+  const addSelectedToSource = async () => {
+    if (selectedIntergroups.length === 0) return;
+    setIsAddingToSource(true);
+
+    for (const intergroup of selectedIntergroups) {
+      await probeIntergroup(intergroup);
+    }
+
+    setSelectedIntergroups([]);
+    setIsAddingToSource(false);
+  };
+
+  // Handle script update from ScriptRunner
+  const handleScriptUpdated = (updatedScript) => {
+    setSavedScripts(prev => prev.map(s =>
+      s.id === updatedScript.id ? updatedScript : s
+    ));
+    setSelectedScript(updatedScript);
+  };
+
   const renderSessionSelector = () => (
     <div className="research-session-selector">
       <div className="session-header">
@@ -558,13 +606,38 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
           <div className="intergroups-section">
             <div className="section-header">
               <h4>Intergroups in {activeSession.stateName}</h4>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => discoverIntergroups()}
-                disabled={isDiscovering}
-              >
-                {isDiscovering ? 'Discovering...' : 'Refresh'}
-              </button>
+              <div className="section-header-actions">
+                {selectedIntergroups.length > 0 && (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={addSelectedToSource}
+                    disabled={isAddingToSource}
+                  >
+                    {isAddingToSource ? (
+                      <>
+                        <svg className="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                        </svg>
+                        Probing {selectedIntergroups.length}...
+                      </>
+                    ) : (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                        Probe Selected ({selectedIntergroups.length})
+                      </>
+                    )}
+                  </button>
+                )}
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => discoverIntergroups()}
+                  disabled={isDiscovering}
+                >
+                  {isDiscovering ? 'Discovering...' : 'Refresh'}
+                </button>
+              </div>
             </div>
 
             {intergroups.known.length === 0 && intergroups.generated.length === 0 ? (
@@ -577,8 +650,16 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
                   <>
                     <div className="intergroups-subheader">Known Intergroups</div>
                     {intergroups.known.map((ig, idx) => (
-                      <div key={`known-${idx}`} className="intergroup-item">
-                        <div className="intergroup-info">
+                      <div key={`known-${idx}`} className={`intergroup-item ${isIntergroupSelected(ig) ? 'selected' : ''}`}>
+                        <label className="intergroup-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={isIntergroupSelected(ig)}
+                            onChange={() => toggleIntergroupSelection(ig)}
+                          />
+                          <span className="checkmark"></span>
+                        </label>
+                        <div className="intergroup-info" onClick={() => toggleIntergroupSelection(ig)}>
                           <span className="intergroup-name">{ig.name}</span>
                           <span className="intergroup-domain">{ig.domain}</span>
                           <span className={`intergroup-type type-${ig.type}`}>{ig.type}</span>
@@ -586,7 +667,10 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
                         <div className="intergroup-actions">
                           <button
                             className="btn btn-secondary btn-sm"
-                            onClick={() => probeIntergroup(ig)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              probeIntergroup(ig);
+                            }}
                             disabled={probingDomain === ig.domain}
                           >
                             {probingDomain === ig.domain ? 'Probing...' : 'Probe'}
@@ -601,8 +685,16 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
                   <>
                     <div className="intergroups-subheader">Generated Patterns</div>
                     {intergroups.generated.map((ig, idx) => (
-                      <div key={`gen-${idx}`} className="intergroup-item generated">
-                        <div className="intergroup-info">
+                      <div key={`gen-${idx}`} className={`intergroup-item generated ${isIntergroupSelected(ig) ? 'selected' : ''}`}>
+                        <label className="intergroup-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={isIntergroupSelected(ig)}
+                            onChange={() => toggleIntergroupSelection(ig)}
+                          />
+                          <span className="checkmark"></span>
+                        </label>
+                        <div className="intergroup-info" onClick={() => toggleIntergroupSelection(ig)}>
                           <span className="intergroup-name">{ig.name}</span>
                           <span className="intergroup-domain">{ig.domain}</span>
                           <span className="intergroup-type type-unknown">unverified</span>
@@ -610,7 +702,10 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
                         <div className="intergroup-actions">
                           <button
                             className="btn btn-ghost btn-sm"
-                            onClick={() => probeIntergroup(ig)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              probeIntergroup(ig);
+                            }}
                             disabled={probingDomain === ig.domain}
                           >
                             {probingDomain === ig.domain ? 'Probing...' : 'Try'}
@@ -870,6 +965,15 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
                   <div className="script-viewer-actions">
                     <button
                       className="btn btn-primary btn-sm"
+                      onClick={() => setShowScriptRunner(true)}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polygon points="5 3 19 12 5 21 5 3"/>
+                      </svg>
+                      Run Script
+                    </button>
+                    <button
+                      className="btn btn-secondary btn-sm"
                       onClick={() => testScript(selectedScript)}
                       disabled={isTestingScript}
                     >
@@ -883,9 +987,10 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
                       ) : (
                         <>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polygon points="5 3 19 12 5 21 5 3"/>
+                            <path d="M9 11l3 3L22 4"/>
+                            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
                           </svg>
-                          Test Script
+                          Quick Test
                         </>
                       )}
                     </button>
@@ -994,17 +1099,24 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
                                     <th>Day</th>
                                     <th>Time</th>
                                     <th>City</th>
-                                    <th>Address</th>
+                                    <th>Action</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {testResults.sampleMeetings.map((meeting, idx) => (
-                                    <tr key={idx}>
+                                    <tr key={idx} className={selectedSampleMeeting === idx ? 'selected' : ''}>
                                       <td>{meeting.name || '-'}</td>
                                       <td>{meeting.day !== undefined ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][meeting.day] || meeting.day : '-'}</td>
                                       <td>{meeting.time || '-'}</td>
                                       <td>{meeting.city || '-'}</td>
-                                      <td className="address-cell">{meeting.address || '-'}</td>
+                                      <td>
+                                        <button
+                                          className="btn btn-xs btn-ghost"
+                                          onClick={() => setSelectedSampleMeeting(selectedSampleMeeting === idx ? null : idx)}
+                                        >
+                                          {selectedSampleMeeting === idx ? 'Hide' : 'View'}
+                                        </button>
+                                      </td>
                                     </tr>
                                   ))}
                                 </tbody>
@@ -1048,7 +1160,105 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
               </div>
             )}
           </div>
+
+          {/* Sample Meeting Details Sidebar */}
+          {selectedSampleMeeting !== null && testResults?.sampleMeetings?.[selectedSampleMeeting] && (
+            <div className="sample-meeting-sidebar">
+              <div className="sidebar-header">
+                <h4>Meeting Details</h4>
+                <button
+                  className="btn-icon"
+                  onClick={() => setSelectedSampleMeeting(null)}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+              <div className="sidebar-content">
+                {(() => {
+                  const meeting = testResults.sampleMeetings[selectedSampleMeeting];
+                  return (
+                    <>
+                      <div className="detail-group">
+                        <label>Name</label>
+                        <span className="detail-value">{meeting.name || 'Not specified'}</span>
+                      </div>
+                      <div className="detail-row">
+                        <div className="detail-group">
+                          <label>Day</label>
+                          <span className="detail-value">
+                            {meeting.day !== undefined && meeting.day !== null
+                              ? ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][meeting.day]
+                              : 'Not specified'}
+                          </span>
+                        </div>
+                        <div className="detail-group">
+                          <label>Time</label>
+                          <span className="detail-value">{meeting.time || 'Not specified'}</span>
+                        </div>
+                      </div>
+                      <div className="detail-group">
+                        <label>Location</label>
+                        <span className="detail-value">{meeting.location || 'Not specified'}</span>
+                      </div>
+                      <div className="detail-group">
+                        <label>Address</label>
+                        <span className="detail-value">{meeting.address || 'Not specified'}</span>
+                      </div>
+                      <div className="detail-row">
+                        <div className="detail-group">
+                          <label>City</label>
+                          <span className="detail-value">{meeting.city || 'Not specified'}</span>
+                        </div>
+                        <div className="detail-group">
+                          <label>State</label>
+                          <span className="detail-value">{meeting.state || 'Not specified'}</span>
+                        </div>
+                      </div>
+                      {meeting.latitude && meeting.longitude && (
+                        <div className="detail-group">
+                          <label>Coordinates</label>
+                          <span className="detail-value">{meeting.latitude}, {meeting.longitude}</span>
+                        </div>
+                      )}
+                      {meeting.types && meeting.types.length > 0 && (
+                        <div className="detail-group">
+                          <label>Types</label>
+                          <div className="detail-tags">
+                            {meeting.types.map((type, i) => (
+                              <span key={i} className="type-tag">{type}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {meeting.notes && (
+                        <div className="detail-group">
+                          <label>Notes</label>
+                          <span className="detail-value notes">{meeting.notes}</span>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* ScriptRunner Modal */}
+        {showScriptRunner && selectedScript && (
+          <div className="script-runner-modal-overlay" onClick={() => setShowScriptRunner(false)}>
+            <div className="script-runner-modal" onClick={(e) => e.stopPropagation()}>
+              <ScriptRunner
+                script={selectedScript}
+                onScriptUpdated={handleScriptUpdated}
+                onClose={() => setShowScriptRunner(false)}
+              />
+            </div>
+          </div>
+        )}
       )}
     </div>
   );
