@@ -1676,6 +1676,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
       if (dayIndex !== -1) filters.day = dayIndex;
     }
     if (selectedTypes.length === 1) filters.type = selectedTypes[0];
+    if (selectedStates.length === 1) filters.state = selectedStates[0];
+    if (selectedCity) filters.city = selectedCity;
     if (showOnlineOnly) filters.online = true;
     if (showHybridOnly) filters.hybrid = true;
     if (selectedFormat) filters.format = selectedFormat;
@@ -1684,7 +1686,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     // Accumulate with existing cache as user explores
     setCurrentPage(0);
     fetchMeetings({ bounds, filters, bulkLoad: true });
-  }, [fetchMeetings, showTodayOnly, selectedDays, selectedTypes, showOnlineOnly, showHybridOnly, selectedFormat, reverseGeocodeMapCenter]);
+  }, [fetchMeetings, showTodayOnly, selectedDays, selectedTypes, selectedStates, selectedCity, showOnlineOnly, showHybridOnly, selectedFormat, reverseGeocodeMapCenter]);
 
   // Build filters object to pass to the map
   const mapFilters = useMemo(() => {
@@ -2449,6 +2451,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
               <MeetingMap
                 onSelectMeeting={handleMapMarkerClick}
                 onStateClick={(stateData) => {
+                  // Mark this as a programmatic pan to prevent handleMapBoundsChange from clearing filters
+                  isProgrammaticPanRef.current = true;
                   // Set the state filter to show meetings for this state
                   setSelectedStates([stateData.state]);
                   // Clear target location since we're clicking a state
