@@ -1153,6 +1153,11 @@ AA_FEEDS = {
         "url": "https://wyomingaa.org/wp-admin/admin-ajax.php?action=meetings",
         "state": "WY"
     },
+    # === ONLINE / INTERNATIONAL ===
+    "Online Intergroup of AA (OIAA)": {
+        "url": "https://data.aa-intergroup.org/6436f5a3f03fdecef8459055.json",
+        "state": "ONLINE"
+    },
 }
 
 # BMLT (Basic Meeting List Toolkit) feeds for NA meetings
