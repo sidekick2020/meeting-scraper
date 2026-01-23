@@ -315,6 +315,130 @@ export function getNetworkInfo() {
   };
 }
 
+// =============================================================================
+// REQUEST DEDUPLICATION & TIMEOUT UTILITIES
+// =============================================================================
+
+// In-flight request cache for deduplication
+const inFlightRequests = new Map();
+
+/**
+ * Default timeout for fetch requests (15 seconds)
+ */
+const DEFAULT_FETCH_TIMEOUT = 15000;
+
+/**
+ * Fetches data with automatic timeout using AbortController
+ * @param {string} url - URL to fetch
+ * @param {Object} options - Fetch options
+ * @param {number} timeout - Timeout in milliseconds (default 15000)
+ * @returns {Promise<Response>} - Fetch response
+ */
+export async function fetchWithTimeout(url, options = {}, timeout = DEFAULT_FETCH_TIMEOUT) {
+  const controller = new AbortController();
+  const { signal: externalSignal, ...fetchOptions } = options;
+
+  // Create timeout that aborts the request
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeout);
+
+  // If external signal is provided, listen for its abort
+  if (externalSignal) {
+    externalSignal.addEventListener('abort', () => {
+      controller.abort();
+      clearTimeout(timeoutId);
+    });
+  }
+
+  try {
+    const response = await fetch(url, {
+      ...fetchOptions,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      // Check if it was a timeout or external abort
+      if (externalSignal?.aborted) {
+        throw new DOMException('Request cancelled', 'AbortError');
+      }
+      throw new DOMException(`Request timeout after ${timeout}ms`, 'TimeoutError');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Fetches data with deduplication - reuses in-flight requests for same URL
+ * @param {string} url - URL to fetch
+ * @param {Object} options - Fetch options (cannot include body for deduplication)
+ * @param {number} timeout - Timeout in milliseconds (default 15000)
+ * @returns {Promise<any>} - Parsed JSON response
+ */
+export async function fetchWithDeduplication(url, options = {}, timeout = DEFAULT_FETCH_TIMEOUT) {
+  // Only deduplicate GET requests without body
+  const canDeduplicate = !options.method || options.method === 'GET';
+
+  if (canDeduplicate && inFlightRequests.has(url)) {
+    // Return existing promise for same URL
+    return inFlightRequests.get(url);
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      const response = await fetchWithTimeout(url, options, timeout);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } finally {
+      // Remove from in-flight cache when done
+      if (canDeduplicate) {
+        inFlightRequests.delete(url);
+      }
+    }
+  })();
+
+  if (canDeduplicate) {
+    inFlightRequests.set(url, fetchPromise);
+  }
+
+  return fetchPromise;
+}
+
+/**
+ * Calculates adaptive thumbnail batch size based on network speed
+ * @param {number} speedMbps - Network speed in Mbps
+ * @returns {number} - Optimal thumbnail batch size (20-100)
+ */
+export function calculateThumbnailBatchSize(speedMbps) {
+  const category = categorizeSpeed(speedMbps);
+  switch (category) {
+    case 'very-slow':
+      return 10;
+    case 'slow':
+      return 20;
+    case 'medium':
+      return 40;
+    case 'fast':
+      return 60;
+    case 'very-fast':
+      return 100;
+    default:
+      return 20;
+  }
+}
+
+/**
+ * Clears all in-flight request cache
+ */
+export function clearInFlightRequests() {
+  inFlightRequests.clear();
+}
+
 const networkSpeedUtils = {
   measureNetworkSpeed,
   calculateBatchSize,
@@ -327,7 +451,12 @@ const networkSpeedUtils = {
   getNetworkInfo,
   categorizeSpeed,
   calculateParallelRequests,
+  fetchWithTimeout,
+  fetchWithDeduplication,
+  calculateThumbnailBatchSize,
+  clearInFlightRequests,
   BATCH_CONFIG,
+  DEFAULT_FETCH_TIMEOUT,
 };
 
 export default networkSpeedUtils;

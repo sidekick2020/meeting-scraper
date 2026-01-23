@@ -11,6 +11,8 @@ import {
   updateSpeedFromRequest,
   getNetworkInfo,
   categorizeSpeed,
+  fetchWithTimeout,
+  calculateThumbnailBatchSize,
 } from '../utils/networkSpeed';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
@@ -305,28 +307,36 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const meetingsRef = useRef(cachedMeetings?.data || []);
   const loadMoreSentinelRef = useRef(null);
 
-  // Fetch thumbnail for a single meeting
+  // Fetch thumbnail for a single meeting with timeout
   const fetchThumbnail = useCallback(async (meetingId) => {
     if (thumbnailRequestsRef.current.has(meetingId)) return null;
     thumbnailRequestsRef.current.add(meetingId);
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/thumbnail/${meetingId}`);
+      const response = await fetchWithTimeout(`${BACKEND_URL}/api/thumbnail/${meetingId}`, {}, 10000);
       if (response.ok) {
         const data = await response.json();
         return { meetingId, thumbnailUrl: data.thumbnailUrl };
       }
     } catch (error) {
-      console.error(`Error fetching thumbnail for ${meetingId}:`, error);
+      // Don't log timeout errors as they're expected on slow connections
+      if (error.name !== 'TimeoutError') {
+        console.error(`Error fetching thumbnail for ${meetingId}:`, error);
+      }
     }
     return null;
   }, []);
 
-  // Request thumbnails for meetings without them (batched)
+  // Request thumbnails for meetings without them (batched with adaptive sizing)
   const requestMissingThumbnails = useCallback(async (meetingsList) => {
+    // Calculate adaptive batch size based on network speed
+    const thumbnailBatchSize = networkSpeed
+      ? calculateThumbnailBatchSize(networkSpeed)
+      : 20; // Default to 20 if network speed not yet measured
+
     const meetingsWithoutThumbnails = meetingsList
       .filter(m => !m.thumbnailUrl && m.objectId && !thumbnailRequestsRef.current.has(m.objectId))
-      .slice(0, 20); // Limit batch size
+      .slice(0, thumbnailBatchSize); // Adaptive batch size (10-100 based on network)
 
     if (meetingsWithoutThumbnails.length === 0) return;
 
@@ -347,7 +357,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         thumbnailMap[m.objectId] ? { ...m, thumbnailUrl: thumbnailMap[m.objectId] } : m
       ));
     }
-  }, [fetchThumbnail]);
+  }, [fetchThumbnail, networkSpeed]);
 
   // Build URL with filters for meeting fetch
   const buildMeetingsUrl = useCallback((currentBatchSize, skip, bounds, stateFilter, filters) => {
@@ -426,7 +436,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
             const url = buildMeetingsUrl(currentBatchSize, batchSkip, bounds, stateFilter, filters);
             const startTime = performance.now();
             batchPromises.push(
-              fetch(url).then(async (response) => {
+              fetchWithTimeout(url, {}, 15000).then(async (response) => {
                 const endTime = performance.now();
                 if (response.ok) {
                   const data = await response.json();
@@ -505,10 +515,10 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         }
       }
 
-      // Standard single batch fetch
+      // Standard single batch fetch with timeout
       const url = buildMeetingsUrl(currentBatchSize, skip, bounds, stateFilter, filters);
       const startTime = performance.now();
-      const response = await fetch(url);
+      const response = await fetchWithTimeout(url, {}, 15000);
       const endTime = performance.now();
 
       if (response.ok) {
