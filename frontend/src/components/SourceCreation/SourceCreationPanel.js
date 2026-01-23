@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import SourceWizard from './SourceWizard';
+import SubmissionsPanel from '../SubmissionsPanel';
 
 // State abbreviation to full name mapping
 const stateNames = {
@@ -88,7 +89,7 @@ const MOCK_HISTORY = [
 ];
 
 function SourceCreationPanel() {
-  const [activeTab, setActiveTab] = useState('gaps'); // gaps | sessions | history
+  const [activeTab, setActiveTab] = useState('gaps'); // gaps | sessions | history | submissions
   const [wizardOpen, setWizardOpen] = useState(false);
   const [selectedState, setSelectedState] = useState(null);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -423,12 +424,23 @@ function SourceCreationPanel() {
             <span className="tab-badge">{history.length}</span>
           )}
         </button>
+        <button
+          className={`tab-btn ${activeTab === 'submissions' ? 'active' : ''}`}
+          onClick={() => setActiveTab('submissions')}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M22 2L11 13"/>
+            <path d="M22 2L15 22l-4-9-9-4 20-7z"/>
+          </svg>
+          Submissions
+        </button>
       </div>
 
       <div className="source-creation-content">
         {activeTab === 'gaps' && renderGapsTab()}
         {activeTab === 'sessions' && renderSessionsTab()}
         {activeTab === 'history' && renderHistoryTab()}
+        {activeTab === 'submissions' && <SubmissionsPanel />}
       </div>
 
       {/* Source Creation Wizard Sidebar */}
