@@ -1259,8 +1259,8 @@ html, body {
 
 .form-group input {
   width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--input-border);
+  padding: 0.875rem 1rem;
+  border: none;
   border-radius: 0.5rem;
   background: var(--input-bg);
   color: var(--text-primary);
@@ -1269,7 +1269,6 @@ html, body {
 
 .form-group input:focus {
   outline: none;
-  border-color: var(--accent-primary);
 }
 
 .form-group input::placeholder {
@@ -1281,7 +1280,7 @@ html, body {
 .form-group input:-webkit-autofill:focus {
   -webkit-box-shadow: 0 0 0 30px var(--input-bg) inset !important;
   -webkit-text-fill-color: var(--text-primary) !important;
-  border: 1px solid var(--input-border);
+  border: none;
 }
 
 .form-help {
@@ -1700,9 +1699,9 @@ html, body {
 
 .config-select {
   flex: 1;
-  padding: 0.5rem 0.75rem;
+  padding: 0.625rem 0.875rem;
   font-size: 0.8125rem;
-  border: 1px solid var(--border-light);
+  border: none;
   border-radius: 0.375rem;
   background: var(--bg-tertiary);
   color: var(--text-primary);
@@ -1710,12 +1709,11 @@ html, body {
 }
 
 .config-select:hover {
-  border-color: var(--text-muted);
+  background: var(--bg-hover);
 }
 
 .config-select:focus {
   outline: none;
-  border-color: var(--accent-primary);
 }
 
 .config-delete-btn {
@@ -1730,9 +1728,9 @@ html, body {
 
 .config-name-input {
   flex: 1;
-  padding: 0.5rem 0.75rem;
+  padding: 0.625rem 0.875rem;
   font-size: 0.8125rem;
-  border: 1px solid var(--border-light);
+  border: none;
   border-radius: 0.375rem;
   background: var(--bg-tertiary);
   color: var(--text-primary);
@@ -1740,7 +1738,6 @@ html, body {
 
 .config-name-input:focus {
   outline: none;
-  border-color: var(--accent-primary);
 }
 
 .save-config-btn {
@@ -2871,7 +2868,7 @@ html, body {
   width: 100%;
   padding: 1rem 1.25rem;
   background: var(--input-bg);
-  border: 1px solid var(--border-light);
+  border: none;
   border-radius: 0.75rem;
   color: var(--text-primary);
   font-size: 1rem;
@@ -2880,7 +2877,6 @@ html, body {
 
 .search-input:focus {
   outline: none;
-  border-color: var(--accent-primary);
   background: var(--bg-hover);
 }
 
@@ -2896,9 +2892,9 @@ html, body {
 }
 
 .filter-select {
-  padding: 0.75rem 1rem;
+  padding: 0.875rem 1rem;
   background: var(--input-bg);
-  border: 1px solid var(--border-light);
+  border: none;
   border-radius: 0.5rem;
   color: var(--text-primary);
   font-size: 0.9rem;
@@ -2908,7 +2904,6 @@ html, body {
 
 .filter-select:focus {
   outline: none;
-  border-color: var(--accent-primary);
 }
 
 .filter-select option {
@@ -3602,9 +3597,9 @@ a.sidebar-nav-item {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  padding: 0.625rem 1rem;
   background: var(--bg-tertiary);
-  border: 1px solid var(--border-light);
+  border: none;
   border-radius: 0.5rem;
   flex: 1;
   min-width: 200px;
@@ -3630,9 +3625,9 @@ a.sidebar-nav-item {
 }
 
 .directory-filter {
-  padding: 0.5rem 0.75rem;
+  padding: 0.625rem 0.875rem;
   background: var(--bg-tertiary);
-  border: 1px solid var(--border-light);
+  border: none;
   border-radius: 0.5rem;
   color: var(--text-primary);
   font-size: 0.8rem;
@@ -3641,13 +3636,11 @@ a.sidebar-nav-item {
 }
 
 .directory-filter:hover {
-  border-color: var(--text-muted);
+  background: var(--bg-hover);
 }
 
 .directory-filter:focus {
   outline: none;
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px rgba(47, 93, 255, 0.15);
 }
 
 .directory-toolbar .btn-sm {
@@ -7644,9 +7637,9 @@ a.sidebar-nav-item {
 .add-task-modal input,
 .add-task-modal textarea {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.875rem 1rem;
   background: var(--bg-secondary);
-  border: 1px solid var(--border-light);
+  border: none;
   border-radius: 8px;
   color: var(--text-primary);
   font-size: 0.9rem;
@@ -7655,7 +7648,6 @@ a.sidebar-nav-item {
 .add-task-modal input:focus,
 .add-task-modal textarea:focus {
   outline: none;
-  border-color: var(--accent-primary);
 }
 
 .add-task-modal .modal-actions {
@@ -7753,9 +7745,9 @@ a.sidebar-nav-item {
 .script-form input,
 .script-form select {
   width: 100%;
-  padding: 0.6rem 0.75rem;
+  padding: 0.75rem 1rem;
   background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
+  border: none;
   border-radius: 0.5rem;
   color: var(--text-primary);
   font-size: 0.9rem;
@@ -7764,7 +7756,6 @@ a.sidebar-nav-item {
 .script-form input:focus,
 .script-form select:focus {
   outline: none;
-  border-color: var(--accent-primary);
 }
 
 .form-hint {
@@ -8914,8 +8905,8 @@ a.sidebar-nav-item {
 .invite-form input,
 .invite-form select {
   width: 100%;
-  padding: 0.625rem 0.875rem;
-  border: 1px solid var(--input-border);
+  padding: 0.75rem 1rem;
+  border: none;
   border-radius: 8px;
   font-size: 0.875rem;
   background: var(--input-bg);
@@ -8925,8 +8916,6 @@ a.sidebar-nav-item {
 .invite-form input:focus,
 .invite-form select:focus {
   outline: none;
-  border-color: #2f5dff;
-  box-shadow: 0 0 0 3px rgba(47, 93, 255, 0.1);
 }
 
 .invite-form-actions {
@@ -9035,8 +9024,8 @@ a.sidebar-nav-item {
 }
 
 .role-select {
-  padding: 0.375rem 0.75rem;
-  border: 1px solid var(--input-border);
+  padding: 0.5rem 0.875rem;
+  border: none;
   border-radius: 6px;
   font-size: 0.8125rem;
   background: var(--input-bg);
@@ -10888,7 +10877,7 @@ a.sidebar-nav-item {
 [data-theme="light"] .filter-search,
 [data-theme="light"] .search-input-wrapper {
   background: #f3f4f6;
-  border: 1px solid rgba(0, 0, 0, 0.15);
+  border: none;
   border-radius: 0.5rem;
 }
 
@@ -10911,7 +10900,6 @@ a.sidebar-nav-item {
 [data-theme="light"] .directory-search:focus-within,
 [data-theme="light"] .filter-search:focus-within,
 [data-theme="light"] .search-input-wrapper:focus-within {
-  border-color: #1a4fd8;
   box-shadow: 0 0 0 3px rgba(26, 79, 216, 0.15);
 }
 
@@ -10925,14 +10913,13 @@ a.sidebar-nav-item {
 [data-theme="light"] .directory-filter,
 [data-theme="light"] select {
   background: #f3f4f6;
-  border: 1px solid rgba(0, 0, 0, 0.15);
+  border: none;
   color: #111827;
   border-radius: 0.5rem;
 }
 
 [data-theme="light"] .directory-filter:focus,
 [data-theme="light"] select:focus {
-  border-color: #1a4fd8;
   box-shadow: 0 0 0 3px rgba(26, 79, 216, 0.15);
 }
 
@@ -10942,7 +10929,7 @@ a.sidebar-nav-item {
 [data-theme="light"] input[type="password"],
 [data-theme="light"] textarea {
   background: #f3f4f6;
-  border: 1px solid rgba(0, 0, 0, 0.15);
+  border: none;
   color: #111827;
   border-radius: 0.5rem;
 }
@@ -10951,7 +10938,6 @@ a.sidebar-nav-item {
 [data-theme="light"] input[type="email"]:focus,
 [data-theme="light"] input[type="password"]:focus,
 [data-theme="light"] textarea:focus {
-  border-color: #1a4fd8;
   box-shadow: 0 0 0 3px rgba(26, 79, 216, 0.15);
   outline: none;
 }
@@ -14714,19 +14700,18 @@ a.sidebar-nav-item {
 
 .task-sidebar-form .form-group input,
 .task-sidebar-form .form-group select {
-  padding: 0.625rem 0.875rem;
-  border: 1px solid var(--border-light);
+  padding: 0.75rem 1rem;
+  border: none;
   border-radius: 0.5rem;
   background: var(--bg-secondary);
   color: var(--text-primary);
   font-size: 0.9rem;
-  transition: border-color 0.15s ease;
+  transition: background-color 0.15s ease;
 }
 
 .task-sidebar-form .form-group input:focus,
 .task-sidebar-form .form-group select:focus {
   outline: none;
-  border-color: var(--accent-primary);
 }
 
 .task-sidebar-form .form-group input::placeholder {
@@ -16933,8 +16918,8 @@ a.sidebar-nav-item {
 
 .note-title-input {
   flex: 1;
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
+  padding: 10px 14px;
+  border: none;
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-primary);
@@ -16943,8 +16928,8 @@ a.sidebar-nav-item {
 
 .note-content-input {
   width: 100%;
-  padding: 12px;
-  border: 1px solid var(--border-color);
+  padding: 14px;
+  border: none;
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-primary);
@@ -19141,8 +19126,8 @@ a.sidebar-nav-item {
 .source-form .form-group input,
 .source-form .form-group select {
   width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border-color);
+  padding: 0.875rem 1rem;
+  border: none;
   border-radius: 0.5rem;
   background: var(--bg-secondary);
   color: var(--text-primary);
@@ -19152,7 +19137,6 @@ a.sidebar-nav-item {
 .source-form .form-group input:focus,
 .source-form .form-group select:focus {
   outline: none;
-  border-color: var(--accent-primary);
 }
 
 .source-form .form-row {
