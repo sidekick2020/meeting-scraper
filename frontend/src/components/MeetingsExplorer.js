@@ -534,9 +534,9 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         const responseSize = JSON.stringify(data).length;
         updateSpeedFromRequest(responseSize, endTime - startTime);
 
-        // Update batch size based on new speed estimate (minimum 50 for pagination)
+        // Update batch size based on new speed estimate
         const networkInfo = getNetworkInfo();
-        const newBatchSize = Math.max(networkInfo.batchSize, 50);
+        const newBatchSize = networkInfo.batchSize;
         if (newBatchSize !== currentBatchSize) {
           setBatchSize(newBatchSize);
         }
@@ -638,8 +638,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   }, [fetchMeetings, isLoadingMore, hasMore, mapBounds, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity, selectedFormat]);
 
   // Initialize network speed detection
-  // Minimum batch size of 50 ensures consistent pagination experience
-  const MIN_PAGINATION_BATCH_SIZE = 50;
+  // Small batch size of 5 for faster initial load with infinite scroll
+  const MIN_PAGINATION_BATCH_SIZE = 5;
   useEffect(() => {
     if (networkInitializedRef.current) return;
     networkInitializedRef.current = true;
@@ -2339,7 +2339,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                 ))}
                 {/* Skeleton placeholders while loading more meetings */}
                 {(isLoading || isLoadingMore) && (
-                  [...Array(Math.min(batchSize, Math.max(6, (totalMeetings || 50) - meetings.length)))].map((_, index) => (
+                  [...Array(Math.min(batchSize, Math.max(5, (totalMeetings || 5) - meetings.length)))].map((_, index) => (
                     <div key={`skeleton-${index}`} className="skeleton-meeting-card">
                       <div className="skeleton-card-image">
                         <div className="skeleton-card-badge"></div>
