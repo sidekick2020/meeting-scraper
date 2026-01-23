@@ -29,17 +29,6 @@ const STEPS = [
   { id: 'save', label: 'Save', icon: 'save' }
 ];
 
-// Mock intergroups for discovery
-const MOCK_INTERGROUPS = {
-  known: [
-    { name: 'Denver Area Intergroup', domain: 'daccaa.org', type: 'tsml' },
-    { name: 'Colorado Springs Intergroup', domain: 'coloradospringsaa.org', type: 'tsml' },
-  ],
-  generated: [
-    { name: 'Boulder County AA', domain: 'bouldercountyaa.org', type: 'unknown' },
-    { name: 'Fort Collins AA', domain: 'fortcollinsaa.org', type: 'unknown' },
-  ]
-};
 
 function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSession }) {
   // Current step
@@ -172,63 +161,120 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
     setCurrentStep('test');
   };
 
-  // Placeholder: Test source
+  // Test source URL by calling the real API
   const testSource = async () => {
     if (!sourceUrl) return;
 
     setIsTesting(true);
     setTestResults(null);
 
-    // Simulate testing
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/tasks/test-source`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: sourceUrl,
+          feedType: feedType,
+          state: selectedState || 'XX',
+          name: sourceName || ''
+        })
+      });
 
-    const mockResults = {
-      success: true,
-      totalMeetings: 847,
-      feedType: 'tsml',
-      stateBreakdown: { CO: 820, WY: 15, NM: 12 },
-      sampleMeetings: [
-        { name: 'Happy Hour Group', city: 'Denver', state: 'CO', day: 1, time: '17:30' },
-        { name: 'Sunrise Serenity', city: 'Boulder', state: 'CO', day: 0, time: '07:00' },
-        { name: 'Downtown Noon Meeting', city: 'Denver', state: 'CO', day: 3, time: '12:00' },
-      ],
-      generatedScript: `# Auto-generated scraper for ${sourceName}\nimport requests\n\nurl = "${sourceUrl}"\nresponse = requests.get(url)\nmeetings = response.json()\nprint(f"Found {len(meetings)} meetings")`
-    };
+      const data = await response.json();
+      setTestResults(data);
 
-    setTestResults(mockResults);
-    setAttemptHistory(prev => [...prev, {
-      id: Date.now(),
-      url: sourceUrl,
-      success: true,
-      totalMeetings: 847,
-      timestamp: new Date().toISOString()
-    }]);
-    setIsTesting(false);
+      // Add this attempt to history
+      setAttemptHistory(prev => [...prev, {
+        id: Date.now(),
+        url: sourceUrl,
+        success: data.success,
+        totalMeetings: data.totalMeetings || 0,
+        error: data.error || null,
+        timestamp: new Date().toISOString()
+      }]);
 
-    if (mockResults.success) {
-      setCurrentStep('review');
+      // Update feed type if auto-detected
+      if (data.feedType && feedType === 'auto') {
+        setFeedType(data.feedType);
+      }
+
+      if (data.success) {
+        setCurrentStep('review');
+      }
+    } catch (error) {
+      console.error('Error testing source:', error);
+      const errorResult = {
+        success: false,
+        error: 'Failed to test source. Please check the URL and try again.'
+      };
+      setTestResults(errorResult);
+
+      setAttemptHistory(prev => [...prev, {
+        id: Date.now(),
+        url: sourceUrl,
+        success: false,
+        totalMeetings: 0,
+        error: 'Network error - could not reach server',
+        timestamp: new Date().toISOString()
+      }]);
+    } finally {
+      setIsTesting(false);
     }
   };
 
-  // Placeholder: Save source
+  // Save source by calling the real API
   const saveSource = async (submitForReview = false) => {
+    if (!sourceUrl.trim() || !sourceName.trim() || !selectedState.trim()) {
+      return;
+    }
+
     setIsSaving(true);
 
-    // Simulate saving
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      const endpoint = submitForReview
+        ? `${BACKEND_URL}/api/submissions`
+        : `${BACKEND_URL}/api/tasks/add-source`;
 
-    setSaveSuccess(true);
-    setIsSaving(false);
-
-    setTimeout(() => {
-      onComplete({
-        state: selectedState,
-        name: sourceName,
-        url: sourceUrl,
-        feedType,
-        submitted: submitForReview
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: sourceUrl,
+          name: sourceName,
+          state: selectedState,
+          feedType: feedType === 'auto' ? 'tsml' : feedType,
+          testResults: testResults
+        })
       });
-    }, 1000);
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSaveSuccess(true);
+        setTimeout(() => {
+          onComplete({
+            state: selectedState,
+            name: sourceName,
+            url: sourceUrl,
+            feedType,
+            submitted: submitForReview
+          });
+        }, 1000);
+      } else {
+        setTestResults(prev => ({
+          ...prev,
+          saveError: data.error || 'Failed to save source'
+        }));
+      }
+    } catch (error) {
+      console.error('Error saving source:', error);
+      setTestResults(prev => ({
+        ...prev,
+        saveError: 'Failed to save source. Please try again.'
+      }));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Navigation
