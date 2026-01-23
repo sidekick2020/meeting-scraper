@@ -884,7 +884,8 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
           <p>Select a session to view scripts.</p>
         </div>
       ) : (
-        <div className="scripts-layout">
+        <>
+          <div className="scripts-layout">
           <div className="scripts-list-panel">
             <h4>Saved Scripts ({savedScripts.length})</h4>
             {savedScripts.length === 0 ? (
@@ -1259,6 +1260,7 @@ function IntergroupResearchPanel({ isExpanded, onToggleExpand }) {
             </div>
           </div>
         )}
+        </>
       )}
     </div>
   );
