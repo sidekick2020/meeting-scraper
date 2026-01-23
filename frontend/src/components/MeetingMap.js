@@ -192,18 +192,47 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
   const map = useMap();
   const fetchTimeoutRef = useRef(null);
   const lastFetchRef = useRef(null);
-  const stateDataFetchedRef = useRef(false);
   const filtersRef = useRef(filters);
   const pendingFetchRef = useRef(null);
 
-  // Fetch state-level data (cached, very fast)
+  // Fetch state-level data with filter support
   const fetchStateData = useCallback(async () => {
-    if (stateDataFetchedRef.current) return; // Only fetch once
-    stateDataFetchedRef.current = true;
-
     try {
       onLoadingChange?.(true);
-      const response = await fetch(`${BACKEND_URL}/api/meetings/by-state`);
+      const currentFilters = filtersRef.current || {};
+
+      // Build URL with filter parameters
+      let url = `${BACKEND_URL}/api/meetings/by-state`;
+      const params = new URLSearchParams();
+
+      if (currentFilters.day !== undefined && currentFilters.day !== null) {
+        params.append('day', currentFilters.day);
+      }
+      if (currentFilters.type) {
+        params.append('type', currentFilters.type);
+      }
+      if (currentFilters.state) {
+        params.append('state', currentFilters.state);
+      }
+      if (currentFilters.city) {
+        params.append('city', currentFilters.city);
+      }
+      if (currentFilters.online) {
+        params.append('online', 'true');
+      }
+      if (currentFilters.hybrid) {
+        params.append('hybrid', 'true');
+      }
+      if (currentFilters.format) {
+        params.append('format', currentFilters.format);
+      }
+
+      const queryString = params.toString();
+      if (queryString) {
+        url += `?${queryString}`;
+      }
+
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         onStateDataLoaded(data);
@@ -391,8 +420,10 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
       // Force refresh when filters change
       lastFetchRef.current = null;
       fetchHeatmapData(true);
+      // Also refetch state data with new filters
+      fetchStateData();
     }
-  }, [filters, fetchHeatmapData]);
+  }, [filters, fetchHeatmapData, fetchStateData]);
 
   return null;
 }
