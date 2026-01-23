@@ -46,7 +46,8 @@ function AdminPanel({ onBackToPublic }) {
   const cachedDirectoryTotal = getCache(ADMIN_CACHE_KEYS.DIRECTORY_TOTAL);
   const cachedScrapingState = getCache(ADMIN_CACHE_KEYS.SCRAPING_STATE);
 
-  const [isConnected, setIsConnected] = useState(false);
+  // Connection status derived from Parse initialization - once connected, stays connected
+  const isConnected = parseInitialized && parseConfig.hasAppId && parseConfig.hasJsKey;
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuTimeoutRef = useRef(null);
 
@@ -319,12 +320,12 @@ function AdminPanel({ onBackToPublic }) {
     }
   }, [directoryMeetings.length, directorySearch, directoryState, directoryDay, directoryType, directoryOnline, directoryLoadingMore, directoryHasMore, DIRECTORY_PAGE_SIZE]);
 
-  const checkConnection = useCallback(async () => {
+  // Poll scraping state from backend (for scraper progress updates only)
+  const fetchScrapingState = useCallback(async () => {
     try {
       const response = await fetch(`${BACKEND_URL}/api/status`);
       if (response.ok) {
         const data = await response.json();
-        setIsConnected(true);
 
         // Only update state if values have actually changed to prevent scroll reset
         setScrapingState(prev => {
@@ -357,35 +358,33 @@ function AdminPanel({ onBackToPublic }) {
           });
         }
         isRunningRef.current = data.is_running;
-      } else {
-        setIsConnected(false);
       }
     } catch (error) {
-      setIsConnected(false);
+      // Silently ignore - scraper status is optional, Parse connection is primary
     }
   }, []);
 
   useEffect(() => {
-    checkConnection();
+    fetchScrapingState();
     checkUnfinishedScrape();
     // Only fetch feeds if not cached
     if (!cachedFeeds?.data || cachedFeeds.data.length === 0) {
       fetchFeeds();
     }
-    pollIntervalRef.current = setInterval(checkConnection, POLL_INTERVAL_IDLE);
+    pollIntervalRef.current = setInterval(fetchScrapingState, POLL_INTERVAL_IDLE);
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [checkConnection, checkUnfinishedScrape, fetchFeeds, cachedFeeds]);
+  }, [fetchScrapingState, checkUnfinishedScrape, fetchFeeds, cachedFeeds]);
 
   useEffect(() => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     const interval = scrapingState.is_running ? POLL_INTERVAL_ACTIVE : POLL_INTERVAL_IDLE;
-    pollIntervalRef.current = setInterval(checkConnection, interval);
+    pollIntervalRef.current = setInterval(fetchScrapingState, interval);
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [scrapingState.is_running, checkConnection]);
+  }, [scrapingState.is_running, fetchScrapingState]);
 
   // Fetch available states on mount (skip if cached)
   useEffect(() => {
@@ -773,9 +772,13 @@ function AdminPanel({ onBackToPublic }) {
               </div>
 
               {!isConnected && (
-                <div className="connecting-box">
-                  <span className="connecting-spinner"></span>
-                  Connecting to backend...
+                <div className="error-box">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  Back4app not configured. Set REACT_APP_BACK4APP_APP_ID and REACT_APP_BACK4APP_JS_KEY environment variables.
                 </div>
               )}
 
@@ -1486,7 +1489,7 @@ function AdminPanel({ onBackToPublic }) {
               <span className="profile-name">{user?.name || 'User'}</span>
               <span className="profile-status">
                 <span className={`status-dot ${isConnected ? 'connected' : 'disconnected'}`}></span>
-                {isConnected ? 'Connected' : 'Disconnected'}
+                {isConnected ? 'Connected' : 'Not Configured'}
               </span>
             </div>
 
