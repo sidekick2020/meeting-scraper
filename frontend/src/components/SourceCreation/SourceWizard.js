@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+
 // State abbreviation to full name mapping
 const stateNames = {
   AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas",
@@ -96,33 +98,62 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
     onClose();
   };
 
-  // Placeholder: Run discovery
+  // Run discovery - calls real API endpoint
   const runDiscovery = async () => {
     if (!selectedState) return;
 
     setIsDiscovering(true);
     setDiscoveryNotes([]);
+    setIntergroups({ known: [], generated: [] });
 
-    // Simulate streaming discovery notes
-    const notes = [
-      `Searching for AA intergroups in ${stateNames[selectedState]}...`,
-      `Found official AA website reference...`,
-      `Checking daccaa.org for TSML endpoint...`,
-      `Testing /wp-admin/admin-ajax.php?action=meetings...`,
-      `SUCCESS: Found 847 meetings at daccaa.org`,
-      `Checking coloradospringsaa.org...`,
-      `SUCCESS: Found 234 meetings at coloradospringsaa.org`,
-      `Discovery complete!`
-    ];
+    // Add initial discovery note
+    setDiscoveryNotes([`Searching for AA intergroups in ${stateNames[selectedState]}...`]);
 
-    for (let i = 0; i < notes.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setDiscoveryNotes(prev => [...prev, notes[i]]);
+    try {
+      // Call the discover API
+      const response = await fetch(`${BACKEND_URL}/api/intergroup-research/discover`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: selectedState })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const notes = [`Searching for AA intergroups in ${stateNames[selectedState]}...`];
+
+        // Add notes about what was found
+        if (data.known && data.known.length > 0) {
+          notes.push(`Found ${data.known.length} known intergroup(s) for ${data.stateName}`);
+          for (const ig of data.known) {
+            notes.push(`→ ${ig.name} (${ig.domain})`);
+          }
+        }
+
+        if (data.generated && data.generated.length > 0) {
+          notes.push(`Generated ${data.generated.length} potential domain pattern(s)`);
+          for (const ig of data.generated) {
+            notes.push(`→ Checking ${ig.domain}...`);
+          }
+        }
+
+        notes.push(`Discovery complete! Found ${data.total} potential source(s)`);
+        setDiscoveryNotes(notes);
+
+        // Set real results
+        setIntergroups({
+          known: data.known || [],
+          generated: data.generated || []
+        });
+      } else {
+        setDiscoveryNotes(prev => [...prev, `Error: ${data.error || 'Discovery failed'}`]);
+      }
+    } catch (error) {
+      console.error('Discovery error:', error);
+      setDiscoveryNotes(prev => [...prev, `Error: ${error.message}`]);
+    } finally {
+      setIsDiscovering(false);
     }
-
-    // Set mock results
-    setIntergroups(MOCK_INTERGROUPS);
-    setIsDiscovering(false);
   };
 
   // Placeholder: Select an intergroup

@@ -6894,6 +6894,7 @@ intergroup_research_findings = []
 intergroup_research_notes = []
 intergroup_research_scripts = []
 custom_research_sources = []  # Custom sources saved from tested scripts
+script_execution_history = {}  # Script ID -> list of execution records
 research_session_counter = 0
 
 # Known intergroup URL patterns to try
@@ -8000,6 +8001,496 @@ def toggle_custom_source(source_id):
         'success': False,
         'error': 'Source not found'
     }), 404
+
+
+@app.route('/api/intergroup-research/scripts/<int:script_id>/execute', methods=['POST'])
+def execute_research_script(script_id):
+    """Execute a script and capture logs with meeting data visualization"""
+    # Find the script
+    script = None
+    for s in intergroup_research_scripts:
+        if s['id'] == script_id:
+            script = s
+            break
+
+    if not script:
+        return jsonify({
+            'success': False,
+            'error': 'Script not found'
+        }), 404
+
+    url = script.get('url', '')
+    feed_type = script.get('feedType', 'tsml')
+    state = script.get('state', '')
+    source_name = script.get('intergroupName', 'Unknown Source')
+
+    logs = []
+    meetings_data = []
+    execution_start = datetime.now()
+
+    def add_log(level, message):
+        logs.append({
+            'timestamp': datetime.now().isoformat(),
+            'level': level,
+            'message': message
+        })
+
+    add_log('info', f'Starting script execution for {source_name}')
+    add_log('info', f'URL: {url}')
+    add_log('info', f'Feed type: {feed_type}')
+
+    try:
+        # Fetch data from the URL
+        add_log('info', 'Fetching data from URL...')
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0)',
+            'Accept': 'application/json'
+        }
+
+        response = requests.get(url, headers=headers, timeout=30)
+        add_log('info', f'Response status: {response.status_code}')
+        add_log('info', f'Content-Type: {response.headers.get("Content-Type", "unknown")}')
+        add_log('info', f'Content-Length: {len(response.content)} bytes')
+
+        response.raise_for_status()
+
+        # Try to parse as JSON
+        try:
+            raw_data = response.json()
+            add_log('success', 'Successfully parsed JSON response')
+        except json.JSONDecodeError as e:
+            add_log('error', f'JSON parse error: {str(e)}')
+            add_log('info', f'Raw response (first 500 chars): {response.text[:500]}')
+            raise
+
+        # Handle different response structures
+        if isinstance(raw_data, dict):
+            if 'meetings' in raw_data:
+                meetings_raw = raw_data['meetings']
+                add_log('info', f'Found meetings in "meetings" key')
+            elif 'data' in raw_data:
+                meetings_raw = raw_data['data']
+                add_log('info', f'Found meetings in "data" key')
+            else:
+                meetings_raw = [raw_data]
+                add_log('warning', 'No standard key found, treating response as single meeting')
+        elif isinstance(raw_data, list):
+            meetings_raw = raw_data
+            add_log('info', f'Response is a list with {len(meetings_raw)} items')
+        else:
+            add_log('error', f'Unexpected data format: {type(raw_data).__name__}')
+            raise ValueError(f'Unexpected data format: {type(raw_data).__name__}')
+
+        add_log('info', f'Processing {len(meetings_raw)} raw meetings...')
+
+        # Normalize meetings
+        normalized_count = 0
+        error_count = 0
+        field_stats = {
+            'name': 0, 'address': 0, 'city': 0, 'state': 0,
+            'day': 0, 'time': 0, 'latitude': 0, 'longitude': 0,
+            'types': 0, 'notes': 0, 'location': 0
+        }
+
+        for i, raw_meeting in enumerate(meetings_raw[:200]):  # Limit for execution
+            try:
+                if feed_type == 'bmlt':
+                    transformed = transform_bmlt_to_tsml(raw_meeting)
+                    normalized = normalize_meeting(transformed, source_name, state, skip_geocoding=True)
+                else:
+                    normalized = normalize_meeting(raw_meeting, source_name, state, skip_geocoding=True)
+
+                meetings_data.append(normalized)
+                normalized_count += 1
+
+                # Track field stats
+                for field in field_stats:
+                    if normalized.get(field):
+                        field_stats[field] += 1
+
+                # Log first few meetings
+                if i < 3:
+                    add_log('info', f'Meeting {i+1}: {normalized.get("name", "unnamed")} - {normalized.get("city", "?")}')
+
+            except Exception as e:
+                error_count += 1
+                if error_count <= 5:
+                    add_log('warning', f'Error processing meeting {i+1}: {str(e)}')
+
+        add_log('success', f'Successfully normalized {normalized_count} meetings')
+        if error_count > 0:
+            add_log('warning', f'{error_count} meetings had errors during normalization')
+
+        # Calculate quality score
+        quality_score = 0
+        if normalized_count > 0:
+            weighted_fields = {
+                'name': 15, 'address': 15, 'day': 20, 'time': 20,
+                'city': 10, 'state': 5, 'latitude': 5, 'longitude': 5,
+                'types': 3, 'notes': 1, 'location': 1
+            }
+            for field, weight in weighted_fields.items():
+                quality_score += (field_stats[field] / normalized_count) * weight
+
+        add_log('info', f'Quality score: {round(quality_score, 1)}%')
+        add_log('info', f'Field coverage - Name: {field_stats["name"]}, Address: {field_stats["address"]}, Day: {field_stats["day"]}, Time: {field_stats["time"]}')
+
+        execution_end = datetime.now()
+        duration_ms = (execution_end - execution_start).total_seconds() * 1000
+        add_log('success', f'Execution completed in {round(duration_ms)}ms')
+
+        # Store execution history
+        execution_record = {
+            'id': len(script_execution_history.get(script_id, [])) + 1,
+            'executedAt': execution_start.isoformat(),
+            'duration_ms': round(duration_ms),
+            'success': True,
+            'totalRaw': len(meetings_raw),
+            'totalNormalized': normalized_count,
+            'errorCount': error_count,
+            'qualityScore': round(quality_score, 1),
+            'fieldStats': field_stats,
+            'logs': logs
+        }
+
+        if script_id not in script_execution_history:
+            script_execution_history[script_id] = []
+        script_execution_history[script_id].append(execution_record)
+
+        # Keep only last 10 executions
+        if len(script_execution_history[script_id]) > 10:
+            script_execution_history[script_id] = script_execution_history[script_id][-10:]
+
+        return jsonify({
+            'success': True,
+            'execution': execution_record,
+            'meetings': meetings_data[:50],  # Return first 50 for visualization
+            'totalMeetings': len(meetings_data),
+            'sampleMeetings': meetings_data[:10]
+        })
+
+    except requests.exceptions.Timeout:
+        add_log('error', 'Request timed out after 30 seconds')
+        execution_record = {
+            'id': len(script_execution_history.get(script_id, [])) + 1,
+            'executedAt': execution_start.isoformat(),
+            'success': False,
+            'error': 'Request timed out',
+            'logs': logs
+        }
+        if script_id not in script_execution_history:
+            script_execution_history[script_id] = []
+        script_execution_history[script_id].append(execution_record)
+
+        return jsonify({
+            'success': False,
+            'error': 'Request timed out after 30 seconds',
+            'logs': logs
+        }), 504
+
+    except requests.exceptions.RequestException as e:
+        add_log('error', f'Request failed: {str(e)}')
+        execution_record = {
+            'id': len(script_execution_history.get(script_id, [])) + 1,
+            'executedAt': execution_start.isoformat(),
+            'success': False,
+            'error': str(e),
+            'logs': logs
+        }
+        if script_id not in script_execution_history:
+            script_execution_history[script_id] = []
+        script_execution_history[script_id].append(execution_record)
+
+        return jsonify({
+            'success': False,
+            'error': f'Failed to fetch URL: {str(e)}',
+            'logs': logs
+        }), 500
+
+    except Exception as e:
+        add_log('error', f'Unexpected error: {str(e)}')
+        execution_record = {
+            'id': len(script_execution_history.get(script_id, [])) + 1,
+            'executedAt': execution_start.isoformat(),
+            'success': False,
+            'error': str(e),
+            'logs': logs
+        }
+        if script_id not in script_execution_history:
+            script_execution_history[script_id] = []
+        script_execution_history[script_id].append(execution_record)
+
+        return jsonify({
+            'success': False,
+            'error': f'Unexpected error: {str(e)}',
+            'logs': logs
+        }), 500
+
+
+@app.route('/api/intergroup-research/scripts/<int:script_id>/executions', methods=['GET'])
+def get_script_executions(script_id):
+    """Get execution history for a script"""
+    executions = script_execution_history.get(script_id, [])
+    return jsonify({
+        'success': True,
+        'executions': executions,
+        'total': len(executions)
+    })
+
+
+@app.route('/api/intergroup-research/scripts/<int:script_id>/regenerate', methods=['POST'])
+def regenerate_script_from_logs(script_id):
+    """Regenerate a script based on execution logs and errors"""
+    # Find the script
+    script = None
+    script_idx = None
+    for i, s in enumerate(intergroup_research_scripts):
+        if s['id'] == script_id:
+            script = s
+            script_idx = i
+            break
+
+    if not script:
+        return jsonify({
+            'success': False,
+            'error': 'Script not found'
+        }), 404
+
+    # Get execution history
+    executions = script_execution_history.get(script_id, [])
+    last_execution = executions[-1] if executions else None
+
+    url = script.get('url', '')
+    name = script.get('intergroupName', 'Unknown Source')
+    state = script.get('state', '')
+    feed_type = script.get('feedType', 'tsml')
+
+    # Analyze logs to determine what went wrong
+    issues = []
+    suggestions = []
+
+    if last_execution:
+        logs = last_execution.get('logs', [])
+        for log in logs:
+            if log['level'] == 'error':
+                msg = log['message'].lower()
+                if 'json parse error' in msg:
+                    issues.append('JSON parsing failed')
+                    suggestions.append('The response may not be JSON - try HTML parsing')
+                elif 'timeout' in msg:
+                    issues.append('Request timed out')
+                    suggestions.append('Increase timeout or check URL accessibility')
+                elif 'unexpected data format' in msg:
+                    issues.append('Unexpected data structure')
+                    suggestions.append('Response structure differs from expected format')
+            elif log['level'] == 'warning':
+                msg = log['message'].lower()
+                if 'error processing meeting' in msg:
+                    issues.append('Meeting normalization errors')
+                    suggestions.append('Field mappings may need adjustment')
+
+        # Check field stats for insights
+        field_stats = last_execution.get('fieldStats', {})
+        quality_score = last_execution.get('qualityScore', 0)
+
+        if quality_score < 50:
+            issues.append(f'Low quality score: {quality_score}%')
+            missing_fields = [f for f, v in field_stats.items() if v == 0]
+            if missing_fields:
+                suggestions.append(f'Missing fields: {", ".join(missing_fields)}')
+
+    # Generate improved script based on analysis
+    state_name = US_STATE_NAMES.get(state, state)
+    issue_summary = "; ".join(issues) if issues else "No specific issues detected"
+    suggestion_summary = "; ".join(suggestions) if suggestions else "Standard regeneration"
+
+    # Create enhanced script with better error handling
+    new_script = f'''#!/usr/bin/env python3
+"""
+Scraping script for: {name}
+State: {state_name} ({state})
+Feed Type: {feed_type.upper()}
+Regenerated: {datetime.now().isoformat()}
+
+Previous Issues: {issue_summary}
+Applied Fixes: {suggestion_summary}
+
+This script has been regenerated based on execution logs to address
+identified issues with data fetching or normalization.
+"""
+
+import requests
+import json
+import re
+from datetime import datetime
+
+# Configuration
+FEED_URL = "{url}"
+FEED_NAME = "{name}"
+STATE = "{state}"
+
+# Request headers with additional browser mimicry
+HEADERS = {{
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Cache-Control': 'no-cache'
+}}
+
+def clean_time(time_str):
+    """Normalize time format to HH:MM"""
+    if not time_str:
+        return None
+    time_str = str(time_str).strip()
+    # Handle HH:MM:SS format
+    if len(time_str) > 5 and ':' in time_str:
+        time_str = time_str[:5]
+    return time_str
+
+def normalize_day(day_val):
+    """Normalize day to 0-6 (Sunday=0)"""
+    if day_val is None:
+        return None
+    if isinstance(day_val, str):
+        day_map = {{'sunday': 0, 'sun': 0, 'monday': 1, 'mon': 1, 'tuesday': 2, 'tue': 2,
+                   'wednesday': 3, 'wed': 3, 'thursday': 4, 'thu': 4, 'friday': 5, 'fri': 5,
+                   'saturday': 6, 'sat': 6}}
+        return day_map.get(day_val.lower().strip())
+    day_int = int(day_val)
+    # Handle 1-7 format (some feeds use Sunday=1)
+    if day_int >= 1 and day_int <= 7:
+        return day_int - 1
+    return day_int if 0 <= day_int <= 6 else None
+
+def extract_meeting_data(raw_data):
+    """Extract meetings from various response structures"""
+    if isinstance(raw_data, list):
+        return raw_data
+    if isinstance(raw_data, dict):
+        # Try common wrapper keys
+        for key in ['meetings', 'data', 'results', 'items', 'records']:
+            if key in raw_data and isinstance(raw_data[key], list):
+                return raw_data[key]
+        # If it looks like a single meeting, wrap it
+        if 'name' in raw_data or 'meeting_name' in raw_data:
+            return [raw_data]
+    return []
+
+def transform_meeting(meeting):
+    """Transform meeting to normalized format with robust field mapping"""
+    # Try multiple field name variations
+    name = (meeting.get('name') or meeting.get('meeting_name') or
+            meeting.get('title') or meeting.get('group') or 'Unknown Meeting')
+
+    # Day handling
+    day_raw = (meeting.get('day') or meeting.get('weekday') or
+               meeting.get('weekday_tinyint') or meeting.get('day_of_week'))
+    day = normalize_day(day_raw)
+
+    # Time handling
+    time_raw = (meeting.get('time') or meeting.get('start_time') or
+                meeting.get('time_start') or meeting.get('startTime'))
+    time = clean_time(time_raw)
+
+    # Location fields
+    location = (meeting.get('location') or meeting.get('location_text') or
+                meeting.get('venue') or meeting.get('location_info') or '')
+    address = (meeting.get('address') or meeting.get('location_street') or
+               meeting.get('street') or meeting.get('formatted_address') or '')
+    city = (meeting.get('city') or meeting.get('location_municipality') or
+            meeting.get('municipality') or meeting.get('town') or '')
+    state_val = (meeting.get('state') or meeting.get('location_province') or
+                 meeting.get('province') or meeting.get('region') or STATE)
+
+    # Coordinates
+    lat = meeting.get('latitude') or meeting.get('lat')
+    lng = meeting.get('longitude') or meeting.get('lng') or meeting.get('lon')
+
+    try:
+        lat = float(lat) if lat else None
+        lng = float(lng) if lng else None
+    except (ValueError, TypeError):
+        lat, lng = None, None
+
+    return {{
+        'name': name,
+        'day': day,
+        'time': time,
+        'location': location,
+        'address': address,
+        'city': city,
+        'state': state_val,
+        'latitude': lat,
+        'longitude': lng,
+        'types': meeting.get('types', []),
+        'notes': meeting.get('notes') or meeting.get('comments') or meeting.get('description') or '',
+        'meeting_type': meeting.get('meeting_type', 'AA')
+    }}
+
+def fetch_meetings():
+    """Fetch and transform meetings with enhanced error handling"""
+    try:
+        print(f"Fetching from: {{FEED_URL}}")
+        response = requests.get(FEED_URL, headers=HEADERS, timeout=45)
+        print(f"Status: {{response.status_code}}")
+
+        response.raise_for_status()
+
+        # Try JSON first
+        try:
+            raw_data = response.json()
+        except json.JSONDecodeError as e:
+            print(f"JSON decode failed: {{e}}")
+            print(f"Content type: {{response.headers.get('Content-Type')}}")
+            print(f"First 200 chars: {{response.text[:200]}}")
+            return []
+
+        meetings_raw = extract_meeting_data(raw_data)
+        print(f"Found {{len(meetings_raw)}} raw meetings")
+
+        meetings = []
+        for i, m in enumerate(meetings_raw):
+            try:
+                transformed = transform_meeting(m)
+                if transformed.get('name'):
+                    meetings.append(transformed)
+            except Exception as e:
+                if i < 5:
+                    print(f"Error on meeting {{i}}: {{e}}")
+
+        print(f"Successfully transformed {{len(meetings)}} meetings")
+        return meetings
+
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {{e}}")
+        return []
+    except Exception as e:
+        print(f"Unexpected error: {{e}}")
+        return []
+
+if __name__ == '__main__':
+    meetings = fetch_meetings()
+    print(f"\\nTotal: {{len(meetings)}} meetings")
+    for i, m in enumerate(meetings[:5]):
+        print(f"\\n--- Meeting {{i+1}} ---")
+        print(f"Name: {{m.get('name')}}")
+        print(f"Day: {{m.get('day')}} Time: {{m.get('time')}}")
+        print(f"Location: {{m.get('city')}}, {{m.get('state')}}")
+        print(f"Address: {{m.get('address')}}")
+'''
+
+    # Update the script in storage
+    intergroup_research_scripts[script_idx]['content'] = new_script
+    intergroup_research_scripts[script_idx]['regeneratedAt'] = datetime.now().isoformat()
+    intergroup_research_scripts[script_idx]['regenerationReason'] = issue_summary
+
+    return jsonify({
+        'success': True,
+        'script': intergroup_research_scripts[script_idx],
+        'issues': issues,
+        'suggestions': suggestions,
+        'newContent': new_script
+    })
 
 
 if __name__ == '__main__':
