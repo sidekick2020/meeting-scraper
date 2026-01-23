@@ -446,6 +446,7 @@ function StateMarker({ stateData, onStateClick }) {
       position={[stateData.lat, stateData.lng]}
       icon={createStateIcon(stateData.state, stateData.count)}
       eventHandlers={{ click: handleClick }}
+      bubblingMouseEvents={false}
     >
       <Popup>
         <div className="state-popup">
@@ -474,6 +475,7 @@ function ClusterMarker({ cluster, onClusterClick }) {
       position={[cluster.lat, cluster.lng]}
       icon={createClusterIcon(cluster.count)}
       eventHandlers={{ click: handleClick }}
+      bubblingMouseEvents={false}
     >
       <Popup>
         <div className="cluster-popup">

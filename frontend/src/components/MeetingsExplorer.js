@@ -2337,8 +2337,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                     </div>
                   </div>
                 ))}
-                {/* Skeleton placeholders while loading more meetings */}
-                {(isLoading || isLoadingMore) && (
+                {/* Skeleton placeholders while loading - only show when no meetings exist (initial load) or during pagination */}
+                {((isLoading && meetings.length === 0) || isLoadingMore) && (
                   [...Array(Math.min(batchSize, Math.max(5, (totalMeetings || 5) - meetings.length)))].map((_, index) => (
                     <div key={`skeleton-${index}`} className="skeleton-meeting-card">
                       <div className="skeleton-card-image">
