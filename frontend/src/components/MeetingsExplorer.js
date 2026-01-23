@@ -244,7 +244,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const [hasMore, setHasMore] = useState(true);
 
   // Network-adaptive batch loading state
-  const [batchSize, setBatchSize] = useState(5); // Default 5, will be updated based on network for faster perceived loading
+  const [batchSize, setBatchSize] = useState(50); // Default 50 for pagination, may adjust based on network
   const [networkSpeed, setNetworkSpeed] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState({ loaded: 0, total: 0, percentage: 0 });
   const networkInitializedRef = useRef(false);
@@ -532,10 +532,11 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         const responseSize = JSON.stringify(data).length;
         updateSpeedFromRequest(responseSize, endTime - startTime);
 
-        // Update batch size based on new speed estimate
+        // Update batch size based on new speed estimate (minimum 50 for pagination)
         const networkInfo = getNetworkInfo();
-        if (networkInfo.batchSize !== currentBatchSize) {
-          setBatchSize(networkInfo.batchSize);
+        const newBatchSize = Math.max(networkInfo.batchSize, 50);
+        if (newBatchSize !== currentBatchSize) {
+          setBatchSize(newBatchSize);
         }
 
         setTotalMeetings(total);
@@ -635,6 +636,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   }, [fetchMeetings, isLoadingMore, hasMore, mapBounds, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity, selectedFormat]);
 
   // Initialize network speed detection
+  // Minimum batch size of 50 ensures consistent pagination experience
+  const MIN_PAGINATION_BATCH_SIZE = 50;
   useEffect(() => {
     if (networkInitializedRef.current) return;
     networkInitializedRef.current = true;
@@ -643,12 +646,13 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
       try {
         const speed = await measureNetworkSpeed();
         setNetworkSpeed(speed);
-        const optimalBatch = calculateBatchSize(speed);
+        // Use network-optimized batch size but ensure minimum of 50 for pagination
+        const optimalBatch = Math.max(calculateBatchSize(speed), MIN_PAGINATION_BATCH_SIZE);
         setBatchSize(optimalBatch);
         console.log(`Network speed: ${speed.toFixed(2)} Mbps, using batch size: ${optimalBatch}`);
       } catch (err) {
         console.warn('Failed to measure network speed, using default batch size');
-        setBatchSize(5);
+        setBatchSize(MIN_PAGINATION_BATCH_SIZE);
       }
     };
 
@@ -730,6 +734,42 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
       observer.disconnect();
     };
   }, [hasMore, isLoadingMore, isLoading, loadMoreMeetings]);
+
+  // Auto-fetch meetings when map has data but list is empty
+  // This ensures the list always shows meetings when there are meetings on the map
+  useEffect(() => {
+    // Only trigger if:
+    // - List is empty but map has meetings
+    // - We have bounds to fetch with
+    // - Not currently loading
+    // - Initial fetch has completed
+    if (
+      meetings.length === 0 &&
+      mapMeetingCount > 0 &&
+      mapBounds &&
+      !isLoading &&
+      !isLoadingMore &&
+      initialFetchDoneRef.current
+    ) {
+      // Build filters from current state
+      const filters = {};
+      if (showTodayOnly) {
+        filters.day = new Date().getDay();
+      } else if (selectedDays.length === 1) {
+        const dayIndex = dayNames.indexOf(selectedDays[0]);
+        if (dayIndex !== -1) filters.day = dayIndex;
+      }
+      if (selectedTypes.length === 1) filters.type = selectedTypes[0];
+      if (selectedStates.length === 1) filters.state = selectedStates[0];
+      if (showOnlineOnly) filters.online = true;
+      if (showHybridOnly) filters.hybrid = true;
+      if (selectedCity) filters.city = selectedCity;
+      if (selectedFormat) filters.format = selectedFormat;
+
+      // Fetch meetings for the current map bounds
+      fetchMeetings({ bounds: mapBounds, filters, bulkLoad: true });
+    }
+  }, [meetings.length, mapMeetingCount, mapBounds, isLoading, isLoadingMore, fetchMeetings, showTodayOnly, selectedDays, selectedTypes, selectedStates, showOnlineOnly, showHybridOnly, selectedCity, selectedFormat]);
 
   // Cache meetings data when it changes
   useEffect(() => {
@@ -2232,19 +2272,11 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                 </button>
               )}
             </div>
-          ) : filteredMeetings.length === 0 && mapMeetingCount > 0 && !isLoading && !isLoadingMore ? (
-            <div className="list-empty list-empty-map-has-data">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                <circle cx="12" cy="10" r="3"/>
-              </svg>
-              <h3>{mapMeetingCount.toLocaleString()} meetings on map</h3>
-              <p>Zoom in on the map to see meetings in the list, or adjust your filters</p>
-              {hasActiveFilters && (
-                <button className="btn btn-secondary" onClick={clearFilters}>
-                  Clear all filters
-                </button>
-              )}
+          ) : filteredMeetings.length === 0 && mapMeetingCount > 0 ? (
+            <div className="list-empty list-empty-loading">
+              <div className="loading-spinner"></div>
+              <h3>Loading meetings...</h3>
+              <p>{mapMeetingCount.toLocaleString()} meetings on map</p>
             </div>
           ) : (
             <>
