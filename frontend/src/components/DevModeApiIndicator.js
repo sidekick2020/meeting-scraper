@@ -102,6 +102,55 @@ function DevModeApiIndicator() {
     copyToClipboard(curl, 'curl');
   };
 
+  const copyRequest = (log) => {
+    let request = `${log.method} ${log.url}\n`;
+
+    if (log.requestHeaders && Object.keys(log.requestHeaders).length > 0) {
+      request += '\n--- Headers ---\n';
+      Object.entries(log.requestHeaders).forEach(([key, value]) => {
+        request += `${key}: ${value}\n`;
+      });
+    }
+
+    if (log.requestBody) {
+      request += '\n--- Body ---\n';
+      request += typeof log.requestBody === 'string'
+        ? log.requestBody
+        : JSON.stringify(log.requestBody, null, 2);
+    }
+
+    copyToClipboard(request, 'request');
+  };
+
+  const copyResponse = (log) => {
+    let response = '';
+
+    if (log.statusCode) {
+      response += `Status: ${log.statusCode} ${log.statusText || ''}\n`;
+    }
+
+    if (log.responseHeaders && Object.keys(log.responseHeaders).length > 0) {
+      response += '\n--- Headers ---\n';
+      Object.entries(log.responseHeaders).forEach(([key, value]) => {
+        response += `${key}: ${value}\n`;
+      });
+    }
+
+    if (log.response) {
+      response += '\n--- Body ---\n';
+      response += typeof log.response === 'string'
+        ? log.response
+        : JSON.stringify(log.response, null, 2);
+    }
+
+    if (log.error) {
+      response += '\n--- Error ---\n';
+      response += log.error;
+    }
+
+    copyToClipboard(response, 'response');
+  };
+
   const copyAllLogs = () => {
     const allLogsData = logs.map(log => ({
       timestamp: log.timestamp.toISOString(),
@@ -201,16 +250,28 @@ function DevModeApiIndicator() {
                     <div className="api-log-details">
                       <div className="api-log-actions">
                         <button
-                          className={`dev-mode-btn small ${copyFeedback === 'json' ? 'copied' : ''}`}
-                          onClick={(e) => { e.stopPropagation(); copyLogAsJson(log); }}
+                          className={`dev-mode-btn small ${copyFeedback === 'request' ? 'copied' : ''}`}
+                          onClick={(e) => { e.stopPropagation(); copyRequest(log); }}
                         >
-                          {copyFeedback === 'json' ? 'Copied!' : 'Copy JSON'}
+                          {copyFeedback === 'request' ? 'Copied!' : 'Copy Request'}
+                        </button>
+                        <button
+                          className={`dev-mode-btn small ${copyFeedback === 'response' ? 'copied' : ''}`}
+                          onClick={(e) => { e.stopPropagation(); copyResponse(log); }}
+                        >
+                          {copyFeedback === 'response' ? 'Copied!' : 'Copy Response'}
                         </button>
                         <button
                           className={`dev-mode-btn small ${copyFeedback === 'curl' ? 'copied' : ''}`}
                           onClick={(e) => { e.stopPropagation(); copyLogAsCurl(log); }}
                         >
                           {copyFeedback === 'curl' ? 'Copied!' : 'Copy cURL'}
+                        </button>
+                        <button
+                          className={`dev-mode-btn small ${copyFeedback === 'json' ? 'copied' : ''}`}
+                          onClick={(e) => { e.stopPropagation(); copyLogAsJson(log); }}
+                        >
+                          {copyFeedback === 'json' ? 'Copied!' : 'Copy JSON'}
                         </button>
                       </div>
 

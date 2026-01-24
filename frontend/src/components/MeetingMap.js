@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker } from 're
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useDataCache } from '../contexts/DataCacheContext';
+import { useParse } from '../contexts/ParseContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 const STATE_ZOOM_THRESHOLD = 6;   // Below this, show state-level bubbles
@@ -188,7 +189,7 @@ function HeatmapLayer({ clusters }) {
 }
 
 // Component to handle map movement events and fetch data
-function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadingChange, filters, onBoundsChange, cacheContext }) {
+function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadingChange, filters, onBoundsChange, cacheContext, parseFetchMeetingsByState, parseInitialized }) {
   const map = useMap();
   const fetchTimeoutRef = useRef(null);
   const lastFetchRef = useRef(null);
@@ -199,6 +200,7 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
   const pendingStateDataRef = useRef(null);
 
   // Fetch state-level data with filter support and request deduplication
+  // Uses Parse SDK directly when available, falls back to backend API
   const fetchStateData = useCallback(async () => {
     const currentFilters = filtersRef.current || {};
 
@@ -228,43 +230,55 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
     try {
       onLoadingChange?.(true);
 
-      // Build URL with filter parameters
-      let url = `${BACKEND_URL}/api/meetings/by-state`;
-      const params = new URLSearchParams();
+      // Use Parse SDK directly if available (bypasses backend)
+      if (parseInitialized && parseFetchMeetingsByState) {
+        const result = await parseFetchMeetingsByState({
+          day: currentFilters.day,
+          type: currentFilters.type,
+          online: currentFilters.online,
+          hybrid: currentFilters.hybrid,
+          format: currentFilters.format
+        });
+        onStateDataLoaded(result);
+      } else {
+        // Fallback to backend API
+        let url = `${BACKEND_URL}/api/meetings/by-state`;
+        const params = new URLSearchParams();
 
-      if (currentFilters.day !== undefined && currentFilters.day !== null) {
-        params.append('day', currentFilters.day);
-      }
-      if (currentFilters.type) {
-        params.append('type', currentFilters.type);
-      }
-      if (currentFilters.state) {
-        params.append('state', currentFilters.state);
-      }
-      if (currentFilters.city) {
-        params.append('city', currentFilters.city);
-      }
-      if (currentFilters.online) {
-        params.append('online', 'true');
-      }
-      if (currentFilters.hybrid) {
-        params.append('hybrid', 'true');
-      }
-      if (currentFilters.format) {
-        params.append('format', currentFilters.format);
-      }
+        if (currentFilters.day !== undefined && currentFilters.day !== null) {
+          params.append('day', currentFilters.day);
+        }
+        if (currentFilters.type) {
+          params.append('type', currentFilters.type);
+        }
+        if (currentFilters.state) {
+          params.append('state', currentFilters.state);
+        }
+        if (currentFilters.city) {
+          params.append('city', currentFilters.city);
+        }
+        if (currentFilters.online) {
+          params.append('online', 'true');
+        }
+        if (currentFilters.hybrid) {
+          params.append('hybrid', 'true');
+        }
+        if (currentFilters.format) {
+          params.append('format', currentFilters.format);
+        }
 
-      const queryString = params.toString();
-      if (queryString) {
-        url += `?${queryString}`;
-      }
+        const queryString = params.toString();
+        if (queryString) {
+          url += `?${queryString}`;
+        }
 
-      const response = await fetch(url, {
-        signal: pendingStateDataRef.current.signal
-      });
-      if (response.ok) {
-        const data = await response.json();
-        onStateDataLoaded(data);
+        const response = await fetch(url, {
+          signal: pendingStateDataRef.current.signal
+        });
+        if (response.ok) {
+          const data = await response.json();
+          onStateDataLoaded(data);
+        }
       }
     } catch (error) {
       // Ignore abort errors - they're expected when cancelling stale requests
@@ -275,7 +289,7 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
     } finally {
       onLoadingChange?.(false);
     }
-  }, [onStateDataLoaded, onLoadingChange]);
+  }, [onStateDataLoaded, onLoadingChange, parseInitialized, parseFetchMeetingsByState]);
 
   // Keep filtersRef updated
   useEffect(() => {
@@ -589,6 +603,9 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
   // Get cache context for persistent heatmap caching
   const cacheContext = useDataCache();
 
+  // Get Parse context for direct database queries (bypasses backend)
+  const { isInitialized: parseInitialized, fetchMeetingsByState: parseFetchMeetingsByState } = useParse();
+
   // Cache previous valid data to show during loading transitions
   const prevMapDataRef = useRef(null);
   const prevStateDataRef = useRef(null);
@@ -774,6 +791,8 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
           filters={filters}
           onBoundsChange={onBoundsChange}
           cacheContext={cacheContext}
+          parseInitialized={parseInitialized}
+          parseFetchMeetingsByState={parseFetchMeetingsByState}
         />
 
         <MapPanHandler targetLocation={targetLocation} />
