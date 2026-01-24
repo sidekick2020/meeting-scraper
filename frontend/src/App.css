@@ -21140,6 +21140,138 @@ a.sidebar-nav-item {
   color: white;
 }
 
+/* API Logs Filters */
+.dev-mode-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-light, #2a2a2a);
+  background: var(--panel-bg-secondary, #222);
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-label {
+  font-size: 11px;
+  color: var(--text-muted, #666);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.filter-pills {
+  display: flex;
+  gap: 4px;
+}
+
+.filter-pill {
+  background: var(--border-medium, #333);
+  border: 1px solid transparent;
+  color: var(--text-secondary, #999);
+  padding: 3px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s ease;
+}
+
+.filter-pill:hover {
+  background: var(--border-light, #444);
+  color: var(--text-primary, #fff);
+}
+
+.filter-pill.active {
+  border-color: currentColor;
+}
+
+.filter-pill.status-pending.active {
+  background: rgba(139, 92, 246, 0.2);
+  color: #a78bfa;
+  border-color: #a78bfa;
+}
+
+.filter-pill.status-success.active {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+  border-color: #4ade80;
+}
+
+.filter-pill.status-error.active {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-color: #f87171;
+}
+
+.filter-select {
+  background: var(--border-medium, #333);
+  border: 1px solid var(--border-light, #444);
+  color: var(--text-secondary, #999);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.filter-select:hover,
+.filter-select:focus {
+  background: var(--border-light, #444);
+  color: var(--text-primary, #fff);
+  outline: none;
+}
+
+.filter-search {
+  flex: 1;
+  min-width: 120px;
+}
+
+.filter-input {
+  width: 100%;
+  background: var(--border-medium, #333);
+  border: 1px solid var(--border-light, #444);
+  color: var(--text-primary, #fff);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.filter-input::placeholder {
+  color: var(--text-muted, #666);
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: #8b5cf6;
+}
+
+.filter-clear {
+  background: transparent;
+  border: 1px solid var(--border-light, #444);
+  color: var(--text-secondary, #999);
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s ease;
+}
+
+.filter-clear:hover {
+  background: var(--border-light, #444);
+  color: var(--text-primary, #fff);
+}
+
+.filter-count {
+  font-size: 11px;
+  color: var(--text-muted, #666);
+  padding: 3px 8px;
+  background: var(--border-medium, #333);
+  border-radius: 6px;
+}
+
 .dev-mode-logs {
   overflow-y: auto;
   flex: 1;
@@ -21409,6 +21541,80 @@ a.sidebar-nav-item {
 
 [data-theme="light"] .dev-mode-empty {
   color: #9ca3af;
+}
+
+[data-theme="light"] .dev-mode-filters {
+  background: #f9fafb;
+  border-bottom-color: #e5e5e5;
+}
+
+[data-theme="light"] .filter-label {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .filter-pill {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+[data-theme="light"] .filter-pill:hover {
+  background: #d1d5db;
+  color: #1f2937;
+}
+
+[data-theme="light"] .filter-pill.status-pending.active {
+  background: rgba(139, 92, 246, 0.15);
+  color: #7c3aed;
+  border-color: #7c3aed;
+}
+
+[data-theme="light"] .filter-pill.status-success.active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+  border-color: #16a34a;
+}
+
+[data-theme="light"] .filter-pill.status-error.active {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border-color: #dc2626;
+}
+
+[data-theme="light"] .filter-select {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+  color: #4b5563;
+}
+
+[data-theme="light"] .filter-select:hover,
+[data-theme="light"] .filter-select:focus {
+  background: #d1d5db;
+  color: #1f2937;
+}
+
+[data-theme="light"] .filter-input {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+  color: #1f2937;
+}
+
+[data-theme="light"] .filter-input::placeholder {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .filter-clear {
+  border-color: #d1d5db;
+  color: #4b5563;
+}
+
+[data-theme="light"] .filter-clear:hover {
+  background: #d1d5db;
+  color: #1f2937;
+}
+
+[data-theme="light"] .filter-count {
+  background: #e5e7eb;
+  color: #6b7280;
 }
 
 [data-theme="light"] .api-log-entry {

@@ -42,6 +42,15 @@ function DevModeApiIndicator() {
   const [copyFeedback, setCopyFeedback] = useState(null);
   const panelRef = useRef(null);
 
+  // Filter state - status filters are all false by default (meaning show all/ignore filter)
+  const [statusFilters, setStatusFilters] = useState({
+    pending: false,
+    success: false,
+    error: false
+  });
+  const [methodFilter, setMethodFilter] = useState(''); // empty = show all
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Don't render if not in development mode
   if (!development) {
     return null;
@@ -205,6 +214,54 @@ function DevModeApiIndicator() {
     setSelectedLog(selectedLog?.id === log.id ? null : log);
   };
 
+  // Toggle status filter
+  const toggleStatusFilter = (status) => {
+    setStatusFilters(prev => ({
+      ...prev,
+      [status]: !prev[status]
+    }));
+  };
+
+  // Check if any status filter is active
+  const hasActiveStatusFilter = statusFilters.pending || statusFilters.success || statusFilters.error;
+
+  // Get unique methods from logs
+  const uniqueMethods = [...new Set(logs.map(log => log.method))].sort();
+
+  // Filter logs based on current filters
+  const filteredLogs = logs.filter(log => {
+    // Status filter - if no status filters active, show all; otherwise show only selected statuses
+    if (hasActiveStatusFilter && !statusFilters[log.status]) {
+      return false;
+    }
+
+    // Method filter
+    if (methodFilter && log.method !== methodFilter) {
+      return false;
+    }
+
+    // Search filter (URL)
+    if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase();
+      const urlMatch = log.url.toLowerCase().includes(searchLower);
+      if (!urlMatch) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Clear all filters
+  const clearFilters = () => {
+    setStatusFilters({ pending: false, success: false, error: false });
+    setMethodFilter('');
+    setSearchQuery('');
+  };
+
+  // Check if any filter is active
+  const hasActiveFilters = hasActiveStatusFilter || methodFilter || searchQuery;
+
   return (
     <div className={`dev-mode-indicator ${isExpanded ? 'expanded' : ''}`}>
       {/* Header - always visible */}
@@ -250,11 +307,76 @@ function DevModeApiIndicator() {
             </button>
           </div>
 
+          {/* Filters */}
+          <div className="dev-mode-filters">
+            <div className="filter-group">
+              <span className="filter-label">Status:</span>
+              <div className="filter-pills">
+                <button
+                  className={`filter-pill status-pending ${statusFilters.pending ? 'active' : ''}`}
+                  onClick={() => toggleStatusFilter('pending')}
+                >
+                  Pending
+                </button>
+                <button
+                  className={`filter-pill status-success ${statusFilters.success ? 'active' : ''}`}
+                  onClick={() => toggleStatusFilter('success')}
+                >
+                  Success
+                </button>
+                <button
+                  className={`filter-pill status-error ${statusFilters.error ? 'active' : ''}`}
+                  onClick={() => toggleStatusFilter('error')}
+                >
+                  Error
+                </button>
+              </div>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-label">Method:</span>
+              <select
+                className="filter-select"
+                value={methodFilter}
+                onChange={(e) => setMethodFilter(e.target.value)}
+              >
+                <option value="">All</option>
+                {uniqueMethods.map(method => (
+                  <option key={method} value={method}>{method}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-group filter-search">
+              <input
+                type="text"
+                className="filter-input"
+                placeholder="Search URL..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            {hasActiveFilters && (
+              <button className="filter-clear" onClick={clearFilters}>
+                Clear Filters
+              </button>
+            )}
+
+            {hasActiveFilters && (
+              <span className="filter-count">
+                {filteredLogs.length} / {logs.length}
+              </span>
+            )}
+          </div>
+
           <div className="dev-mode-logs">
             {logs.length === 0 ? (
               <div className="dev-mode-empty">No API requests yet</div>
+            ) : filteredLogs.length === 0 ? (
+              <div className="dev-mode-empty">No logs match the current filters</div>
             ) : (
-              logs.map((log) => (
+              filteredLogs.map((log) => (
                 <div key={log.id} className={`api-log-entry ${log.status}`}>
                   <div
                     className="api-log-summary"
