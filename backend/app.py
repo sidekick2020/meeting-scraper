@@ -3428,8 +3428,51 @@ def reset_scraper():
 
 @app.route('/api/status', methods=['GET'])
 def get_status():
-    """Get current scraping status"""
-    return jsonify(scraping_state)
+    """Get current scraping status with time estimates"""
+    response = dict(scraping_state)
+
+    # Calculate time estimates when scraper is running
+    if scraping_state["is_running"] and scraping_state["started_at"]:
+        try:
+            started_at = datetime.fromisoformat(scraping_state["started_at"].replace('Z', '+00:00'))
+            # Handle timezone-naive datetime
+            if started_at.tzinfo:
+                now = datetime.now(started_at.tzinfo)
+            else:
+                now = datetime.now()
+
+            elapsed_seconds = (now - started_at).total_seconds()
+            response["elapsed_seconds"] = elapsed_seconds
+
+            # Calculate overall progress fraction
+            total_feeds = scraping_state["total_feeds"]
+            current_feed_index = scraping_state["current_feed_index"]
+            current_feed_progress = scraping_state["current_feed_progress"]
+            current_feed_total = scraping_state["current_feed_total"]
+
+            if total_feeds > 0:
+                # Feed progress as fraction (0-1)
+                feed_progress_fraction = (current_feed_progress / current_feed_total) if current_feed_total > 0 else 0
+                # Overall progress: completed feeds + fraction of current feed
+                overall_progress_fraction = (current_feed_index + feed_progress_fraction) / total_feeds
+
+                response["overall_progress_fraction"] = overall_progress_fraction
+
+                # Estimate remaining time if we have meaningful progress
+                if overall_progress_fraction > 0.01:  # At least 1% progress
+                    estimated_total_seconds = elapsed_seconds / overall_progress_fraction
+                    estimated_remaining_seconds = estimated_total_seconds - elapsed_seconds
+                    response["estimated_remaining_seconds"] = max(0, estimated_remaining_seconds)
+
+                    # Calculate items per second velocity
+                    total_found = scraping_state["total_found"]
+                    if elapsed_seconds > 0 and total_found > 0:
+                        response["items_per_second"] = total_found / elapsed_seconds
+        except (ValueError, TypeError):
+            # If datetime parsing fails, skip time estimates
+            pass
+
+    return jsonify(response)
 
 
 @app.route('/api/cache-stats', methods=['GET'])
