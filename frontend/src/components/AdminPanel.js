@@ -25,6 +25,8 @@ function HeatmapJobControls() {
   const [isSchedulerLoading, setIsSchedulerLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
+  const logsEndRef = useRef(null);
 
   // Fetch job status
   const fetchStatus = useCallback(async () => {
@@ -39,21 +41,28 @@ function HeatmapJobControls() {
     }
   }, []);
 
-  // Poll status when job is running
+  // Poll status when job is running (faster polling during job execution)
   useEffect(() => {
     fetchStatus();
+    const pollInterval = jobStatus?.is_running ? 1000 : 5000;
     const interval = setInterval(() => {
-      if (jobStatus?.is_running) {
-        fetchStatus();
-      }
-    }, 2000);
+      fetchStatus();
+    }, pollInterval);
     return () => clearInterval(interval);
   }, [fetchStatus, jobStatus?.is_running]);
+
+  // Auto-scroll logs to bottom when new logs arrive
+  useEffect(() => {
+    if (showLogs && logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [showLogs, jobStatus?.logs?.length]);
 
   // Start the job
   const startJob = async (incremental = false) => {
     setIsLoading(true);
     setError(null);
+    setShowLogs(true);  // Auto-show logs when starting job
     try {
       const response = await fetch(`${BACKEND_URL}/api/admin/heatmap-indicators/generate`, {
         method: 'POST',
@@ -136,6 +145,9 @@ function HeatmapJobControls() {
               <span className="job-phase">{jobStatus.current_phase}</span>
               <span className="job-percent">{jobStatus.progress}%</span>
             </div>
+            {jobStatus.phase_detail && (
+              <div className="job-phase-detail">{jobStatus.phase_detail}</div>
+            )}
             {jobStatus.mode === 'incremental' && (
               <div className="job-mode-badge">Incremental</div>
             )}
@@ -222,6 +234,31 @@ function HeatmapJobControls() {
           <span>{jobStatus.indicators_created.toLocaleString()} indicators</span>
           <span className="stat-divider">·</span>
           <span>{jobStatus.meetings_updated.toLocaleString()} meetings updated</span>
+        </div>
+      )}
+
+      {/* Job Logs */}
+      {(jobStatus?.is_running || (jobStatus?.logs && jobStatus.logs.length > 0)) && (
+        <div className="heatmap-job-logs">
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setShowLogs(!showLogs)}
+          >
+            {showLogs ? 'Hide Logs' : `Show Logs (${jobStatus?.logs?.length || 0})`}
+          </button>
+          {showLogs && (
+            <div className="job-logs-container">
+              {jobStatus?.logs?.map((log, idx) => (
+                <div key={idx} className={`job-log-entry job-log-${log.level}`}>
+                  <span className="job-log-time">
+                    {new Date(log.timestamp).toLocaleTimeString()}
+                  </span>
+                  <span className="job-log-message">{log.message}</span>
+                </div>
+              ))}
+              <div ref={logsEndRef} />
+            </div>
+          )}
         </div>
       )}
 

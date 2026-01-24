@@ -116,7 +116,7 @@ meetings_count_cache = CacheManager('meetings_count', ttl_seconds=120, max_entri
 meetings_data_cache = CacheManager('meetings_data', ttl_seconds=180, max_entries=100)  # 3 min TTL for meeting query results
 heatmap_cache = CacheManager('heatmap', ttl_seconds=300, max_entries=50)  # 5 min TTL for heatmap data
 state_counts_cache = CacheManager('state_counts', ttl_seconds=600, max_entries=20)  # 10 min TTL for state counts
-coverage_analysis_cache = CacheManager('coverage_analysis', ttl_seconds=300, max_entries=5)  # 5 min TTL for full coverage data
+coverage_analysis_cache = CacheManager('coverage_analysis', ttl_seconds=900, max_entries=5)  # 15 min TTL for full coverage data (Back4App is source of truth)
 statistics_cache = CacheManager('statistics', ttl_seconds=180, max_entries=10)  # 3 min TTL for statistics
 sources_cache = CacheManager('sources', ttl_seconds=300, max_entries=20)  # 5 min TTL for sources
 scrape_history_cache = CacheManager('scrape_history', ttl_seconds=120, max_entries=10)  # 2 min TTL for scrape history
@@ -4190,43 +4190,90 @@ def check_unfinished_scrape():
         return jsonify({"hasUnfinished": False, "error": str(e)})
 
 def _fetch_coverage_from_back4app():
-    """Fetch coverage data from Back4app. Used by cache-first pattern."""
+    """Fetch coverage data from Back4app. Used by cache-first pattern.
+
+    Uses Parse aggregate API to efficiently count meetings by state in a single query,
+    avoiding the need to fetch all meetings individually.
+    """
     from collections import Counter
+    import urllib.parse
 
     headers = {
         "X-Parse-Application-Id": BACK4APP_APP_ID,
         "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+        "Content-Type": "application/json"
     }
 
     meetings_by_state = Counter()
     total_meetings = 0
-    skip = 0
-    batch_size = 1000
 
-    # Fetch all meetings in batches, only getting the state field
-    while True:
-        url = f"{BACK4APP_URL}?keys=state&limit={batch_size}&skip={skip}"
-        response = requests.get(url, headers=headers, timeout=30)
-        if response.status_code != 200:
-            break
+    # Try using Parse aggregate API for efficient state counting
+    try:
+        aggregate_url = "https://parseapi.back4app.com/aggregate/Meetings"
+        pipeline = [
+            {"$match": {"state": {"$exists": True, "$ne": None}}},
+            {"$group": {"_id": "$state", "count": {"$sum": 1}}}
+        ]
+        params = {"pipeline": json.dumps(pipeline)}
+        query_string = urllib.parse.urlencode(params)
+        url = f"{aggregate_url}?{query_string}"
 
-        data = response.json()
-        results = data.get("results", [])
-        if not results:
-            break
+        add_log(f"Fetching coverage data from Back4App using aggregate...", "info")
+        response = back4app_session.get(url, headers=headers, timeout=60)
 
-        # Count meetings by state
-        for meeting in results:
-            state = meeting.get("state")
-            if state:
-                meetings_by_state[state] += 1
-            total_meetings += 1
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get("results", [])
+            for item in results:
+                state = item.get("_id") or item.get("objectId")
+                count = item.get("count", 0)
+                if state:
+                    meetings_by_state[state] = count
+                    total_meetings += count
+            add_log(f"Coverage data fetched: {total_meetings} meetings across {len(meetings_by_state)} states", "success")
+        else:
+            add_log(f"Aggregate query failed ({response.status_code}), falling back to batch fetch", "warning")
+            raise Exception(f"Aggregate failed: {response.status_code}")
 
-        # If we got fewer results than batch_size, we've reached the end
-        if len(results) < batch_size:
-            break
+    except Exception as e:
+        # Fallback to batch fetching if aggregate fails
+        add_log(f"Falling back to batch fetch for coverage: {e}", "warning")
+        meetings_by_state = Counter()
+        total_meetings = 0
+        skip = 0
+        batch_size = 1000
 
-        skip += batch_size
+        while True:
+            url = f"{BACK4APP_URL}?keys=state&limit={batch_size}&skip={skip}"
+            try:
+                response = back4app_session.get(url, headers=headers, timeout=60)
+                if response.status_code != 200:
+                    add_log(f"Batch fetch failed at skip={skip}: HTTP {response.status_code}", "error")
+                    break
+
+                data = response.json()
+                results = data.get("results", [])
+                if not results:
+                    break
+
+                for meeting in results:
+                    state = meeting.get("state")
+                    if state:
+                        meetings_by_state[state] += 1
+                    total_meetings += 1
+
+                if len(results) < batch_size:
+                    break
+
+                skip += batch_size
+
+                # Log progress every 10k meetings
+                if skip % 10000 == 0:
+                    add_log(f"Coverage fetch progress: {total_meetings} meetings loaded...", "info")
+
+            except Exception as batch_error:
+                add_log(f"Coverage batch fetch error at skip={skip}: {batch_error}", "error")
+                break
 
     # Calculate coverage metrics
     coverage_data = []
