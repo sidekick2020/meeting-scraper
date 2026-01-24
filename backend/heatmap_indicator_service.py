@@ -48,15 +48,26 @@ indicator_job_state = {
     "progress": 0,
     "current_phase": "",
     "total_meetings": 0,
+    "new_meetings": 0,  # Meetings without clusterKey
     "indicators_created": 0,
     "meetings_updated": 0,
     "errors": [],
     "last_completed_at": None,
     "last_duration_seconds": None,
+    "mode": "full",  # "full" or "incremental"
 }
+
+# Job history (in-memory, limited to last 20 runs)
+_job_history = []
+MAX_JOB_HISTORY = 20
 
 # Lock for thread safety
 _job_lock = threading.Lock()
+
+# Scheduler state
+_scheduler_thread = None
+_scheduler_running = False
+DAILY_RUN_HOUR = 3  # Run at 3 AM UTC
 
 # Back4App configuration (set by init function)
 _back4app_config = {
@@ -75,9 +86,50 @@ def init_heatmap_service(app_id, rest_key, session=None):
 
 
 def get_job_status():
-    """Get current job status."""
+    """Get current job status including history."""
     with _job_lock:
-        return dict(indicator_job_state)
+        status = dict(indicator_job_state)
+        status["history"] = list(_job_history)
+        status["scheduler_enabled"] = _scheduler_running
+        status["next_scheduled_run"] = _get_next_scheduled_run()
+        return status
+
+
+def get_job_history():
+    """Get job run history."""
+    with _job_lock:
+        return list(_job_history)
+
+
+def _add_to_history(result):
+    """Add a job result to history."""
+    global _job_history
+    entry = {
+        "completed_at": datetime.utcnow().isoformat(),
+        "success": result.get("success", False),
+        "mode": result.get("mode", "full"),
+        "total_meetings": result.get("total_meetings", 0),
+        "new_meetings": result.get("new_meetings", 0),
+        "indicators_created": result.get("indicators_created", 0),
+        "meetings_updated": result.get("meetings_updated", 0),
+        "duration_seconds": result.get("duration_seconds", 0),
+        "error": result.get("error"),
+    }
+    with _job_lock:
+        _job_history.insert(0, entry)
+        if len(_job_history) > MAX_JOB_HISTORY:
+            _job_history = _job_history[:MAX_JOB_HISTORY]
+
+
+def _get_next_scheduled_run():
+    """Calculate next scheduled run time."""
+    if not _scheduler_running:
+        return None
+    now = datetime.utcnow()
+    next_run = now.replace(hour=DAILY_RUN_HOUR, minute=0, second=0, microsecond=0)
+    if now.hour >= DAILY_RUN_HOUR:
+        next_run = next_run.replace(day=now.day + 1)
+    return next_run.isoformat() + "Z"
 
 
 def _get_headers():
@@ -101,8 +153,12 @@ def _update_progress(phase, progress=None, **kwargs):
     print(f"[HEATMAP-SERVICE] {phase} - {progress}%" if progress else f"[HEATMAP-SERVICE] {phase}")
 
 
-def _fetch_all_meetings():
-    """Fetch all meetings with lat/lng from Back4App."""
+def _fetch_all_meetings(incremental=False):
+    """Fetch meetings with lat/lng from Back4App.
+
+    Args:
+        incremental: If True, only fetch meetings without clusterKey
+    """
     import requests
     import urllib.parse
 
@@ -117,6 +173,10 @@ def _fetch_all_meetings():
         "latitude": {"$exists": True},
         "longitude": {"$exists": True}
     }
+
+    if incremental:
+        # Only fetch meetings that haven't been assigned to a cluster yet
+        where["clusterKey"] = {"$exists": False}
 
     while True:
         params = {
@@ -452,18 +512,21 @@ def _get_active_states(meetings):
     return [s for s, count in states.items() if count > 50]
 
 
-def generate_heatmap_indicators(include_state_filters=True, force=False):
+def generate_heatmap_indicators(include_state_filters=True, force=False, incremental=False):
     """
     Main job function to generate all heatmap indicators.
 
     Args:
         include_state_filters: If True, generate state:XX filters for active states
         force: If True, run even if already running
+        incremental: If True, only process meetings without clusterKey (faster for daily updates)
 
     Returns:
         dict with job results
     """
     global indicator_job_state
+
+    mode = "incremental" if incremental else "full"
 
     with _job_lock:
         if indicator_job_state["is_running"] and not force:
@@ -476,81 +539,153 @@ def generate_heatmap_indicators(include_state_filters=True, force=False):
         indicator_job_state["errors"] = []
         indicator_job_state["indicators_created"] = 0
         indicator_job_state["meetings_updated"] = 0
+        indicator_job_state["new_meetings"] = 0
+        indicator_job_state["mode"] = mode
 
     start_time = time.time()
 
     try:
-        # Phase 1: Fetch all meetings
-        _update_progress("Fetching meetings from Back4App", progress=5)
-        meetings = _fetch_all_meetings()
-        indicator_job_state["total_meetings"] = len(meetings)
+        if incremental:
+            # Incremental mode: only process new meetings
+            _update_progress("Fetching new meetings (incremental)", progress=5)
+            new_meetings = _fetch_all_meetings(incremental=True)
+            indicator_job_state["new_meetings"] = len(new_meetings)
 
-        if not meetings:
-            _update_progress("No meetings found", progress=100)
-            return {"success": False, "error": "No meetings found"}
+            if not new_meetings:
+                _update_progress("No new meetings to process", progress=100)
+                result = {
+                    "success": True,
+                    "mode": mode,
+                    "total_meetings": 0,
+                    "new_meetings": 0,
+                    "indicators_created": 0,
+                    "meetings_updated": 0,
+                    "duration_seconds": round(time.time() - start_time, 2),
+                    "errors": []
+                }
+                _add_to_history(result)
+                with _job_lock:
+                    indicator_job_state["is_running"] = False
+                    indicator_job_state["last_completed_at"] = datetime.utcnow().isoformat()
+                    indicator_job_state["last_duration_seconds"] = result["duration_seconds"]
+                return result
 
-        print(f"[HEATMAP-SERVICE] Loaded {len(meetings)} meetings")
+            print(f"[HEATMAP-SERVICE] Found {len(new_meetings)} new meetings to process")
 
-        # Phase 2: Delete existing indicators
-        _update_progress("Deleting existing indicators", progress=15)
-        deleted = _delete_existing_indicators()
-        print(f"[HEATMAP-SERVICE] Deleted {deleted} existing indicators")
+            # For incremental, we only update cluster keys, no indicator regeneration
+            _update_progress("Assigning cluster keys to new meetings", progress=50)
 
-        # Phase 3: Generate filter list
-        filter_types = list(FILTER_TYPES)
-        if include_state_filters:
-            active_states = _get_active_states(meetings)
-            filter_types.extend([f"state:{s}" for s in active_states])
+            # Generate cluster keys for new meetings only
+            meeting_cluster_keys = {}
+            for meeting in new_meetings:
+                lat = meeting.get("latitude")
+                lng = meeting.get("longitude")
+                object_id = meeting.get("objectId")
+                if lat is not None and lng is not None and object_id:
+                    grid_key = _compute_grid_key(5, lat, lng)
+                    meeting_cluster_keys[object_id] = grid_key
 
-        print(f"[HEATMAP-SERVICE] Processing {len(filter_types)} filter types")
+            _update_progress("Updating meetings with cluster keys", progress=75)
+            updated = _update_meetings_cluster_keys(meeting_cluster_keys)
+            indicator_job_state["meetings_updated"] = updated
+            print(f"[HEATMAP-SERVICE] Updated {updated} new meetings with cluster keys")
 
-        # Phase 4: Generate clusters for each filter
-        all_indicators = []
-        meeting_cluster_keys = {}
+            # Done with incremental
+            duration = time.time() - start_time
+            _update_progress("Completed (incremental)", progress=100)
 
-        for idx, filter_type in enumerate(filter_types):
-            progress = 20 + int((idx / len(filter_types)) * 60)
-            _update_progress(f"Generating clusters for {filter_type}", progress=progress)
+            result = {
+                "success": True,
+                "mode": mode,
+                "total_meetings": len(new_meetings),
+                "new_meetings": len(new_meetings),
+                "indicators_created": 0,
+                "meetings_updated": updated,
+                "duration_seconds": round(duration, 2),
+                "errors": indicator_job_state["errors"]
+            }
 
-            indicators, cluster_keys = _generate_clusters_for_filter(meetings, filter_type)
-            all_indicators.extend(indicators)
+        else:
+            # Full mode: regenerate all indicators
+            _update_progress("Fetching meetings from Back4App", progress=5)
+            meetings = _fetch_all_meetings(incremental=False)
+            indicator_job_state["total_meetings"] = len(meetings)
 
-            # Only capture cluster keys from "all" filter
-            if filter_type == "all":
-                meeting_cluster_keys = cluster_keys
+            if not meetings:
+                _update_progress("No meetings found", progress=100)
+                result = {"success": False, "error": "No meetings found", "mode": mode}
+                _add_to_history(result)
+                return result
 
-        print(f"[HEATMAP-SERVICE] Generated {len(all_indicators)} indicators")
+            print(f"[HEATMAP-SERVICE] Loaded {len(meetings)} meetings")
 
-        # Phase 5: Save indicators
-        _update_progress("Saving indicators to Back4App", progress=80)
-        saved = _save_indicators_batch(all_indicators)
-        indicator_job_state["indicators_created"] = saved
-        print(f"[HEATMAP-SERVICE] Saved {saved} indicators")
+            # Phase 2: Delete existing indicators
+            _update_progress("Deleting existing indicators", progress=15)
+            deleted = _delete_existing_indicators()
+            print(f"[HEATMAP-SERVICE] Deleted {deleted} existing indicators")
 
-        # Phase 6: Update meetings with cluster keys
-        _update_progress("Updating meetings with cluster keys", progress=90)
-        updated = _update_meetings_cluster_keys(meeting_cluster_keys)
-        indicator_job_state["meetings_updated"] = updated
-        print(f"[HEATMAP-SERVICE] Updated {updated} meetings with cluster keys")
+            # Phase 3: Generate filter list
+            filter_types = list(FILTER_TYPES)
+            if include_state_filters:
+                active_states = _get_active_states(meetings)
+                filter_types.extend([f"state:{s}" for s in active_states])
 
-        # Done
-        duration = time.time() - start_time
-        _update_progress("Completed", progress=100)
+            print(f"[HEATMAP-SERVICE] Processing {len(filter_types)} filter types")
+
+            # Phase 4: Generate clusters for each filter
+            all_indicators = []
+            meeting_cluster_keys = {}
+
+            for idx, filter_type in enumerate(filter_types):
+                progress = 20 + int((idx / len(filter_types)) * 60)
+                _update_progress(f"Generating clusters for {filter_type}", progress=progress)
+
+                indicators, cluster_keys = _generate_clusters_for_filter(meetings, filter_type)
+                all_indicators.extend(indicators)
+
+                # Only capture cluster keys from "all" filter
+                if filter_type == "all":
+                    meeting_cluster_keys = cluster_keys
+
+            print(f"[HEATMAP-SERVICE] Generated {len(all_indicators)} indicators")
+
+            # Phase 5: Save indicators
+            _update_progress("Saving indicators to Back4App", progress=80)
+            saved = _save_indicators_batch(all_indicators)
+            indicator_job_state["indicators_created"] = saved
+            print(f"[HEATMAP-SERVICE] Saved {saved} indicators")
+
+            # Phase 6: Update meetings with cluster keys
+            _update_progress("Updating meetings with cluster keys", progress=90)
+            updated = _update_meetings_cluster_keys(meeting_cluster_keys)
+            indicator_job_state["meetings_updated"] = updated
+            print(f"[HEATMAP-SERVICE] Updated {updated} meetings with cluster keys")
+
+            # Done
+            duration = time.time() - start_time
+            _update_progress("Completed", progress=100)
+
+            result = {
+                "success": True,
+                "mode": mode,
+                "total_meetings": len(meetings),
+                "new_meetings": 0,
+                "indicators_created": saved,
+                "meetings_updated": updated,
+                "filter_types": len(filter_types),
+                "duration_seconds": round(duration, 2),
+                "errors": indicator_job_state["errors"]
+            }
+
+        # Add to history
+        _add_to_history(result)
 
         with _job_lock:
             indicator_job_state["is_running"] = False
             indicator_job_state["last_completed_at"] = datetime.utcnow().isoformat()
-            indicator_job_state["last_duration_seconds"] = round(duration, 2)
+            indicator_job_state["last_duration_seconds"] = result["duration_seconds"]
 
-        return {
-            "success": True,
-            "total_meetings": len(meetings),
-            "indicators_created": saved,
-            "meetings_updated": updated,
-            "filter_types": len(filter_types),
-            "duration_seconds": round(duration, 2),
-            "errors": indicator_job_state["errors"]
-        }
+        return result
 
     except Exception as e:
         import traceback
@@ -566,19 +701,73 @@ def generate_heatmap_indicators(include_state_filters=True, force=False):
         return {"success": False, "error": error_msg}
 
 
-def run_job_in_background(include_state_filters=True):
-    """Start the indicator generation job in a background thread."""
+def run_job_in_background(include_state_filters=True, incremental=False):
+    """Start the indicator generation job in a background thread.
+
+    Args:
+        include_state_filters: If True, generate state:XX filters
+        incremental: If True, only process meetings without clusterKey
+    """
     with _job_lock:
         if indicator_job_state["is_running"]:
             return {"success": False, "error": "Job already running"}
 
     def worker():
-        generate_heatmap_indicators(include_state_filters=include_state_filters)
+        generate_heatmap_indicators(
+            include_state_filters=include_state_filters,
+            incremental=incremental
+        )
 
     thread = threading.Thread(target=worker, daemon=True, name="heatmap-indicator-worker")
     thread.start()
 
-    return {"success": True, "message": "Job started in background"}
+    mode = "incremental" if incremental else "full"
+    return {"success": True, "message": f"Job started in background ({mode} mode)"}
+
+
+def start_scheduler():
+    """Start the daily scheduler for automatic indicator generation."""
+    global _scheduler_thread, _scheduler_running
+
+    if _scheduler_running:
+        return {"success": False, "error": "Scheduler already running"}
+
+    _scheduler_running = True
+
+    def scheduler_loop():
+        import time as time_module
+        print(f"[HEATMAP-SERVICE] Scheduler started. Will run daily at {DAILY_RUN_HOUR}:00 UTC")
+
+        while _scheduler_running:
+            now = datetime.utcnow()
+
+            # Check if it's time to run (within the first minute of the scheduled hour)
+            if now.hour == DAILY_RUN_HOUR and now.minute == 0:
+                print("[HEATMAP-SERVICE] Scheduled run starting (incremental mode)")
+                run_job_in_background(include_state_filters=True, incremental=True)
+                # Sleep for 2 minutes to avoid running again in the same minute
+                time_module.sleep(120)
+            else:
+                # Check every 30 seconds
+                time_module.sleep(30)
+
+    _scheduler_thread = threading.Thread(target=scheduler_loop, daemon=True, name="heatmap-scheduler")
+    _scheduler_thread.start()
+
+    return {"success": True, "message": f"Scheduler started. Daily run at {DAILY_RUN_HOUR}:00 UTC"}
+
+
+def stop_scheduler():
+    """Stop the daily scheduler."""
+    global _scheduler_running
+
+    if not _scheduler_running:
+        return {"success": False, "error": "Scheduler not running"}
+
+    _scheduler_running = False
+    print("[HEATMAP-SERVICE] Scheduler stopped")
+
+    return {"success": True, "message": "Scheduler stopped"}
 
 
 def query_indicators(zoom_tier, filter_type="all", bounds=None):

@@ -4903,12 +4903,15 @@ if BACK4APP_APP_ID and BACK4APP_REST_KEY:
 from heatmap_indicator_service import (
     init_heatmap_service,
     get_job_status as get_heatmap_job_status,
+    get_job_history as get_heatmap_job_history,
     run_job_in_background as run_heatmap_job_background,
     generate_heatmap_indicators,
     query_indicators,
     query_child_clusters,
     query_meetings_by_cluster,
     zoom_to_tier,
+    start_scheduler as start_heatmap_scheduler,
+    stop_scheduler as stop_heatmap_scheduler,
 )
 
 # Initialize heatmap indicator service
@@ -4925,6 +4928,7 @@ def admin_generate_heatmap_indicators():
     POST body (optional):
         - include_state_filters: bool (default True) - Generate per-state filters
         - sync: bool (default False) - Run synchronously (blocks until complete)
+        - incremental: bool (default False) - Only process new meetings without clusterKey
     """
     if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
         return jsonify({"success": False, "error": "Back4App not configured"}), 503
@@ -4932,21 +4936,51 @@ def admin_generate_heatmap_indicators():
     data = request.json or {}
     include_state_filters = data.get('include_state_filters', True)
     sync = data.get('sync', False)
+    incremental = data.get('incremental', False)
 
     if sync:
         # Run synchronously (useful for testing or CLI)
-        result = generate_heatmap_indicators(include_state_filters=include_state_filters)
+        result = generate_heatmap_indicators(
+            include_state_filters=include_state_filters,
+            incremental=incremental
+        )
         return jsonify(result)
     else:
         # Run in background
-        result = run_heatmap_job_background(include_state_filters=include_state_filters)
+        result = run_heatmap_job_background(
+            include_state_filters=include_state_filters,
+            incremental=incremental
+        )
         return jsonify(result)
 
 
 @app.route('/api/admin/heatmap-indicators/status', methods=['GET'])
 def admin_heatmap_indicator_status():
-    """Get current heatmap indicator job status."""
+    """Get current heatmap indicator job status including history."""
     return jsonify(get_heatmap_job_status())
+
+
+@app.route('/api/admin/heatmap-indicators/history', methods=['GET'])
+def admin_heatmap_indicator_history():
+    """Get heatmap indicator job run history."""
+    return jsonify({"history": get_heatmap_job_history()})
+
+
+@app.route('/api/admin/heatmap-indicators/scheduler/start', methods=['POST'])
+def admin_start_heatmap_scheduler():
+    """Start the daily heatmap indicator scheduler.
+
+    The scheduler runs automatically once a day at 3 AM UTC in incremental mode.
+    """
+    result = start_heatmap_scheduler()
+    return jsonify(result)
+
+
+@app.route('/api/admin/heatmap-indicators/scheduler/stop', methods=['POST'])
+def admin_stop_heatmap_scheduler():
+    """Stop the daily heatmap indicator scheduler."""
+    result = stop_heatmap_scheduler()
+    return jsonify(result)
 
 
 @app.route('/api/heatmap-indicators', methods=['GET'])
