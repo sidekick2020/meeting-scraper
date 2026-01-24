@@ -124,6 +124,212 @@ export function ParseProvider({ children }) {
     return await Parse.Cloud.run(functionName, params);
   }, []);
 
+  /**
+   * Fetch meetings with filters - replaces /api/meetings backend call
+   * @param {Object} options - Query options
+   * @param {number} options.limit - Max results (default 50)
+   * @param {number} options.skip - Pagination offset (default 0)
+   * @param {string} options.state - Filter by state code
+   * @param {number} options.day - Filter by day (0-6)
+   * @param {string} options.search - Search in meeting name
+   * @param {string} options.type - Filter by meetingType (AA/NA)
+   * @param {string} options.city - Filter by city
+   * @param {boolean} options.online - Filter online meetings
+   * @param {boolean} options.hybrid - Filter hybrid meetings
+   * @param {string} options.format - Filter by format
+   * @param {Object} options.bounds - Geographic bounds {north, south, east, west}
+   * @param {Object} options.center - Center point for distance sorting {lat, lng}
+   * @returns {Promise<{meetings: Array, total: number}>}
+   */
+  const fetchMeetings = useCallback(async (options = {}) => {
+    if (!isInitialized) {
+      console.warn('Parse not initialized, returning empty results');
+      return { meetings: [], total: 0 };
+    }
+
+    const {
+      limit = 50,
+      skip = 0,
+      state,
+      day,
+      search,
+      type,
+      city,
+      online,
+      hybrid,
+      format,
+      bounds,
+      center
+    } = options;
+
+    try {
+      const meetingQuery = new Parse.Query('Meetings');
+
+      // Apply filters
+      if (state) meetingQuery.equalTo('state', state);
+      if (day !== undefined && day !== null && day !== '') {
+        meetingQuery.equalTo('day', parseInt(day, 10));
+      }
+      if (type) meetingQuery.equalTo('meetingType', type);
+      if (city) meetingQuery.equalTo('city', city);
+      if (online) meetingQuery.equalTo('isOnline', true);
+      if (hybrid) meetingQuery.equalTo('isHybrid', true);
+      if (format) meetingQuery.equalTo('format', format);
+      if (search) {
+        meetingQuery.matches('name', new RegExp(search, 'i'));
+      }
+
+      // Geographic bounds
+      if (bounds && bounds.north && bounds.south && bounds.east && bounds.west) {
+        meetingQuery.greaterThanOrEqualTo('latitude', bounds.south);
+        meetingQuery.lessThanOrEqualTo('latitude', bounds.north);
+        meetingQuery.greaterThanOrEqualTo('longitude', bounds.west);
+        meetingQuery.lessThanOrEqualTo('longitude', bounds.east);
+      }
+
+      // Field projection - only fetch needed fields
+      meetingQuery.select(
+        'objectId', 'name', 'day', 'time', 'city', 'state',
+        'latitude', 'longitude', 'locationName', 'meetingType',
+        'isOnline', 'isHybrid', 'format', 'address', 'thumbnailUrl'
+      );
+
+      meetingQuery.limit(limit);
+      meetingQuery.skip(skip);
+      meetingQuery.descending('createdAt');
+
+      // Execute query
+      const results = await meetingQuery.find();
+      let meetings = results.map(m => m.toJSON());
+
+      // Sort by distance from center if provided
+      if (center && center.lat && center.lng) {
+        meetings.sort((a, b) => {
+          const distA = a.latitude && a.longitude
+            ? Math.pow(a.latitude - center.lat, 2) + Math.pow((a.longitude - center.lng) * Math.cos(center.lat * Math.PI / 180), 2)
+            : Infinity;
+          const distB = b.latitude && b.longitude
+            ? Math.pow(b.latitude - center.lat, 2) + Math.pow((b.longitude - center.lng) * Math.cos(center.lat * Math.PI / 180), 2)
+            : Infinity;
+          return distA - distB;
+        });
+      }
+
+      // Get total count if we hit the limit (might be more)
+      let total = meetings.length;
+      if (meetings.length === limit) {
+        const countQuery = new Parse.Query('Meetings');
+        // Reapply filters for count
+        if (state) countQuery.equalTo('state', state);
+        if (day !== undefined && day !== null && day !== '') {
+          countQuery.equalTo('day', parseInt(day, 10));
+        }
+        if (type) countQuery.equalTo('meetingType', type);
+        if (city) countQuery.equalTo('city', city);
+        if (online) countQuery.equalTo('isOnline', true);
+        if (hybrid) countQuery.equalTo('isHybrid', true);
+        if (format) countQuery.equalTo('format', format);
+        if (search) countQuery.matches('name', new RegExp(search, 'i'));
+        if (bounds && bounds.north && bounds.south && bounds.east && bounds.west) {
+          countQuery.greaterThanOrEqualTo('latitude', bounds.south);
+          countQuery.lessThanOrEqualTo('latitude', bounds.north);
+          countQuery.greaterThanOrEqualTo('longitude', bounds.west);
+          countQuery.lessThanOrEqualTo('longitude', bounds.east);
+        }
+        total = await countQuery.count();
+      }
+
+      return { meetings, total };
+    } catch (error) {
+      console.error('ParseContext fetchMeetings error:', error);
+      return { meetings: [], total: 0, error: error.message };
+    }
+  }, []);
+
+  /**
+   * Fetch meeting counts by state - replaces /api/meetings/by-state backend call
+   * @param {Object} options - Filter options (same as fetchMeetings)
+   * @returns {Promise<{states: Array<{state, count, lat, lng}>, total: number}>}
+   */
+  const fetchMeetingsByState = useCallback(async (options = {}) => {
+    if (!isInitialized) {
+      return { states: [], total: 0 };
+    }
+
+    const { day, type, online, hybrid, format } = options;
+
+    try {
+      // Fetch all meetings with just the state field for aggregation
+      const allStates = {};
+      let skip = 0;
+      const batchSize = 1000;
+      let totalMeetings = 0;
+
+      while (true) {
+        const batchQuery = new Parse.Query('Meetings');
+        batchQuery.select('state');
+        batchQuery.limit(batchSize);
+        batchQuery.skip(skip);
+
+        // Apply filters
+        if (day !== undefined && day !== null && day !== '') {
+          batchQuery.equalTo('day', parseInt(day, 10));
+        }
+        if (type) batchQuery.equalTo('meetingType', type);
+        if (online) batchQuery.equalTo('isOnline', true);
+        if (hybrid) batchQuery.equalTo('isHybrid', true);
+        if (format) batchQuery.equalTo('format', format);
+
+        const results = await batchQuery.find();
+        if (results.length === 0) break;
+
+        results.forEach(m => {
+          const state = m.get('state');
+          if (state) {
+            allStates[state] = (allStates[state] || 0) + 1;
+            totalMeetings++;
+          }
+        });
+
+        skip += batchSize;
+        if (results.length < batchSize) break;
+      }
+
+      // Convert to array format with approximate center coordinates
+      const STATE_CENTERS = {
+        'AL': [32.806671, -86.791130], 'AK': [61.370716, -152.404419], 'AZ': [33.729759, -111.431221],
+        'AR': [34.969704, -92.373123], 'CA': [36.116203, -119.681564], 'CO': [39.059811, -105.311104],
+        'CT': [41.597782, -72.755371], 'DE': [39.318523, -75.507141], 'FL': [27.766279, -81.686783],
+        'GA': [33.040619, -83.643074], 'HI': [21.094318, -157.498337], 'ID': [44.240459, -114.478828],
+        'IL': [40.349457, -88.986137], 'IN': [39.849426, -86.258278], 'IA': [42.011539, -93.210526],
+        'KS': [38.526600, -96.726486], 'KY': [37.668140, -84.670067], 'LA': [31.169546, -91.867805],
+        'ME': [44.693947, -69.381927], 'MD': [39.063946, -76.802101], 'MA': [42.230171, -71.530106],
+        'MI': [43.326618, -84.536095], 'MN': [45.694454, -93.900192], 'MS': [32.741646, -89.678696],
+        'MO': [38.456085, -92.288368], 'MT': [46.921925, -110.454353], 'NE': [41.125370, -98.268082],
+        'NV': [38.313515, -117.055374], 'NH': [43.452492, -71.563896], 'NJ': [40.298904, -74.521011],
+        'NM': [34.840515, -106.248482], 'NY': [42.165726, -74.948051], 'NC': [35.630066, -79.806419],
+        'ND': [47.528912, -99.784012], 'OH': [40.388783, -82.764915], 'OK': [35.565342, -96.928917],
+        'OR': [44.572021, -122.070938], 'PA': [40.590752, -77.209755], 'RI': [41.680893, -71.511780],
+        'SC': [33.856892, -80.945007], 'SD': [44.299782, -99.438828], 'TN': [35.747845, -86.692345],
+        'TX': [31.054487, -97.563461], 'UT': [40.150032, -111.862434], 'VT': [44.045876, -72.710686],
+        'VA': [37.769337, -78.169968], 'WA': [47.400902, -121.490494], 'WV': [38.491226, -80.954453],
+        'WI': [44.268543, -89.616508], 'WY': [42.755966, -107.302490], 'DC': [38.897438, -77.026817]
+      };
+
+      const states = Object.entries(allStates).map(([state, count]) => ({
+        state,
+        count,
+        lat: STATE_CENTERS[state]?.[0] || 39.8283,
+        lng: STATE_CENTERS[state]?.[1] || -98.5795
+      }));
+
+      return { states, total: totalMeetings };
+    } catch (error) {
+      console.error('ParseContext fetchMeetingsByState error:', error);
+      return { states: [], total: 0, error: error.message };
+    }
+  }, []);
+
   // Connection is resolved when we know the final state (success, error, or not configured)
   // This allows components to wait for connection check to complete before making API calls
   const isConnectionReady = connectionStatus === 'connected' ||
@@ -145,6 +351,10 @@ export function ParseProvider({ children }) {
     query,
     getObject,
     runCloud,
+
+    // High-level data fetching (direct Parse queries, bypasses backend)
+    fetchMeetings,        // Query meetings with filters
+    fetchMeetingsByState, // Get counts per state for map
 
     // Configuration info (useful for debugging)
     config: {

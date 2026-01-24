@@ -168,8 +168,14 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   // Data cache context for persisting data across navigation
   const { getCache, setCache } = useDataCache();
 
-  // Parse SDK context for connection status
-  const { connectionStatus: parseConnectionStatus, isConnectionReady, config: parseConfig } = useParse();
+  // Parse SDK context for connection status and direct data fetching
+  const {
+    connectionStatus: parseConnectionStatus,
+    isConnectionReady,
+    isInitialized: parseInitialized,
+    config: parseConfig,
+    fetchMeetings: parseFetchMeetings
+  } = useParse();
 
   // Initialize state from cache if available
   const cachedMeetings = getCache(CACHE_KEYS.MEETINGS);
@@ -332,6 +338,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   }, [fetchThumbnail]);
 
   // Simple fetch function - fetches meetings based on bounds and filters, limit 50
+  // Uses Parse SDK directly when available, falls back to backend API
   const fetchMeetings = useCallback(async (bounds) => {
     if (!bounds) return;
 
@@ -339,83 +346,126 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     setError(null);
     setErrorDetails(null);
 
+    // Build filter options for Parse SDK
+    const filterOptions = {
+      limit: 50,
+      bounds: {
+        north: bounds.north,
+        south: bounds.south,
+        east: bounds.east,
+        west: bounds.west
+      },
+      center: bounds.center_lat !== undefined ? { lat: bounds.center_lat, lng: bounds.center_lng } : undefined,
+      state: selectedStates.length > 0 ? selectedStates[0] : undefined,
+      day: showTodayOnly ? new Date().getDay() : (selectedDays.length === 1 ? selectedDays[0] : undefined),
+      type: selectedTypes.length === 1 ? selectedTypes[0] : undefined,
+      city: selectedCity || undefined,
+      online: showOnlineOnly || undefined,
+      hybrid: showHybridOnly || undefined,
+      format: selectedFormat || undefined
+    };
+
     try {
-      // Build URL with bounds (required) and limit of 50
-      let url = `${BACKEND_URL}/api/meetings?limit=50`;
-      url += `&north=${bounds.north}&south=${bounds.south}&east=${bounds.east}&west=${bounds.west}`;
+      // Use Parse SDK directly if initialized (bypasses backend, reduces Render load)
+      if (parseInitialized) {
+        const result = await parseFetchMeetings(filterOptions);
 
-      // Add center for distance-based sorting
-      if (bounds.center_lat !== undefined && bounds.center_lng !== undefined) {
-        url += `&center_lat=${bounds.center_lat}&center_lng=${bounds.center_lng}`;
-      }
-
-      // Add filters if present
-      if (selectedStates.length > 0) {
-        url += `&state=${encodeURIComponent(selectedStates[0])}`;
-      }
-      if (showTodayOnly) {
-        url += `&day=${new Date().getDay()}`;
-      } else if (selectedDays.length === 1) {
-        url += `&day=${selectedDays[0]}`;
-      }
-      if (selectedTypes.length === 1) {
-        url += `&type=${encodeURIComponent(selectedTypes[0])}`;
-      }
-      if (selectedCity) {
-        url += `&city=${encodeURIComponent(selectedCity)}`;
-      }
-      if (showOnlineOnly) {
-        url += `&online=true`;
-      }
-      if (showHybridOnly) {
-        url += `&hybrid=true`;
-      }
-      if (selectedFormat) {
-        url += `&format=${encodeURIComponent(selectedFormat)}`;
-      }
-
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (response.ok) {
-        const newMeetings = data.meetings || [];
-        const total = data.total || newMeetings.length;
-
-        setTotalMeetings(total);
-        setMeetings(newMeetings);
-
-        // Update available cities from results
-        const cities = [...new Set(newMeetings.map(m => m.city).filter(Boolean))].sort();
-        setAvailableCities(cities);
-
-        // Set available types (all defined types)
-        const allTypes = Object.keys(MEETING_TYPES).filter(t => t !== 'Other');
-        allTypes.push('Other');
-        setAvailableTypes(allTypes);
-
-        // Store debug info if present (for diagnostics) but don't show error for normal empty results
-        // Debug info indicates potential config issues only when initial load returns 0 across entire database
-        if (data.debug) {
+        if (result.error) {
+          setError('Failed to load meetings from database');
           setErrorDetails({
             timestamp: new Date().toISOString(),
-            type: 'empty_results_debug_info',
-            debug: data.debug,
-            requestUrl: url.replace(BACKEND_URL, ''),
-            bounds: bounds,
-            note: 'This is debug info, not necessarily an error. Empty results in a specific area is normal.'
+            type: 'parse_error',
+            errorMessage: result.error,
+            filters: filterOptions
           });
+        } else {
+          const newMeetings = result.meetings || [];
+          const total = result.total || newMeetings.length;
+
+          setTotalMeetings(total);
+          setMeetings(newMeetings);
+
+          // Update available cities from results
+          const cities = [...new Set(newMeetings.map(m => m.city).filter(Boolean))].sort();
+          setAvailableCities(cities);
+
+          // Set available types (all defined types)
+          const allTypes = Object.keys(MEETING_TYPES).filter(t => t !== 'Other');
+          allTypes.push('Other');
+          setAvailableTypes(allTypes);
+
+          // Don't show error for empty results in a specific area - that's normal
+          // Only store debug info for diagnostics
+          if (newMeetings.length === 0) {
+            setErrorDetails({
+              timestamp: new Date().toISOString(),
+              type: 'empty_results_info',
+              filters: filterOptions,
+              bounds: bounds,
+              note: 'Empty results in a specific area is normal behavior.'
+            });
+          }
         }
       } else {
-        // Server returned an error
-        setError(data.error || 'Failed to load meetings');
-        setErrorDetails({
-          timestamp: new Date().toISOString(),
-          type: 'api_error',
-          httpStatus: response.status,
-          errorMessage: data.error,
-          errorDetails: data.error_details,
-          requestUrl: url.replace(BACKEND_URL, '')
-        });
+        // Fallback to backend API if Parse not configured
+        let url = `${BACKEND_URL}/api/meetings?limit=50`;
+        url += `&north=${bounds.north}&south=${bounds.south}&east=${bounds.east}&west=${bounds.west}`;
+
+        if (bounds.center_lat !== undefined && bounds.center_lng !== undefined) {
+          url += `&center_lat=${bounds.center_lat}&center_lng=${bounds.center_lng}`;
+        }
+        if (selectedStates.length > 0) url += `&state=${encodeURIComponent(selectedStates[0])}`;
+        if (showTodayOnly) {
+          url += `&day=${new Date().getDay()}`;
+        } else if (selectedDays.length === 1) {
+          url += `&day=${selectedDays[0]}`;
+        }
+        if (selectedTypes.length === 1) url += `&type=${encodeURIComponent(selectedTypes[0])}`;
+        if (selectedCity) url += `&city=${encodeURIComponent(selectedCity)}`;
+        if (showOnlineOnly) url += `&online=true`;
+        if (showHybridOnly) url += `&hybrid=true`;
+        if (selectedFormat) url += `&format=${encodeURIComponent(selectedFormat)}`;
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (response.ok) {
+          const newMeetings = data.meetings || [];
+          const total = data.total || newMeetings.length;
+
+          setTotalMeetings(total);
+          setMeetings(newMeetings);
+
+          const cities = [...new Set(newMeetings.map(m => m.city).filter(Boolean))].sort();
+          setAvailableCities(cities);
+
+          const allTypes = Object.keys(MEETING_TYPES).filter(t => t !== 'Other');
+          allTypes.push('Other');
+          setAvailableTypes(allTypes);
+
+          // Store debug info if present (for diagnostics) but don't show error for normal empty results
+          // Debug info indicates potential config issues only when initial load returns 0 across entire database
+          if (data.debug) {
+            setErrorDetails({
+              timestamp: new Date().toISOString(),
+              type: 'empty_results_debug_info',
+              debug: data.debug,
+              requestUrl: url.replace(BACKEND_URL, ''),
+              bounds: bounds,
+              note: 'This is debug info, not necessarily an error. Empty results in a specific area is normal.'
+            });
+          }
+        } else {
+          setError(data.error || 'Failed to load meetings');
+          setErrorDetails({
+            timestamp: new Date().toISOString(),
+            type: 'api_error',
+            httpStatus: response.status,
+            errorMessage: data.error,
+            errorDetails: data.error_details,
+            requestUrl: url.replace(BACKEND_URL, '')
+          });
+        }
       }
     } catch (err) {
       setError('Unable to connect to server');
@@ -424,12 +474,12 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         type: 'network_error',
         errorMessage: err.message,
         errorName: err.name,
-        backendUrl: BACKEND_URL
+        source: parseInitialized ? 'Parse SDK' : 'Backend API'
       });
     } finally {
       setIsLoading(false);
     }
-  }, [selectedStates, selectedDays, selectedTypes, selectedCity, showOnlineOnly, showHybridOnly, showTodayOnly, selectedFormat]);
+  }, [selectedStates, selectedDays, selectedTypes, selectedCity, showOnlineOnly, showHybridOnly, showTodayOnly, selectedFormat, parseInitialized, parseFetchMeetings]);
 
   // Fetch meetings when bounds or filters change
   useEffect(() => {
