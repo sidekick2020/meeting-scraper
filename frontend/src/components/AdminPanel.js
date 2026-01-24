@@ -7,6 +7,7 @@ import SettingsModal from './SettingsModal';
 import Stats from './Stats';
 import MeetingsList from './MeetingsList';
 import ActivityLog from './ActivityLog';
+import ParseQueryLog from './ParseQueryLog';
 import MeetingMap from './MeetingMap';
 import MeetingDetail from './MeetingDetail';
 import ScrapeHistory from './ScrapeHistory';
@@ -714,6 +715,15 @@ function AdminPanel({ onBackToPublic }) {
         <polyline points="12,6 12,12 16,14"/>
       </svg>
     )},
+    { id: 'parse-logs', label: 'Parse Logs', icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <line x1="10" y1="9" x2="8" y2="9"/>
+      </svg>
+    )},
     { id: 'statistics', label: 'Statistics', icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <line x1="18" y1="20" x2="18" y2="10"/>
@@ -879,6 +889,9 @@ function AdminPanel({ onBackToPublic }) {
 
       case 'history':
         return <ScrapeHistory />;
+
+      case 'parse-logs':
+        return <ParseQueryLog />;
 
       case 'statistics':
         return (

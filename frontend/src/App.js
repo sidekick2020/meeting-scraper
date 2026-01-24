@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { DataCacheProvider } from './contexts/DataCacheContext';
 import { ParseProvider, useParse } from './contexts/ParseContext';
+import { ParseQueryLoggerProvider } from './contexts/ParseQueryLoggerContext';
 import { DevModeProvider } from './contexts/DevModeContext';
 import { MemoryMonitorProvider } from './contexts/MemoryMonitorContext';
 import MeetingsExplorer from './components/MeetingsExplorer';
@@ -211,21 +212,23 @@ function App() {
       <ThemeProvider>
         <MemoryMonitorProvider>
           <DevModeProvider>
-            <ParseProvider>
-              <AuthProvider>
-                <DataCacheProvider>
-                  <MemoryCleanupIntegration />
-                  <Routes>
-                    <Route path="/" element={<AppContent />} />
-                    <Route path="/online-meetings" element={<OnlineMeetingsPage />} />
-                    <Route path="/docs" element={<DocsPage />} />
-                    <Route path="/download" element={<DownloadPageWrapper />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                  <DevModeApiIndicator />
-                </DataCacheProvider>
-              </AuthProvider>
-            </ParseProvider>
+            <ParseQueryLoggerProvider>
+              <ParseProvider>
+                <AuthProvider>
+                  <DataCacheProvider>
+                    <MemoryCleanupIntegration />
+                    <Routes>
+                      <Route path="/" element={<AppContent />} />
+                      <Route path="/online-meetings" element={<OnlineMeetingsPage />} />
+                      <Route path="/docs" element={<DocsPage />} />
+                      <Route path="/download" element={<DownloadPageWrapper />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                    <DevModeApiIndicator />
+                  </DataCacheProvider>
+                </AuthProvider>
+              </ParseProvider>
+            </ParseQueryLoggerProvider>
           </DevModeProvider>
         </MemoryMonitorProvider>
       </ThemeProvider>

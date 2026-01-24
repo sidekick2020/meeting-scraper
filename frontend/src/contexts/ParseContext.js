@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import Parse from 'parse';
+import { useParseQueryLogger } from './ParseQueryLoggerContext';
 
 const ParseContext = createContext(null);
 
@@ -93,6 +94,9 @@ export function ParseProvider({ children }) {
   // Connection status is determined synchronously at initialization - no async test needed
   const [connectionStatus] = useState(initialConnectionStatus);
 
+  // Get the query logger (will return no-op functions if provider not available)
+  const queryLogger = useParseQueryLogger();
+
   /**
    * Helper to create a new Parse.Query with proper typing
    */
@@ -142,11 +146,6 @@ export function ParseProvider({ children }) {
    * @returns {Promise<{meetings: Array, total: number}>}
    */
   const fetchMeetings = useCallback(async (options = {}) => {
-    if (!isInitialized) {
-      console.warn('Parse not initialized, returning empty results');
-      return { meetings: [], total: 0 };
-    }
-
     const {
       limit = 50,
       skip = 0,
@@ -162,7 +161,28 @@ export function ParseProvider({ children }) {
       center
     } = options;
 
+    // Build params object for logging
+    const queryParams = {
+      limit, skip, state, day, search, type, city,
+      online, hybrid, format, bounds, center
+    };
+
+    // Start logging the query
+    const log = queryLogger.logQuery({
+      operation: 'fetchMeetings',
+      className: 'Meetings',
+      params: queryParams,
+      step: 'Starting query with filters'
+    });
+
+    if (!isInitialized) {
+      log.error(new Error('Parse not initialized'), { reason: 'SDK not initialized' });
+      console.warn('Parse not initialized, returning empty results');
+      return { meetings: [], total: 0 };
+    }
+
     try {
+      log.updateStep('Building Parse query');
       const meetingQuery = new Parse.Query('Meetings');
 
       // Apply filters
@@ -199,11 +219,13 @@ export function ParseProvider({ children }) {
       meetingQuery.descending('createdAt');
 
       // Execute query
+      log.updateStep('Executing find() query on Meetings table');
       const results = await meetingQuery.find();
       let meetings = results.map(m => m.toJSON());
 
       // Sort by distance from center if provided
       if (center && center.lat && center.lng) {
+        log.updateStep('Sorting by distance from center');
         meetings.sort((a, b) => {
           const distA = a.latitude && a.longitude
             ? Math.pow(a.latitude - center.lat, 2) + Math.pow((a.longitude - center.lng) * Math.cos(center.lat * Math.PI / 180), 2)
@@ -218,6 +240,7 @@ export function ParseProvider({ children }) {
       // Get total count if we hit the limit (might be more)
       let total = meetings.length;
       if (meetings.length === limit) {
+        log.updateStep('Running count() query for pagination');
         const countQuery = new Parse.Query('Meetings');
         // Reapply filters for count
         if (state) countQuery.equalTo('state', state);
@@ -239,12 +262,14 @@ export function ParseProvider({ children }) {
         total = await countQuery.count();
       }
 
+      log.success({ count: meetings.length, data: meetings, total });
       return { meetings, total };
     } catch (error) {
+      log.error(error, { operation: 'fetchMeetings' });
       console.error('ParseContext fetchMeetings error:', error);
       return { meetings: [], total: 0, error: error.message };
     }
-  }, []);
+  }, [queryLogger]);
 
   /**
    * Fetch meeting counts by state - replaces /api/meetings/by-state backend call
@@ -252,11 +277,23 @@ export function ParseProvider({ children }) {
    * @returns {Promise<{states: Array<{state, count, lat, lng}>, total: number}>}
    */
   const fetchMeetingsByState = useCallback(async (options = {}) => {
+    const { day, type, online, hybrid, format } = options;
+
+    // Build params object for logging
+    const queryParams = { day, type, online, hybrid, format };
+
+    // Start logging the query
+    const log = queryLogger.logQuery({
+      operation: 'fetchMeetingsByState',
+      className: 'Meetings',
+      params: queryParams,
+      step: 'Starting state aggregation query'
+    });
+
     if (!isInitialized) {
+      log.error(new Error('Parse not initialized'), { reason: 'SDK not initialized' });
       return { states: [], total: 0 };
     }
-
-    const { day, type, online, hybrid, format } = options;
 
     try {
       // Fetch all meetings with just the state field for aggregation
@@ -264,8 +301,12 @@ export function ParseProvider({ children }) {
       let skip = 0;
       const batchSize = 1000;
       let totalMeetings = 0;
+      let batchCount = 0;
 
       while (true) {
+        batchCount++;
+        log.updateStep(`Fetching batch ${batchCount} (skip=${skip}, limit=${batchSize})`);
+
         const batchQuery = new Parse.Query('Meetings');
         batchQuery.select('state');
         batchQuery.limit(batchSize);
@@ -295,6 +336,8 @@ export function ParseProvider({ children }) {
         if (results.length < batchSize) break;
       }
 
+      log.updateStep(`Aggregating ${Object.keys(allStates).length} states from ${totalMeetings} meetings`);
+
       // Convert to array format with approximate center coordinates
       const STATE_CENTERS = {
         'AL': [32.806671, -86.791130], 'AK': [61.370716, -152.404419], 'AZ': [33.729759, -111.431221],
@@ -323,12 +366,20 @@ export function ParseProvider({ children }) {
         lng: STATE_CENTERS[state]?.[1] || -98.5795
       }));
 
+      log.success({
+        count: states.length,
+        data: states,
+        totalMeetings,
+        batchCount
+      });
+
       return { states, total: totalMeetings };
     } catch (error) {
+      log.error(error, { operation: 'fetchMeetingsByState' });
       console.error('ParseContext fetchMeetingsByState error:', error);
       return { states: [], total: 0, error: error.message };
     }
-  }, []);
+  }, [queryLogger]);
 
   // Connection is resolved when we know the final state (success, error, or not configured)
   // This allows components to wait for connection check to complete before making API calls
