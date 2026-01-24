@@ -1,6 +1,40 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDevMode } from '../contexts/DevModeContext';
 
+// Expandable section component with copy button
+function ExpandableSection({ title, content, isError, onCopy, copyFeedback, copyId }) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  const formattedContent = typeof content === 'string'
+    ? content
+    : JSON.stringify(content, null, 2);
+
+  return (
+    <div className="api-log-section">
+      <div
+        className={`api-log-section-header ${isError ? 'error' : ''}`}
+        onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+      >
+        <span className="api-log-section-toggle">{isExpanded ? '▼' : '▶'}</span>
+        <span className={`api-log-section-title ${isError ? 'error' : ''}`}>{title}</span>
+        <button
+          className={`api-log-section-copy ${copyFeedback === copyId ? 'copied' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCopy(formattedContent, copyId);
+          }}
+          title={`Copy ${title}`}
+        >
+          {copyFeedback === copyId ? '✓' : '📋'}
+        </button>
+      </div>
+      {isExpanded && (
+        <pre className="api-log-pre">{formattedContent}</pre>
+      )}
+    </div>
+  );
+}
+
 function DevModeApiIndicator() {
   const { development, logs, clearLogs } = useDevMode();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -276,50 +310,54 @@ function DevModeApiIndicator() {
                       </div>
 
                       {log.error && (
-                        <div className="api-log-section">
-                          <div className="api-log-section-title error">Error</div>
-                          <pre className="api-log-pre">{log.error}</pre>
-                        </div>
+                        <ExpandableSection
+                          title="Error"
+                          content={log.error}
+                          isError={true}
+                          onCopy={copyToClipboard}
+                          copyFeedback={copyFeedback}
+                          copyId={`error-${log.id}`}
+                        />
                       )}
 
                       {log.requestBody && (
-                        <div className="api-log-section">
-                          <div className="api-log-section-title">Request Body</div>
-                          <pre className="api-log-pre">
-                            {typeof log.requestBody === 'string'
-                              ? log.requestBody
-                              : JSON.stringify(log.requestBody, null, 2)}
-                          </pre>
-                        </div>
+                        <ExpandableSection
+                          title="Request Body"
+                          content={log.requestBody}
+                          onCopy={copyToClipboard}
+                          copyFeedback={copyFeedback}
+                          copyId={`reqbody-${log.id}`}
+                        />
                       )}
 
                       {log.response && (
-                        <div className="api-log-section">
-                          <div className="api-log-section-title">Response</div>
-                          <pre className="api-log-pre">
-                            {typeof log.response === 'string'
-                              ? log.response
-                              : JSON.stringify(log.response, null, 2)}
-                          </pre>
-                        </div>
+                        <ExpandableSection
+                          title="Response"
+                          content={log.response}
+                          onCopy={copyToClipboard}
+                          copyFeedback={copyFeedback}
+                          copyId={`response-${log.id}`}
+                        />
                       )}
 
                       {log.requestHeaders && Object.keys(log.requestHeaders).length > 0 && (
-                        <div className="api-log-section">
-                          <div className="api-log-section-title">Request Headers</div>
-                          <pre className="api-log-pre">
-                            {JSON.stringify(log.requestHeaders, null, 2)}
-                          </pre>
-                        </div>
+                        <ExpandableSection
+                          title="Request Headers"
+                          content={log.requestHeaders}
+                          onCopy={copyToClipboard}
+                          copyFeedback={copyFeedback}
+                          copyId={`reqheaders-${log.id}`}
+                        />
                       )}
 
                       {log.responseHeaders && Object.keys(log.responseHeaders).length > 0 && (
-                        <div className="api-log-section">
-                          <div className="api-log-section-title">Response Headers</div>
-                          <pre className="api-log-pre">
-                            {JSON.stringify(log.responseHeaders, null, 2)}
-                          </pre>
-                        </div>
+                        <ExpandableSection
+                          title="Response Headers"
+                          content={log.responseHeaders}
+                          onCopy={copyToClipboard}
+                          copyFeedback={copyFeedback}
+                          copyId={`resheaders-${log.id}`}
+                        />
                       )}
                     </div>
                   )}
