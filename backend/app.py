@@ -113,6 +113,9 @@ git_versions_cache = CacheManager('git_versions', ttl_seconds=300, max_entries=1
 coverage_gaps_cache = CacheManager('coverage_gaps', ttl_seconds=300, max_entries=20)  # 5 min TTL for coverage gaps
 feeds_cache = CacheManager('feeds', ttl_seconds=600, max_entries=5)  # 10 min TTL for feeds (rarely changes)
 meetings_count_cache = CacheManager('meetings_count', ttl_seconds=120, max_entries=50)  # 2 min TTL for meeting counts
+meetings_data_cache = CacheManager('meetings_data', ttl_seconds=180, max_entries=100)  # 3 min TTL for meeting query results
+heatmap_cache = CacheManager('heatmap', ttl_seconds=300, max_entries=50)  # 5 min TTL for heatmap data
+state_counts_cache = CacheManager('state_counts', ttl_seconds=600, max_entries=20)  # 10 min TTL for state counts
 
 # =============================================================================
 # PARSE/BACK4APP INITIALIZATION WITH LOGGING
@@ -4180,6 +4183,100 @@ def get_coverage():
         )
         return jsonify(response), status_code
 
+@app.route('/api/meetings/initial-load', methods=['GET'])
+def get_meetings_initial_load():
+    """Combined endpoint for initial page load - returns meetings, state counts, and metadata.
+
+    This reduces initial page load from 3+ API calls to 1 call, significantly improving
+    load time especially on slower connections.
+
+    Returns:
+        JSON with:
+        - meetings: First batch of meetings for the list view
+        - stateCounts: Pre-computed state counts for the map overview
+        - metadata: Available filters (types, formats, etc.)
+        - total: Total meeting count
+    """
+    import hashlib
+
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({
+            "meetings": [],
+            "stateCounts": {"states": [], "total": 0, "statesWithMeetings": 0},
+            "metadata": {"types": [], "formats": []},
+            "total": 0
+        })
+
+    try:
+        # Get state counts from cache or compute
+        state_cache_key = hashlib.md5(json.dumps({
+            'day': None, 'type': None, 'state': None, 'city': None,
+            'online': None, 'hybrid': None, 'format': None
+        }, sort_keys=True).encode()).hexdigest()
+
+        cached_state_counts = state_counts_cache.get(state_cache_key)
+        if cached_state_counts is not None:
+            state_counts = cached_state_counts
+        else:
+            state_counts = _compute_state_counts()
+            state_counts_cache.set(state_cache_key, state_counts)
+
+        # Get first batch of meetings (limit 50 for initial load)
+        import urllib.parse
+        params = {
+            'limit': 50,
+            'skip': 0,
+            'order': '-createdAt',
+            'keys': MEETING_LIST_FIELDS
+        }
+        query_string = urllib.parse.urlencode(params)
+        url = f"{BACK4APP_URL}?{query_string}"
+
+        response = back4app_session.get(url, timeout=15)
+
+        meetings = []
+        if response.status_code == 200:
+            data = response.json()
+            meetings = data.get("results", [])
+
+        # Get unique types and formats for filter dropdowns (from cached state counts)
+        # These are derived from meetings, so we use a simple aggregation
+        types_set = set()
+        formats_set = set()
+
+        # Quick scan of first batch for available types/formats
+        for meeting in meetings:
+            if meeting.get('meetingType'):
+                types_set.add(meeting['meetingType'])
+            if meeting.get('format'):
+                formats_set.add(meeting['format'])
+
+        result = {
+            "meetings": meetings,
+            "stateCounts": state_counts,
+            "metadata": {
+                "types": sorted(list(types_set)),
+                "formats": sorted(list(formats_set))
+            },
+            "total": state_counts.get('total', len(meetings))
+        }
+
+        return jsonify(result)
+
+    except Exception as e:
+        response, status_code = build_error_response(
+            exception=e,
+            endpoint_name="meetings/initial-load",
+            extra_data={
+                "meetings": [],
+                "stateCounts": {"states": [], "total": 0, "statesWithMeetings": 0},
+                "metadata": {"types": [], "formats": []},
+                "total": 0
+            }
+        )
+        return jsonify(response), status_code
+
+
 @app.route('/api/meetings', methods=['GET'])
 def get_meetings():
     """Get all meetings from Back4app for public viewing.
@@ -4215,6 +4312,7 @@ def get_meetings():
     - Uses connection pooling via requests.Session
     - Field projection reduces payload by ~60%
     - Cached count queries avoid duplicate requests
+    - Server-side caching with 3 min TTL
     """
     if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
         # Return recent meetings from memory if no Back4app configured
@@ -4289,6 +4387,7 @@ def get_meetings():
                 where['longitude'] = {"$gte": west, "$lte": east}
 
         import urllib.parse
+        import hashlib
         params = {
             'limit': min(limit, 1000),
             'skip': skip,
@@ -4299,6 +4398,31 @@ def get_meetings():
             params['where'] = json.dumps(where)
 
         query_string = urllib.parse.urlencode(params)
+
+        # Build cache key from query parameters (excluding center for caching - sorting done post-cache)
+        cache_params = {**params}
+        cache_key = hashlib.md5(json.dumps(cache_params, sort_keys=True).encode()).hexdigest()
+
+        # Check cache first
+        cached_data = meetings_data_cache.get(cache_key)
+        if cached_data is not None:
+            results = cached_data['results']
+            total = cached_data['total']
+
+            # Sort results by distance from center point if provided (post-cache)
+            if center_lat is not None and center_lng is not None and results:
+                def distance_from_center(meeting):
+                    lat = meeting.get('latitude')
+                    lng = meeting.get('longitude')
+                    if lat is None or lng is None:
+                        return float('inf')
+                    lat_diff = lat - center_lat
+                    lng_diff = (lng - center_lng) * math.cos(math.radians(center_lat))
+                    return lat_diff * lat_diff + lng_diff * lng_diff
+                results = sorted(results, key=distance_from_center)
+
+            return jsonify({"meetings": results, "total": total, "cached": True})
+
         url = f"{BACK4APP_URL}?{query_string}"
 
         # Use session for connection pooling
@@ -4325,9 +4449,9 @@ def get_meetings():
             # Get total count for pagination with caching
             total = len(results)
             if len(results) == min(limit, 1000):
-                # Build cache key from where clause
-                cache_key = json.dumps(where, sort_keys=True) if where else "all"
-                cached_count = meetings_count_cache.get(cache_key)
+                # Build count cache key from where clause
+                count_cache_key = json.dumps(where, sort_keys=True) if where else "all"
+                cached_count = meetings_count_cache.get(count_cache_key)
 
                 if cached_count is not None:
                     total = cached_count
@@ -4342,9 +4466,12 @@ def get_meetings():
                         count_response = back4app_session.get(count_url, timeout=10)
                         if count_response.status_code == 200:
                             total = count_response.json().get("count", len(results))
-                            meetings_count_cache.set(cache_key, total)
+                            meetings_count_cache.set(count_cache_key, total)
                     except:
                         pass  # Use len(results) as fallback
+
+            # Cache the results for future requests
+            meetings_data_cache.set(cache_key, {'results': results, 'total': total})
 
             response_data = {
                 "meetings": results,
@@ -4473,6 +4600,35 @@ def get_meetings_heatmap():
             where['format'] = format_filter
 
         import urllib.parse
+        import hashlib
+
+        # Build cache key - round bounds to grid size for better cache hit rate
+        if all(v is not None for v in [north, south, east, west]):
+            rounded_north = round(north / grid_size) * grid_size
+            rounded_south = round(south / grid_size) * grid_size
+            rounded_east = round(east / grid_size) * grid_size
+            rounded_west = round(west / grid_size) * grid_size
+            bounds_key = f"{rounded_north},{rounded_south},{rounded_east},{rounded_west}"
+        else:
+            bounds_key = "none"
+
+        heatmap_cache_key = hashlib.md5(json.dumps({
+            'zoom': zoom,
+            'bounds': bounds_key,
+            'day': day_filter,
+            'type': type_filter,
+            'state': state_filter,
+            'city': city_filter,
+            'online': online_filter,
+            'hybrid': hybrid_filter,
+            'format': format_filter
+        }, sort_keys=True).encode()).hexdigest()
+
+        # Check cache first (but not for individual meetings at high zoom)
+        if zoom < 13:
+            cached_heatmap = heatmap_cache.get(heatmap_cache_key)
+            if cached_heatmap is not None:
+                return jsonify({**cached_heatmap, "cached": True})
 
         # For high zoom levels (13+), return individual meetings
         if zoom >= 13:
@@ -4566,12 +4722,17 @@ def get_meetings_heatmap():
         # Sort by count descending
         cluster_list.sort(key=lambda x: x['count'], reverse=True)
 
-        return jsonify({
+        result_data = {
             "clusters": cluster_list,
             "total": len(results),
             "mode": "clustered",
             "gridSize": grid_size
-        })
+        }
+
+        # Cache the clustered result
+        heatmap_cache.set(heatmap_cache_key, result_data)
+
+        return jsonify(result_data)
 
     except Exception as e:
         response, status_code = build_error_response(
@@ -4596,14 +4757,234 @@ if BACK4APP_APP_ID and BACK4APP_REST_KEY:
     start_thumbnail_worker(BACK4APP_APP_ID, BACK4APP_REST_KEY, num_workers=2)
 
 
+# ==================== Background Pre-caching ====================
+_precache_thread = None
+
+
+def _start_precache_background():
+    """Start background pre-caching thread."""
+    global _precache_thread
+
+    def _precache_worker():
+        import time
+        # Wait a bit for app to fully initialize
+        time.sleep(2)
+
+        # Pre-cache state counts
+        _precache_state_counts()
+
+        # Pre-cache default heatmap (no filters, zoom 5 - continental view)
+        _precache_default_heatmap()
+
+    _precache_thread = threading.Thread(target=_precache_worker, daemon=True, name="precache-worker")
+    _precache_thread.start()
+    print("[PRECACHE] Background pre-caching thread started")
+
+
+def _precache_default_heatmap():
+    """Pre-cache the default heatmap view (continental US)."""
+    import hashlib
+    import urllib.parse
+
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return
+
+    print("[PRECACHE] Pre-caching default heatmap...")
+
+    try:
+        # Continental US bounds
+        north, south, east, west = 50.0, 24.0, -66.0, -125.0
+        zoom = 5
+        grid_size = 2.0  # zoom <= 6 uses 2.0 degree grid
+
+        # Build cache key matching the heatmap endpoint logic
+        rounded_north = round(north / grid_size) * grid_size
+        rounded_south = round(south / grid_size) * grid_size
+        rounded_east = round(east / grid_size) * grid_size
+        rounded_west = round(west / grid_size) * grid_size
+        bounds_key = f"{rounded_north},{rounded_south},{rounded_east},{rounded_west}"
+
+        heatmap_cache_key = hashlib.md5(json.dumps({
+            'zoom': zoom,
+            'bounds': bounds_key,
+            'day': None,
+            'type': None,
+            'state': None,
+            'city': None,
+            'online': None,
+            'hybrid': None,
+            'format': None
+        }, sort_keys=True).encode()).hexdigest()
+
+        # Fetch heatmap data
+        where = {
+            'latitude': {"$gte": south, "$lte": north},
+            'longitude': {"$gte": west, "$lte": east}
+        }
+        params = {
+            'limit': 1000,
+            'keys': 'latitude,longitude',
+            'where': json.dumps(where)
+        }
+        query_string = urllib.parse.urlencode(params)
+        url = f"{BACK4APP_URL}?{query_string}"
+        response = back4app_session.get(url, timeout=30)
+
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get("results", [])
+
+            # Aggregate into grid cells
+            clusters = {}
+            for meeting in results:
+                lat = meeting.get('latitude')
+                lng = meeting.get('longitude')
+                if lat is None or lng is None:
+                    continue
+
+                cell_lat = round(lat / grid_size) * grid_size
+                cell_lng = round(lng / grid_size) * grid_size
+                cell_key = f"{cell_lat},{cell_lng}"
+
+                if cell_key not in clusters:
+                    clusters[cell_key] = {'lat': cell_lat, 'lng': cell_lng, 'count': 0, 'sum_lat': 0, 'sum_lng': 0}
+                clusters[cell_key]['count'] += 1
+                clusters[cell_key]['sum_lat'] += lat
+                clusters[cell_key]['sum_lng'] += lng
+
+            cluster_list = []
+            for cluster in clusters.values():
+                if cluster['count'] > 0:
+                    cluster_list.append({
+                        'lat': cluster['sum_lat'] / cluster['count'],
+                        'lng': cluster['sum_lng'] / cluster['count'],
+                        'count': cluster['count']
+                    })
+            cluster_list.sort(key=lambda x: x['count'], reverse=True)
+
+            result_data = {
+                "clusters": cluster_list,
+                "total": len(results),
+                "mode": "clustered",
+                "gridSize": grid_size
+            }
+
+            heatmap_cache.set(heatmap_cache_key, result_data)
+            print(f"[PRECACHE] Cached default heatmap: {len(results)} meetings in {len(cluster_list)} clusters")
+    except Exception as e:
+        print(f"[PRECACHE] Error pre-caching heatmap: {e}")
+
+
+def _compute_state_counts(where=None):
+    """Internal function to compute state counts from Back4app.
+
+    Args:
+        where: Optional where clause dict for filtering
+
+    Returns:
+        Dict with 'states', 'total', 'statesWithMeetings' keys
+    """
+    from collections import Counter
+    import urllib.parse
+
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return {"states": [], "total": 0, "statesWithMeetings": 0}
+
+    # Fetch meetings with state field (efficient, paginated)
+    meetings_by_state = Counter()
+    total_meetings = 0
+    skip = 0
+    batch_size = 1000
+
+    while True:
+        params = {
+            'keys': 'state',
+            'limit': batch_size,
+            'skip': skip
+        }
+        if where:
+            params['where'] = json.dumps(where)
+
+        query_string = urllib.parse.urlencode(params)
+        url = f"{BACK4APP_URL}?{query_string}"
+        response = back4app_session.get(url, timeout=30)
+        if response.status_code != 200:
+            break
+
+        data = response.json()
+        results = data.get("results", [])
+        if not results:
+            break
+
+        for meeting in results:
+            state = meeting.get("state")
+            if state:
+                meetings_by_state[state] += 1
+            total_meetings += 1
+
+        if len(results) < batch_size:
+            break
+
+        skip += batch_size
+
+    # Build state data with coordinates
+    states = []
+    for state_code, count in meetings_by_state.items():
+        if state_code in US_STATE_CENTERS:
+            lat, lng = US_STATE_CENTERS[state_code]
+            states.append({
+                "state": state_code,
+                "stateName": US_STATE_NAMES.get(state_code, state_code),
+                "count": count,
+                "lat": lat,
+                "lng": lng
+            })
+
+    # Sort by count descending
+    states.sort(key=lambda x: x["count"], reverse=True)
+
+    return {
+        "states": states,
+        "total": total_meetings,
+        "statesWithMeetings": len(states)
+    }
+
+
+def _precache_state_counts():
+    """Background function to pre-cache state counts at startup."""
+    import hashlib
+
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return
+
+    print("[PRECACHE] Starting state counts pre-caching...")
+
+    # Pre-cache default (no filters) state counts
+    try:
+        default_cache_key = hashlib.md5(json.dumps({
+            'day': None, 'type': None, 'state': None, 'city': None,
+            'online': None, 'hybrid': None, 'format': None
+        }, sort_keys=True).encode()).hexdigest()
+
+        result = _compute_state_counts()
+        state_counts_cache.set(default_cache_key, result)
+        print(f"[PRECACHE] Cached state counts: {result['total']} meetings in {result['statesWithMeetings']} states")
+    except Exception as e:
+        print(f"[PRECACHE] Error pre-caching state counts: {e}")
+
+
 @app.route('/api/meetings/by-state', methods=['GET'])
 def get_meetings_by_state():
     """Get meeting counts by state for efficient map overview display.
 
     Returns cached aggregated counts with state center coordinates.
     Supports filters to show accurate counts when filters are applied.
+
+    Performance optimizations:
+    - Uses CacheManager with 10 min TTL
+    - Pre-cached at startup for no-filter queries
+    - Uses connection pooling via back4app_session
     """
-    import time
     import hashlib
 
     # Get filter parameters
@@ -4627,27 +5008,15 @@ def get_meetings_by_state():
     }, sort_keys=True)
     cache_key = hashlib.md5(filter_key.encode()).hexdigest()
 
-    # Check cache
-    cache = state_meeting_counts_cache
-    current_time = time.time()
-
-    if cache_key in cache["entries"]:
-        entry = cache["entries"][cache_key]
-        if (current_time - entry["timestamp"]) < cache["ttl"]:
-            return jsonify(entry["data"])
+    # Check cache first (using new CacheManager)
+    cached_result = state_counts_cache.get(cache_key)
+    if cached_result is not None:
+        return jsonify({**cached_result, "cached": True})
 
     if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
         return jsonify({"states": [], "total": 0})
 
-    headers = {
-        "X-Parse-Application-Id": BACK4APP_APP_ID,
-        "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
-    }
-
     try:
-        from collections import Counter
-        import urllib.parse
-
         # Build where clause for filters
         where = {}
         if day_filter is not None:
@@ -4665,76 +5034,11 @@ def get_meetings_by_state():
         if format_filter:
             where['format'] = format_filter
 
-        # Fetch meetings with state field (efficient, paginated)
-        meetings_by_state = Counter()
-        total_meetings = 0
-        skip = 0
-        batch_size = 1000
+        # Compute state counts
+        result = _compute_state_counts(where if where else None)
 
-        while True:
-            params = {
-                'keys': 'state',
-                'limit': batch_size,
-                'skip': skip
-            }
-            if where:
-                params['where'] = json.dumps(where)
-
-            query_string = urllib.parse.urlencode(params)
-            url = f"{BACK4APP_URL}?{query_string}"
-            response = requests.get(url, headers=headers, timeout=30)
-            if response.status_code != 200:
-                break
-
-            data = response.json()
-            results = data.get("results", [])
-            if not results:
-                break
-
-            for meeting in results:
-                state = meeting.get("state")
-                if state:
-                    meetings_by_state[state] += 1
-                total_meetings += 1
-
-            if len(results) < batch_size:
-                break
-
-            skip += batch_size
-
-        # Build state data with coordinates
-        states = []
-        for state_code, count in meetings_by_state.items():
-            if state_code in US_STATE_CENTERS:
-                lat, lng = US_STATE_CENTERS[state_code]
-                states.append({
-                    "state": state_code,
-                    "stateName": US_STATE_NAMES.get(state_code, state_code),
-                    "count": count,
-                    "lat": lat,
-                    "lng": lng
-                })
-
-        # Sort by count descending
-        states.sort(key=lambda x: x["count"], reverse=True)
-
-        result = {
-            "states": states,
-            "total": total_meetings,
-            "statesWithMeetings": len(states)
-        }
-
-        # Update cache with filter-specific entry
-        cache["entries"][cache_key] = {
-            "data": result,
-            "timestamp": current_time
-        }
-
-        # Clean old cache entries (keep max 20)
-        if len(cache["entries"]) > 20:
-            sorted_entries = sorted(cache["entries"].items(), key=lambda x: x[1]["timestamp"])
-            for old_key, _ in sorted_entries[:-20]:
-                del cache["entries"][old_key]
+        # Cache the result
+        state_counts_cache.set(cache_key, result)
 
         return jsonify(result)
 
@@ -4745,6 +5049,11 @@ def get_meetings_by_state():
             extra_data={"states": [], "total": 0, "statesWithMeetings": 0}
         )
         return jsonify(response), status_code
+
+
+# Start background pre-caching if API keys are configured
+if BACK4APP_APP_ID and BACK4APP_REST_KEY:
+    _start_precache_background()
 
 
 @app.route('/api/thumbnail/<meeting_id>', methods=['GET'])
