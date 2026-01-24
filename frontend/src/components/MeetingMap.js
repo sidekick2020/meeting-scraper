@@ -195,13 +195,40 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
   const lastFetchRef = useRef(null);
   const filtersRef = useRef(filters);
   const pendingFetchRef = useRef(null);
+  // Refs for state data request deduplication
+  const lastStateDataKeyRef = useRef(null);
+  const pendingStateDataRef = useRef(null);
 
-  // Fetch state-level data with filter support
+  // Fetch state-level data with filter support and request deduplication
   // Uses Parse SDK directly when available, falls back to backend API
   const fetchStateData = useCallback(async () => {
+    const currentFilters = filtersRef.current || {};
+
+    // Create request key for deduplication
+    const stateDataKey = JSON.stringify({
+      day: currentFilters.day,
+      type: currentFilters.type,
+      state: currentFilters.state,
+      city: currentFilters.city,
+      online: currentFilters.online,
+      hybrid: currentFilters.hybrid,
+      format: currentFilters.format
+    });
+
+    // Skip if identical request was just made
+    if (lastStateDataKeyRef.current === stateDataKey) {
+      return;
+    }
+    lastStateDataKeyRef.current = stateDataKey;
+
+    // Cancel any pending state data fetch
+    if (pendingStateDataRef.current) {
+      pendingStateDataRef.current.abort();
+    }
+    pendingStateDataRef.current = new AbortController();
+
     try {
       onLoadingChange?.(true);
-      const currentFilters = filtersRef.current || {};
 
       // Use Parse SDK directly if available (bypasses backend)
       if (parseInitialized && parseFetchMeetingsByState) {
@@ -245,13 +272,19 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
           url += `?${queryString}`;
         }
 
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          signal: pendingStateDataRef.current.signal
+        });
         if (response.ok) {
           const data = await response.json();
           onStateDataLoaded(data);
         }
       }
     } catch (error) {
+      // Ignore abort errors - they're expected when cancelling stale requests
+      if (error.name === 'AbortError') {
+        return;
+      }
       console.error('Error fetching state data:', error);
     } finally {
       onLoadingChange?.(false);
@@ -421,9 +454,12 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
       }
-      // Abort any pending fetch to prevent memory leaks
+      // Abort any pending fetches to prevent memory leaks
       if (pendingFetchRef.current) {
         pendingFetchRef.current.abort();
+      }
+      if (pendingStateDataRef.current) {
+        pendingStateDataRef.current.abort();
       }
     };
   }, [map, fetchHeatmapData, fetchStateData, onZoomChange, onBoundsChange]);
@@ -434,8 +470,9 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
       // Update filtersRef BEFORE fetching to avoid race condition
       // (the separate useEffect updating filtersRef may run after this one)
       filtersRef.current = filters;
-      // Force refresh when filters change
+      // Force refresh when filters change - reset deduplication keys
       lastFetchRef.current = null;
+      lastStateDataKeyRef.current = null;
       fetchHeatmapData(true);
       // Also refetch state data with new filters
       fetchStateData();
