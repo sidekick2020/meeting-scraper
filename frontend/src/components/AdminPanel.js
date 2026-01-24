@@ -397,6 +397,7 @@ function AdminPanel({ onBackToPublic }) {
   }, []);
 
   const [activeSection, setActiveSection] = useState('scraper');
+  const [scraperSubTab, setScraperSubTab] = useState('new'); // 'new' or 'history'
   const [scrapingState, setScrapingState] = useState(cachedScrapingState?.data || {
     is_running: false,
     total_found: 0,
@@ -1122,12 +1123,6 @@ function AdminPanel({ onBackToPublic }) {
         <path d="M9 12l2 2 4-4"/>
       </svg>
     )},
-    { id: 'history', label: 'History', icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <circle cx="12" cy="12" r="10"/>
-        <polyline points="12,6 12,12 16,14"/>
-      </svg>
-    )},
     { id: 'parse-logs', label: 'Parse Logs', icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
@@ -1171,123 +1166,155 @@ function AdminPanel({ onBackToPublic }) {
       case 'scraper':
         return (
           <>
-            {/* Unfinished Scrape Banner */}
-            {unfinishedScrape && !scrapingState.is_running && (
-              <div className="unfinished-scrape-banner">
-                <div className="unfinished-info">
-                  <strong>Unfinished scrape detected</strong>
-                  <span>
-                    Started {new Date(unfinishedScrape.started_at).toLocaleString()} -
-                    {' '}{unfinishedScrape.feeds_processed} of {unfinishedScrape.total_feeds} feeds completed,
-                    {' '}{unfinishedScrape.total_saved} meetings saved
-                  </span>
-                </div>
-                <div className="unfinished-actions">
-                  <button onClick={resumeScraping} className="btn btn-primary">
-                    Resume Scraping
-                  </button>
-                  <button onClick={dismissUnfinished} className="btn btn-ghost">
-                    Dismiss
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* Scraper Sub-tabs */}
+            <div className="scraper-subtabs">
+              <button
+                className={`scraper-subtab ${scraperSubTab === 'new' ? 'active' : ''}`}
+                onClick={() => setScraperSubTab('new')}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  <path d="M9 12l2 2 4-4"/>
+                </svg>
+                New Scrape
+              </button>
+              <button
+                className={`scraper-subtab ${scraperSubTab === 'history' ? 'active' : ''}`}
+                onClick={() => setScraperSubTab('history')}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12,6 12,12 16,14"/>
+                </svg>
+                Scrape History
+              </button>
+            </div>
 
-            <div className="controls-section">
-              <div className="control-buttons">
-                {!scrapingState.is_running ? (
-                  <button
-                    onClick={handleStartClick}
-                    className="btn btn-primary btn-large"
-                    disabled={!isConnected}
-                  >
-                    Start Scrape
-                  </button>
-                ) : (
+            {scraperSubTab === 'new' ? (
+              <>
+                {/* Unfinished Scrape Banner */}
+                {unfinishedScrape && !scrapingState.is_running && (
+                  <div className="unfinished-scrape-banner">
+                    <div className="unfinished-info">
+                      <strong>Unfinished scrape detected</strong>
+                      <span>
+                        Started {new Date(unfinishedScrape.started_at).toLocaleString()} -
+                        {' '}{unfinishedScrape.feeds_processed} of {unfinishedScrape.total_feeds} feeds completed,
+                        {' '}{unfinishedScrape.total_saved} meetings saved
+                      </span>
+                    </div>
+                    <div className="unfinished-actions">
+                      <button onClick={resumeScraping} className="btn btn-primary">
+                        Resume Scraping
+                      </button>
+                      <button onClick={dismissUnfinished} className="btn btn-ghost">
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="controls-section">
+                  <div className="control-buttons">
+                    {!scrapingState.is_running ? (
+                      <button
+                        onClick={handleStartClick}
+                        className="btn btn-primary btn-large"
+                        disabled={!isConnected}
+                      >
+                        Start Scrape
+                      </button>
+                    ) : (
+                      <>
+                        <button onClick={() => setShowScrapeChoiceModal(true)} className="btn btn-danger btn-large">
+                          Stop Scraping
+                        </button>
+                        <button onClick={handleStartClick} className="btn btn-secondary btn-large">
+                          Start New
+                        </button>
+                      </>
+                    )}
+                    <button onClick={resetScraper} className="btn btn-ghost" title="Reset scraper if stuck">
+                      Reset
+                    </button>
+                  </div>
+
+                  {!backendConfigured && (
+                    <div className="error-box">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                      </svg>
+                      Back4app not configured. Set REACT_APP_BACK4APP_APP_ID and REACT_APP_BACK4APP_JS_KEY environment variables.
+                    </div>
+                  )}
+
+                  {isConnected && feeds.length > 0 && !scrapingState.is_running && !showFeedSelector && (
+                    <p className="sources-hint">
+                      {feeds.length} source{feeds.length !== 1 ? 's' : ''} available to scrape
+                    </p>
+                  )}
+
+                  {backendConfigured && !showFeedSelector && !scrapingState.is_running && (
+                    <div className="success-box">
+                      Back4app configured via environment variables
+                    </div>
+                  )}
+                </div>
+
+                {/* Only show realtime stats when scraping or feed selector is open */}
+                {(showFeedSelector || scrapingState.is_running || scrapingState.total_found > 0) && (
                   <>
-                    <button onClick={() => setShowScrapeChoiceModal(true)} className="btn btn-danger btn-large">
-                      Stop Scraping
-                    </button>
-                    <button onClick={handleStartClick} className="btn btn-secondary btn-large">
-                      Start New
-                    </button>
+                    <Dashboard scrapingState={scrapingState} />
+                    <ActivityLog logs={scrapingState.activity_log} currentMeeting={scrapingState.current_meeting} />
+
+                    <div className="view-toggle">
+                      <button
+                        className={`toggle-btn ${activeView === 'list' ? 'active' : ''}`}
+                        onClick={() => setActiveView('list')}
+                      >
+                        List View
+                      </button>
+                      <button
+                        className={`toggle-btn ${activeView === 'map' ? 'active' : ''}`}
+                        onClick={() => setActiveView('map')}
+                      >
+                        Map View
+                      </button>
+                    </div>
+
+                    {activeView === 'list' ? (
+                      <MeetingsList
+                        meetings={recentMeetings}
+                        onSelectMeeting={setSelectedMeeting}
+                      />
+                    ) : (
+                      <MeetingMap
+                        meetings={recentMeetings}
+                        onSelectMeeting={setSelectedMeeting}
+                        showHeatmap={true}
+                      />
+                    )}
+
+                    {scrapingState.errors.length > 0 && (
+                      <div className="errors-section">
+                        <h3>Errors</h3>
+                        <ul>
+                          {scrapingState.errors.map((error, index) => (
+                            <li key={index}>{error}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </>
                 )}
-                <button onClick={resetScraper} className="btn btn-ghost" title="Reset scraper if stuck">
-                  Reset
-                </button>
-              </div>
-
-              {!backendConfigured && (
-                <div className="error-box">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="8" x2="12" y2="12"/>
-                    <line x1="12" y1="16" x2="12.01" y2="16"/>
-                  </svg>
-                  Back4app not configured. Set REACT_APP_BACK4APP_APP_ID and REACT_APP_BACK4APP_JS_KEY environment variables.
-                </div>
-              )}
-
-              {isConnected && feeds.length > 0 && !scrapingState.is_running && (
-                <p className="sources-hint">
-                  {feeds.length} source{feeds.length !== 1 ? 's' : ''} available to scrape
-                </p>
-              )}
-
-              {backendConfigured && (
-                <div className="success-box">
-                  Back4app configured via environment variables
-                </div>
-              )}
-            </div>
-
-            <Dashboard scrapingState={scrapingState} />
-            <ActivityLog logs={scrapingState.activity_log} currentMeeting={scrapingState.current_meeting} />
-
-            <div className="view-toggle">
-              <button
-                className={`toggle-btn ${activeView === 'list' ? 'active' : ''}`}
-                onClick={() => setActiveView('list')}
-              >
-                List View
-              </button>
-              <button
-                className={`toggle-btn ${activeView === 'map' ? 'active' : ''}`}
-                onClick={() => setActiveView('map')}
-              >
-                Map View
-              </button>
-            </div>
-
-            {activeView === 'list' ? (
-              <MeetingsList
-                meetings={recentMeetings}
-                onSelectMeeting={setSelectedMeeting}
-              />
+              </>
             ) : (
-              <MeetingMap
-                meetings={recentMeetings}
-                onSelectMeeting={setSelectedMeeting}
-                showHeatmap={true}
-              />
-            )}
-
-            {scrapingState.errors.length > 0 && (
-              <div className="errors-section">
-                <h3>Errors</h3>
-                <ul>
-                  {scrapingState.errors.map((error, index) => (
-                    <li key={index}>{error}</li>
-                  ))}
-                </ul>
-              </div>
+              <ScrapeHistory />
             )}
           </>
         );
-
-      case 'history':
-        return <ScrapeHistory />;
 
       case 'parse-logs':
         return <ParseQueryLog />;
