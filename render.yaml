@@ -43,6 +43,13 @@ services:
       - type: rewrite
         source: /online-meetings
         destination: /index.html
+      # Meeting detail page route
+      - type: rewrite
+        source: /meeting
+        destination: /index.html
+      - type: rewrite
+        source: /meeting/*
+        destination: /index.html
       # Catch-all for all other SPA routes
       - type: rewrite
         source: /*
