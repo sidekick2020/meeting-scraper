@@ -467,10 +467,17 @@ html, body {
   background: var(--bg-tertiary);
   color: var(--text-primary);
   border: 1px solid var(--border-light);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .btn-secondary:hover {
   background: var(--bg-hover);
+  border-color: var(--border-medium);
+  transform: translateY(-1px);
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
 }
 
 .btn-success {
@@ -490,10 +497,24 @@ html, body {
   padding: 0.75rem 1.25rem;
   font-size: 0.95rem;
   font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-action:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.btn-action:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
 .btn-action svg {
   flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.btn-action:hover svg {
+  transform: scale(1.1);
 }
 
 .btn-danger {
@@ -9418,6 +9439,19 @@ a.sidebar-nav-item {
   z-index: 1000;
   min-width: 280px;
   padding: 0.75rem;
+  animation: dropdown-slide-in 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: top center;
+}
+
+@keyframes dropdown-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
 }
 
 .days-dropdown-header {
@@ -9524,6 +9558,19 @@ a.sidebar-nav-item {
   z-index: 1000;
   min-width: 300px;
   padding: 0.75rem;
+  animation: dropdown-slide-right 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: top right;
+}
+
+@keyframes dropdown-slide-right {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .types-dropdown-header {
@@ -9670,18 +9717,58 @@ a.sidebar-nav-item {
   color: var(--text-secondary);
   font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .filter-chip:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+  border-color: var(--border-medium);
+  transform: translateY(-1px);
+}
+
+.filter-chip:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .filter-chip.active {
   background: var(--accent-light);
   border-color: var(--accent-primary);
   color: var(--accent-primary);
+}
+
+.filter-chip.has-count {
+  padding-right: 0.75rem;
+}
+
+.filter-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--accent-primary);
+  color: #ffffff;
+  border-radius: 9px;
+  margin-left: 0.25rem;
+  animation: badge-pop 0.2s ease-out;
+}
+
+@keyframes badge-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .filter-chip svg {
@@ -12690,12 +12777,26 @@ a.sidebar-nav-item {
   min-height: 400px;
   color: var(--text-muted);
   text-align: center;
+  padding: 2rem;
+  animation: fade-in-up 0.3s ease-out;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .list-error svg,
 .list-empty svg {
   margin-bottom: 1rem;
-  opacity: 0.5;
+  opacity: 0.4;
+  color: var(--text-muted);
 }
 
 .list-error p {
@@ -12712,11 +12813,20 @@ a.sidebar-nav-item {
 
 .list-empty h3 {
   margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
 .list-empty p {
-  margin: 0 0 1rem 0;
+  margin: 0 0 1.25rem 0;
+  max-width: 280px;
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+.list-empty .btn {
+  margin-top: 0.5rem;
 }
 
 /* Meeting Cards Grid */
@@ -13091,12 +13201,13 @@ a.sidebar-nav-item {
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.15), -2px 0 8px rgba(0, 0, 0, 0.1);
 }
 
 .detail-sidebar.open {
   transform: translateX(0);
+  box-shadow: -16px 0 48px rgba(0, 0, 0, 0.25), -4px 0 16px rgba(0, 0, 0, 0.15);
 }
 
 /* Map Preview in Sidebar Header */
@@ -13240,11 +13351,12 @@ a.sidebar-nav-item {
 .sidebar-detail-body .detail-row {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
-  margin-bottom: 0.625rem;
+  gap: 0.875rem;
+  margin-bottom: 0.875rem;
   font-size: 0.9rem;
   color: var(--text-primary);
-  line-height: 1.4;
+  line-height: 1.5;
+  padding: 0.25rem 0;
 }
 
 .sidebar-detail-body .detail-icon {
@@ -13270,9 +13382,10 @@ a.sidebar-nav-item {
 .sidebar-detail-body .detail-content {
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: 0.25rem;
   min-width: 0;
   flex: 1;
+  line-height: 1.5;
 }
 
 .sidebar-detail-body .detail-content > span:first-child,
@@ -20922,13 +21035,36 @@ a.sidebar-nav-item {
     min-width: 44px;
   }
 
+  /* Better touch feedback - scale down on press */
+  .btn:active,
+  .filter-chip:active,
+  .filter-day-btn:active,
+  .filter-type-btn:active,
+  .filter-quick-btn:active {
+    transform: scale(0.96);
+    transition: transform 0.1s ease;
+  }
+
   /* Ensure comfortable spacing between interactive elements */
   .filter-chips {
-    gap: 0.625rem;
+    gap: 0.75rem;
   }
 
   .filter-day-grid {
-    gap: 0.5rem;
+    gap: 0.625rem;
+  }
+
+  /* Day chips need better touch targets */
+  .day-chip {
+    min-height: 40px;
+    min-width: 40px;
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* Type chips need better touch targets */
+  .type-chip {
+    min-height: 44px;
+    padding: 0.625rem 1rem;
   }
 
   /* Larger close buttons for touch */
@@ -20939,6 +21075,12 @@ a.sidebar-nav-item {
     min-height: 44px;
     width: 44px;
     height: 44px;
+  }
+
+  /* Action buttons need larger tap areas */
+  .btn-action {
+    min-height: 48px;
+    padding: 0.875rem 1.5rem;
   }
 }
 
