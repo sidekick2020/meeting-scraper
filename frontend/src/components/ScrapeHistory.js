@@ -16,6 +16,10 @@ function ScrapeHistory() {
   const [expandedId, setExpandedId] = useState(null);
   const [expandedFailedSaves, setExpandedFailedSaves] = useState({});
   const [expandedFailedItem, setExpandedFailedItem] = useState(null);
+  const [expandedDuplicates, setExpandedDuplicates] = useState({});
+  const [expandedDuplicateItem, setExpandedDuplicateItem] = useState(null);
+  const [expandedSavedMeetings, setExpandedSavedMeetings] = useState({});
+  const [expandedSavedItem, setExpandedSavedItem] = useState(null);
 
   const fetchHistory = useCallback(async (forceRefresh = false) => {
     // Skip if we have cached data and not forcing refresh
@@ -96,6 +100,28 @@ function ScrapeHistory() {
 
   const toggleFailedItem = (itemKey) => {
     setExpandedFailedItem(expandedFailedItem === itemKey ? null : itemKey);
+  };
+
+  const toggleDuplicates = (entryId) => {
+    setExpandedDuplicates(prev => ({
+      ...prev,
+      [entryId]: !prev[entryId]
+    }));
+  };
+
+  const toggleDuplicateItem = (itemKey) => {
+    setExpandedDuplicateItem(expandedDuplicateItem === itemKey ? null : itemKey);
+  };
+
+  const toggleSavedMeetings = (entryId) => {
+    setExpandedSavedMeetings(prev => ({
+      ...prev,
+      [entryId]: !prev[entryId]
+    }));
+  };
+
+  const toggleSavedItem = (itemKey) => {
+    setExpandedSavedItem(expandedSavedItem === itemKey ? null : itemKey);
   };
 
   const copyToClipboard = (data) => {
@@ -220,6 +246,146 @@ function ScrapeHistory() {
                           <li key={idx}>{error}</li>
                         ))}
                       </ul>
+                    </div>
+                  )}
+
+                  {/* Saved Meetings Section */}
+                  {entry.saved_meetings && entry.saved_meetings.length > 0 && (
+                    <div className="history-detail-section saved-meetings-section">
+                      <div
+                        className="saved-meetings-header"
+                        onClick={() => toggleSavedMeetings(entry.id)}
+                      >
+                        <span className="detail-label saved-label">
+                          Saved Successfully ({entry.saved_meetings.length})
+                        </span>
+                        <span className="saved-meetings-toggle">
+                          {expandedSavedMeetings[entry.id] ? '▼' : '▶'}
+                        </span>
+                      </div>
+
+                      {expandedSavedMeetings[entry.id] && (
+                        <div className="saved-meetings-list">
+                          {entry.saved_meetings.map((saved, idx) => {
+                            const itemKey = `saved-${entry.id}-${idx}`;
+                            const isItemExpanded = expandedSavedItem === itemKey;
+                            return (
+                              <div key={idx} className="saved-meeting-item">
+                                <div
+                                  className="saved-meeting-summary"
+                                  onClick={() => toggleSavedItem(itemKey)}
+                                >
+                                  <span className="saved-meeting-toggle">
+                                    {isItemExpanded ? '▼' : '▶'}
+                                  </span>
+                                  <span className="saved-meeting-name">
+                                    {saved.name || 'Unknown Meeting'}
+                                  </span>
+                                  <span className="saved-meeting-location">
+                                    {[saved.city, saved.state].filter(Boolean).join(', ')}
+                                  </span>
+                                  <span className="saved-meeting-feed">{saved.feed}</span>
+                                </div>
+
+                                {isItemExpanded && (
+                                  <div className="saved-meeting-details">
+                                    <div className="saved-meeting-info">
+                                      <div className="saved-meeting-row">
+                                        <span className="label">Day/Time:</span>
+                                        <span>{saved.day} {saved.time}</span>
+                                      </div>
+                                      <div className="saved-meeting-row">
+                                        <span className="label">Address:</span>
+                                        <span>{saved.address || 'N/A'}</span>
+                                      </div>
+                                      <div className="saved-meeting-row">
+                                        <span className="label">Type:</span>
+                                        <span>{saved.meetingType || 'N/A'}</span>
+                                      </div>
+                                      <div className="saved-meeting-row">
+                                        <span className="label">Unique Key:</span>
+                                        <span className="unique-key">{saved.uniqueKey || 'N/A'}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Duplicate Meetings Section */}
+                  {entry.duplicate_meetings && entry.duplicate_meetings.length > 0 && (
+                    <div className="history-detail-section duplicates-section">
+                      <div
+                        className="duplicates-header"
+                        onClick={() => toggleDuplicates(entry.id)}
+                      >
+                        <span className="detail-label duplicates-label">
+                          Duplicates Skipped ({entry.duplicate_meetings.length})
+                        </span>
+                        <span className="duplicates-toggle">
+                          {expandedDuplicates[entry.id] ? '▼' : '▶'}
+                        </span>
+                      </div>
+
+                      {expandedDuplicates[entry.id] && (
+                        <div className="duplicates-list">
+                          {entry.duplicate_meetings.map((dup, idx) => {
+                            const itemKey = `dup-${entry.id}-${idx}`;
+                            const isItemExpanded = expandedDuplicateItem === itemKey;
+                            return (
+                              <div key={idx} className="duplicate-item">
+                                <div
+                                  className="duplicate-summary"
+                                  onClick={() => toggleDuplicateItem(itemKey)}
+                                >
+                                  <span className="duplicate-toggle">
+                                    {isItemExpanded ? '▼' : '▶'}
+                                  </span>
+                                  <span className="duplicate-name">
+                                    {dup.name || 'Unknown Meeting'}
+                                  </span>
+                                  <span className="duplicate-location">
+                                    {[dup.city, dup.state].filter(Boolean).join(', ')}
+                                  </span>
+                                  <span className="duplicate-feed">{dup.feed}</span>
+                                </div>
+
+                                {isItemExpanded && (
+                                  <div className="duplicate-details">
+                                    <div className="duplicate-info">
+                                      <div className="duplicate-row">
+                                        <span className="label">Day/Time:</span>
+                                        <span>{dup.day} {dup.time}</span>
+                                      </div>
+                                      <div className="duplicate-row">
+                                        <span className="label">Address:</span>
+                                        <span>{dup.address || 'N/A'}</span>
+                                      </div>
+                                      <div className="duplicate-row">
+                                        <span className="label">Type:</span>
+                                        <span>{dup.meetingType || 'N/A'}</span>
+                                      </div>
+                                      <div className="duplicate-row">
+                                        <span className="label">Unique Key:</span>
+                                        <span className="unique-key">{dup.uniqueKey || 'N/A'}</span>
+                                      </div>
+                                      <div className="duplicate-row reason-row">
+                                        <span className="label">Reason:</span>
+                                        <span className="reason-message">{dup.reason}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
 
