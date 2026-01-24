@@ -2246,12 +2246,6 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                 onMapMeetingCount={setMapMeetingCount}
                 hoveredMeeting={hoveredMeeting}
               />
-              {isLoading && (
-                <div className="map-loading-indicator subtle">
-                  <div className="loading-spinner-mini"></div>
-                  <span>Loading meetings...</span>
-                </div>
-              )}
             </>
           )}
         </div>
