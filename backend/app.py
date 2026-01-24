@@ -5,6 +5,7 @@ import threading
 import math
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
+from flask_compress import Compress
 import requests
 import random
 import string
@@ -16,6 +17,12 @@ app = Flask(__name__)
 # Build version - generated at startup time
 BUILD_VERSION = datetime.now().strftime("%Y%m%d%H%M%S")
 CORS(app, origins="*")
+
+# Enable response compression (gzip) for all responses > 500 bytes
+# This significantly reduces heatmap data transfer size (typically 50-70% reduction)
+Compress(app)
+app.config['COMPRESS_MINTHRESHOLD'] = 500  # Only compress responses > 500 bytes
+app.config['COMPRESS_LEVEL'] = 6  # Compression level (1-9, 6 is good balance)
 
 
 # =============================================================================

@@ -150,15 +150,28 @@ const createStateIcon = (stateCode, count) => {
 };
 
 // Heatmap layer component using cluster data
-function HeatmapLayer({ clusters }) {
+// Memoized to prevent unnecessary re-renders when clusters haven't changed
+const HeatmapLayer = React.memo(function HeatmapLayer({ clusters }) {
   const map = useMap();
   const heatLayerRef = useRef(null);
+  const leafletHeatLoadedRef = useRef(false);
+
+  // Memoize points calculation to avoid recalculating on every effect run
+  const points = useMemo(() => {
+    if (!clusters || clusters.length === 0) return [];
+    const maxCount = Math.max(...clusters.map(c => c.count), 1);
+    return clusters.map(c => [
+      c.lat,
+      c.lng,
+      Math.min(c.count / maxCount, 1) // Normalized intensity
+    ]);
+  }, [clusters]);
 
   useEffect(() => {
     // Track whether component is still mounted to prevent updates after unmount
     let isMounted = true;
 
-    if (!clusters || clusters.length === 0) {
+    if (points.length === 0) {
       if (heatLayerRef.current) {
         map.removeLayer(heatLayerRef.current);
         heatLayerRef.current = null;
@@ -166,37 +179,36 @@ function HeatmapLayer({ clusters }) {
       return;
     }
 
-    // Dynamically import leaflet.heat
-    import('leaflet.heat').then(() => {
-      // Prevent operations if component unmounted during import
+    // Function to create/update heatmap layer
+    const createHeatLayer = () => {
       if (!isMounted) return;
 
       if (heatLayerRef.current) {
         map.removeLayer(heatLayerRef.current);
       }
 
-      // Convert clusters to heatmap points with intensity based on count
-      const maxCount = Math.max(...clusters.map(c => c.count), 1);
-      const points = clusters.map(c => [
-        c.lat,
-        c.lng,
-        Math.min(c.count / maxCount, 1) // Normalized intensity
-      ]);
+      heatLayerRef.current = L.heatLayer(points, {
+        radius: 30,
+        blur: 20,
+        maxZoom: 12,
+        gradient: {
+          0.0: '#94a3b8',
+          0.3: '#78716c',
+          0.6: '#a8a29e',
+          1.0: '#57534e'
+        }
+      }).addTo(map);
+    };
 
-      if (points.length > 0) {
-        heatLayerRef.current = L.heatLayer(points, {
-          radius: 30,
-          blur: 20,
-          maxZoom: 12,
-          gradient: {
-            0.0: '#94a3b8',
-            0.3: '#78716c',
-            0.6: '#a8a29e',
-            1.0: '#57534e'
-          }
-        }).addTo(map);
-      }
-    });
+    // Dynamically import leaflet.heat only once
+    if (leafletHeatLoadedRef.current) {
+      createHeatLayer();
+    } else {
+      import('leaflet.heat').then(() => {
+        leafletHeatLoadedRef.current = true;
+        createHeatLayer();
+      });
+    }
 
     return () => {
       isMounted = false;
@@ -204,10 +216,46 @@ function HeatmapLayer({ clusters }) {
         map.removeLayer(heatLayerRef.current);
       }
     };
-  }, [map, clusters]);
+  }, [map, points]);
 
   return null;
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison: only re-render if clusters actually changed
+  const prevClusters = prevProps.clusters;
+  const nextClusters = nextProps.clusters;
+
+  // Same reference = no change
+  if (prevClusters === nextClusters) return true;
+
+  // One is null/undefined and other isn't
+  if (!prevClusters || !nextClusters) return false;
+
+  // Different lengths = changed
+  if (prevClusters.length !== nextClusters.length) return false;
+
+  // For performance, only do shallow comparison of first/last few items
+  // Full deep comparison would be expensive for large arrays
+  if (prevClusters.length <= 10) {
+    return prevClusters.every((c, i) =>
+      c.lat === nextClusters[i].lat &&
+      c.lng === nextClusters[i].lng &&
+      c.count === nextClusters[i].count
+    );
+  }
+
+  // For larger arrays, sample comparison (first 3, last 3, total count)
+  const checkIndices = [0, 1, 2, prevClusters.length - 3, prevClusters.length - 2, prevClusters.length - 1];
+  const totalPrev = prevClusters.reduce((sum, c) => sum + c.count, 0);
+  const totalNext = nextClusters.reduce((sum, c) => sum + c.count, 0);
+
+  if (totalPrev !== totalNext) return false;
+
+  return checkIndices.every(i =>
+    prevClusters[i]?.lat === nextClusters[i]?.lat &&
+    prevClusters[i]?.lng === nextClusters[i]?.lng &&
+    prevClusters[i]?.count === nextClusters[i]?.count
+  );
+});
 
 // Component to handle map movement events and fetch data
 function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadingChange, filters, onBoundsChange, cacheContext, parseFetchMeetingsByState, parseFetchMeetings, parseInitialized }) {
@@ -224,6 +272,93 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
   // when callbacks are recreated (which would otherwise trigger useEffect)
   const fetchHeatmapDataRef = useRef(null);
   const fetchStateDataRef = useRef(null);
+
+  // Refs for predictive prefetching
+  const prefetchTimeoutRef = useRef(null);
+  const prefetchAbortRef = useRef(null);
+  const lastPrefetchKeyRef = useRef(null);
+
+  // Prefetch adjacent regions for smoother panning experience
+  // This runs in the background after the main view is loaded
+  const prefetchAdjacentRegions = useCallback(async (bounds, zoom) => {
+    // Skip prefetching at low zoom (state-level) or very high zoom (individual meetings)
+    if (zoom < STATE_ZOOM_THRESHOLD || zoom >= DETAIL_ZOOM_THRESHOLD) return;
+    if (!cacheContext) return;
+
+    const currentFilters = filtersRef.current || {};
+    const latSpan = bounds.north - bounds.south;
+    const lngSpan = bounds.east - bounds.west;
+
+    // Define adjacent regions (50% overlap for smooth transitions)
+    const adjacentRegions = [
+      { // North
+        north: bounds.north + latSpan * 0.5,
+        south: bounds.south + latSpan * 0.5,
+        east: bounds.east,
+        west: bounds.west
+      },
+      { // South
+        north: bounds.north - latSpan * 0.5,
+        south: bounds.south - latSpan * 0.5,
+        east: bounds.east,
+        west: bounds.west
+      },
+      { // East
+        north: bounds.north,
+        south: bounds.south,
+        east: bounds.east + lngSpan * 0.5,
+        west: bounds.west + lngSpan * 0.5
+      },
+      { // West
+        north: bounds.north,
+        south: bounds.south,
+        east: bounds.east - lngSpan * 0.5,
+        west: bounds.west - lngSpan * 0.5
+      }
+    ];
+
+    // Cancel any ongoing prefetch
+    if (prefetchAbortRef.current) {
+      prefetchAbortRef.current.abort();
+    }
+    prefetchAbortRef.current = new AbortController();
+
+    // Prefetch each region quietly (don't update UI, just populate cache)
+    for (const region of adjacentRegions) {
+      // Check if already cached
+      const cacheKey = generateHeatmapCacheKey(zoom, region, currentFilters);
+      const cached = cacheContext.getCache(cacheKey);
+      if (cached?.data && !cached.isStale) continue; // Already have fresh data
+
+      try {
+        let url = `${BACKEND_URL}/api/meetings/heatmap?zoom=${zoom}&north=${region.north}&south=${region.south}&east=${region.east}&west=${region.west}`;
+
+        // Add filter parameters
+        if (currentFilters.day !== undefined && currentFilters.day !== null) {
+          url += `&day=${currentFilters.day}`;
+        }
+        if (currentFilters.type) {
+          url += `&type=${encodeURIComponent(currentFilters.type)}`;
+        }
+        if (currentFilters.state) {
+          url += `&state=${encodeURIComponent(currentFilters.state)}`;
+        }
+
+        const response = await fetch(url, {
+          signal: prefetchAbortRef.current.signal,
+          priority: 'low' // Use low priority to not compete with main requests
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          cacheContext.setCache(cacheKey, data, HEATMAP_CACHE_TTL);
+        }
+      } catch (error) {
+        // Silently ignore prefetch errors (abort, network, etc.)
+        if (error.name === 'AbortError') break; // Stop all prefetching if aborted
+      }
+    }
+  }, [cacheContext]);
 
   // Fetch state-level data with filter support and request deduplication
   // Uses Parse SDK directly when available, falls back to backend API
@@ -460,8 +595,30 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
       console.error('Error fetching heatmap data:', error);
     } finally {
       onLoadingChange?.(false);
+
+      // Schedule prefetching of adjacent regions after main fetch completes
+      // Use a delay to prioritize current view rendering
+      if (prefetchTimeoutRef.current) {
+        clearTimeout(prefetchTimeoutRef.current);
+      }
+      prefetchTimeoutRef.current = setTimeout(() => {
+        const currentBounds = map.getBounds();
+        const currentZoom = map.getZoom();
+        const prefetchKey = `${currentZoom}-${currentBounds.getNorth().toFixed(1)}-${currentBounds.getWest().toFixed(1)}`;
+
+        // Only prefetch if view hasn't changed significantly
+        if (lastPrefetchKeyRef.current !== prefetchKey) {
+          lastPrefetchKeyRef.current = prefetchKey;
+          prefetchAdjacentRegions({
+            north: currentBounds.getNorth(),
+            south: currentBounds.getSouth(),
+            east: currentBounds.getEast(),
+            west: currentBounds.getWest()
+          }, currentZoom);
+        }
+      }, 500); // 500ms delay to let main view render first
     }
-  }, [map, onDataLoaded, onLoadingChange, cacheContext, parseInitialized, parseFetchMeetings]);
+  }, [map, onDataLoaded, onLoadingChange, cacheContext, parseInitialized, parseFetchMeetings, prefetchAdjacentRegions]);
 
   // Keep refs updated with latest callback versions
   useEffect(() => {
@@ -548,6 +705,13 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
       }
       if (pendingStateDataRef.current) {
         pendingStateDataRef.current.abort();
+      }
+      // Clean up prefetch resources
+      if (prefetchTimeoutRef.current) {
+        clearTimeout(prefetchTimeoutRef.current);
+      }
+      if (prefetchAbortRef.current) {
+        prefetchAbortRef.current.abort();
       }
     };
   }, [map, onZoomChange, onBoundsChange]); // Removed fetchHeatmapData, fetchStateData - use refs instead
