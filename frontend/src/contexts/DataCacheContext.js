@@ -5,12 +5,15 @@ const DataCacheContext = createContext(null);
 // Default TTL values (in milliseconds)
 const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
 const STALE_TTL = 30 * 1000; // 30 seconds - data is stale but usable
+const MAX_CACHE_ENTRIES = 100; // Maximum number of cache entries
+const CLEANUP_INTERVAL = 60 * 1000; // Clean up expired entries every 60 seconds
 
-// Cache entry structure: { data, timestamp, ttl }
+// Cache entry structure: { data, timestamp, ttl, lastAccess }
 
 export function DataCacheProvider({ children }) {
   const cacheRef = useRef(new Map());
   const [, forceUpdate] = useState(0);
+  const cleanupIntervalRef = useRef(null);
 
   // Get cached data if valid
   const getCache = useCallback((key) => {
@@ -26,19 +29,61 @@ export function DataCacheProvider({ children }) {
       return null;
     }
 
+    // Update last access time for LRU eviction
+    entry.lastAccess = Date.now();
+
     return { data: entry.data, isStale };
+  }, []);
+
+  // Evict expired entries
+  const evictExpired = useCallback(() => {
+    const now = Date.now();
+    let evictedCount = 0;
+    for (const [key, entry] of cacheRef.current.entries()) {
+      if (now - entry.timestamp > entry.ttl) {
+        cacheRef.current.delete(key);
+        evictedCount++;
+      }
+    }
+    return evictedCount;
+  }, []);
+
+  // Evict oldest entries by last access time
+  const evictOldest = useCallback((count) => {
+    if (count <= 0) return;
+
+    // Sort entries by lastAccess time (oldest first)
+    const entries = Array.from(cacheRef.current.entries())
+      .sort((a, b) => (a[1].lastAccess || 0) - (b[1].lastAccess || 0));
+
+    // Remove oldest entries
+    for (let i = 0; i < Math.min(count, entries.length); i++) {
+      cacheRef.current.delete(entries[i][0]);
+    }
   }, []);
 
   // Set cache data
   const setCache = useCallback((key, data, ttl = DEFAULT_TTL) => {
+    const now = Date.now();
+
+    // First, evict expired entries
+    evictExpired();
+
+    // If still over limit, evict oldest entries
+    if (cacheRef.current.size >= MAX_CACHE_ENTRIES) {
+      const toEvict = cacheRef.current.size - MAX_CACHE_ENTRIES + 1;
+      evictOldest(toEvict);
+    }
+
     cacheRef.current.set(key, {
       data,
-      timestamp: Date.now(),
-      ttl
+      timestamp: now,
+      ttl,
+      lastAccess: now
     });
     // Trigger a re-render for components watching this cache
     forceUpdate(n => n + 1);
-  }, []);
+  }, [evictExpired, evictOldest]);
 
   // Invalidate specific cache key or pattern
   const invalidateCache = useCallback((keyOrPattern) => {
@@ -65,13 +110,87 @@ export function DataCacheProvider({ children }) {
     return Array.from(cacheRef.current.keys());
   }, []);
 
+  // Get cache stats for monitoring
+  const getCacheStats = useCallback(() => {
+    const entries = Array.from(cacheRef.current.entries());
+    const now = Date.now();
+    let expiredCount = 0;
+    let staleCount = 0;
+    let totalSize = 0;
+
+    entries.forEach(([, entry]) => {
+      const age = now - entry.timestamp;
+      if (age > entry.ttl) expiredCount++;
+      else if (age > STALE_TTL) staleCount++;
+
+      // Estimate size (rough approximation)
+      try {
+        totalSize += JSON.stringify(entry.data).length;
+      } catch {
+        totalSize += 1000; // Default estimate
+      }
+    });
+
+    return {
+      totalEntries: cacheRef.current.size,
+      maxEntries: MAX_CACHE_ENTRIES,
+      expiredCount,
+      staleCount,
+      estimatedSizeBytes: totalSize
+    };
+  }, []);
+
+  // Memory cleanup handler (can be called by MemoryMonitor)
+  const performCleanup = useCallback(({ level } = {}) => {
+    const evicted = evictExpired();
+
+    if (level === 'warning' || level === 'critical' || level === 'forced') {
+      // Aggressive cleanup: reduce to 50% of max entries
+      const targetSize = Math.floor(MAX_CACHE_ENTRIES / 2);
+      if (cacheRef.current.size > targetSize) {
+        evictOldest(cacheRef.current.size - targetSize);
+      }
+    }
+
+    if (level === 'critical') {
+      // Emergency: clear all cache
+      cacheRef.current.clear();
+      console.log('[DataCache] Emergency cleanup: cleared all entries');
+    }
+
+    if (evicted > 0) {
+      forceUpdate(n => n + 1);
+    }
+
+    return evicted;
+  }, [evictExpired, evictOldest]);
+
+  // Periodic cleanup interval
+  useEffect(() => {
+    cleanupIntervalRef.current = setInterval(() => {
+      const evicted = evictExpired();
+      if (evicted > 0) {
+        console.log(`[DataCache] Periodic cleanup: evicted ${evicted} expired entries`);
+        forceUpdate(n => n + 1);
+      }
+    }, CLEANUP_INTERVAL);
+
+    return () => {
+      if (cleanupIntervalRef.current) {
+        clearInterval(cleanupIntervalRef.current);
+      }
+    };
+  }, [evictExpired]);
+
   return (
     <DataCacheContext.Provider value={{
       getCache,
       setCache,
       invalidateCache,
       clearCache,
-      getCacheKeys
+      getCacheKeys,
+      getCacheStats,
+      performCleanup
     }}>
       {children}
     </DataCacheContext.Provider>
