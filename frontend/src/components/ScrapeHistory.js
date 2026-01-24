@@ -14,6 +14,8 @@ function ScrapeHistory() {
   const [history, setHistory] = useState(cachedHistory?.data || []);
   const [isLoading, setIsLoading] = useState(!cachedHistory?.data);
   const [expandedId, setExpandedId] = useState(null);
+  const [expandedFailedSaves, setExpandedFailedSaves] = useState({});
+  const [expandedFailedItem, setExpandedFailedItem] = useState(null);
 
   const fetchHistory = useCallback(async (forceRefresh = false) => {
     // Skip if we have cached data and not forcing refresh
@@ -83,6 +85,26 @@ function ScrapeHistory() {
 
   const toggleExpand = (id) => {
     setExpandedId(expandedId === id ? null : id);
+  };
+
+  const toggleFailedSaves = (entryId) => {
+    setExpandedFailedSaves(prev => ({
+      ...prev,
+      [entryId]: !prev[entryId]
+    }));
+  };
+
+  const toggleFailedItem = (itemKey) => {
+    setExpandedFailedItem(expandedFailedItem === itemKey ? null : itemKey);
+  };
+
+  const copyToClipboard = (data) => {
+    const text = JSON.stringify(data, null, 2);
+    navigator.clipboard.writeText(text).then(() => {
+      // Could add a toast notification here
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+    });
   };
 
   if (isLoading) {
@@ -198,6 +220,98 @@ function ScrapeHistory() {
                           <li key={idx}>{error}</li>
                         ))}
                       </ul>
+                    </div>
+                  )}
+
+                  {entry.failed_saves && entry.failed_saves.length > 0 && (
+                    <div className="history-detail-section failed-saves-section">
+                      <div
+                        className="failed-saves-header"
+                        onClick={() => toggleFailedSaves(entry.id)}
+                      >
+                        <span className="detail-label">
+                          Failed Saves ({entry.failed_saves.length})
+                        </span>
+                        <span className="failed-saves-toggle">
+                          {expandedFailedSaves[entry.id] ? '▼' : '▶'}
+                        </span>
+                      </div>
+
+                      {expandedFailedSaves[entry.id] && (
+                        <div className="failed-saves-list">
+                          {entry.failed_saves.map((failed, idx) => {
+                            const itemKey = `${entry.id}-${idx}`;
+                            const isItemExpanded = expandedFailedItem === itemKey;
+                            return (
+                              <div key={idx} className="failed-save-item">
+                                <div
+                                  className="failed-save-summary"
+                                  onClick={() => toggleFailedItem(itemKey)}
+                                >
+                                  <span className="failed-save-toggle">
+                                    {isItemExpanded ? '▼' : '▶'}
+                                  </span>
+                                  <span className="failed-save-name">
+                                    {failed.name || 'Unknown Meeting'}
+                                  </span>
+                                  <span className="failed-save-location">
+                                    {[failed.city, failed.state].filter(Boolean).join(', ')}
+                                  </span>
+                                  <span className="failed-save-feed">{failed.feed}</span>
+                                </div>
+
+                                {isItemExpanded && (
+                                  <div className="failed-save-details">
+                                    <div className="failed-save-info">
+                                      <div className="failed-save-row">
+                                        <span className="label">Day/Time:</span>
+                                        <span>{failed.day} {failed.time}</span>
+                                      </div>
+                                      <div className="failed-save-row">
+                                        <span className="label">Address:</span>
+                                        <span>{failed.address || 'N/A'}</span>
+                                      </div>
+                                      <div className="failed-save-row">
+                                        <span className="label">Type:</span>
+                                        <span>{failed.meetingType || 'N/A'}</span>
+                                      </div>
+                                      <div className="failed-save-row error-row">
+                                        <span className="label">Error:</span>
+                                        <span className="error-message">
+                                          {typeof failed.error === 'object'
+                                            ? (failed.error.message || failed.error.detail || JSON.stringify(failed.error))
+                                            : failed.error}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="failed-save-actions">
+                                      <button
+                                        className="btn btn-small btn-ghost"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          copyToClipboard(failed.full_data || failed);
+                                        }}
+                                      >
+                                        Copy Full Data
+                                      </button>
+                                    </div>
+
+                                    {failed.full_data && (
+                                      <div className="failed-save-raw">
+                                        <details>
+                                          <summary>Raw Meeting Data</summary>
+                                          <pre>{JSON.stringify(failed.full_data, null, 2)}</pre>
+                                        </details>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

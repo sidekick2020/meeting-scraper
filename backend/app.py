@@ -2073,6 +2073,7 @@ scraping_state = {
     "started_at": None,
     "scrape_id": None,  # Unique ID for the current scrape run
     "feed_stats": {},  # Per-feed breakdown: {feed_name: {found, saved, duplicates, errors}}
+    "failed_saves": [],  # Meetings that failed to save to Back4app with error details
 }
 
 # Scrape history - stores last 50 scrape runs
@@ -2601,10 +2602,17 @@ def check_duplicates_batch(unique_keys):
     return existing_keys
 
 def save_to_back4app_batch(meetings):
-    """Save multiple meetings to Back4app in a single batch request (up to 50)"""
+    """Save multiple meetings to Back4app in a single batch request (up to 50)
+
+    Returns:
+        dict with keys:
+            - saved: number of successfully saved meetings
+            - errors: number of failed meetings
+            - failed_meetings: list of {meeting, error} dicts for failed saves
+    """
     if not BACK4APP_APP_ID or not BACK4APP_REST_KEY or not meetings:
         add_log(f"Batch save skipped: config={bool(BACK4APP_APP_ID)}, meetings={len(meetings) if meetings else 0}", "warning")
-        return {"saved": 0, "errors": 0}
+        return {"saved": 0, "errors": 0, "failed_meetings": []}
 
     headers = {
         "X-Parse-Application-Id": BACK4APP_APP_ID,
@@ -2642,32 +2650,57 @@ def save_to_back4app_batch(meetings):
                 first_result = results[0]
                 add_log(f"Response structure: {list(first_result.keys()) if isinstance(first_result, dict) else type(first_result)}", "info")
 
-            saved = sum(1 for r in results if "success" in r)
-            errors = sum(1 for r in results if "error" in r)
+            saved = 0
+            errors = 0
+            failed_meetings = []
 
-            # If no success/error keys found, check for objectId (Parse returns objectId on success)
-            if saved == 0 and errors == 0 and isinstance(results, list):
-                # Parse batch API might return list of objects with objectId on success
-                saved = sum(1 for r in results if isinstance(r, dict) and ("objectId" in r or "createdAt" in r))
-                errors = len(results) - saved
+            # Process each result and match with original meeting
+            for i, r in enumerate(results):
+                if isinstance(r, dict):
+                    if "success" in r or "objectId" in r or "createdAt" in r:
+                        saved += 1
+                    elif "error" in r:
+                        errors += 1
+                        # Capture the failed meeting with its error
+                        if i < len(meetings):
+                            failed_meetings.append({
+                                "meeting": meetings[i],
+                                "error": r.get("error", {})
+                            })
+                    else:
+                        # Unknown response format, assume failure
+                        errors += 1
+                        if i < len(meetings):
+                            failed_meetings.append({
+                                "meeting": meetings[i],
+                                "error": {"message": "Unknown response format", "raw": str(r)[:200]}
+                            })
 
-            # Log all errors for debugging
-            if errors > 0:
-                for r in results:
-                    if "error" in r:
-                        add_log(f"Save error: {r.get('error', {})}", "error")
-                        break  # Just log first one to avoid spam
+            # Log first error for debugging
+            if errors > 0 and failed_meetings:
+                first_error = failed_meetings[0].get("error", {})
+                add_log(f"Save error: {first_error}", "error")
 
             add_log(f"Batch result: {saved} saved, {errors} errors", "info" if saved > 0 else "warning")
-            return {"saved": saved, "errors": errors}
+            return {"saved": saved, "errors": errors, "failed_meetings": failed_meetings}
         else:
             error_detail = response.text[:500] if response.text else "No details"
             add_log(f"Batch save failed HTTP {response.status_code}: {error_detail[:200]}", "error")
-            return {"saved": 0, "errors": len(meetings)}
+            # All meetings in this batch failed
+            failed_meetings = [
+                {"meeting": m, "error": {"message": f"HTTP {response.status_code}", "detail": error_detail[:200]}}
+                for m in meetings
+            ]
+            return {"saved": 0, "errors": len(meetings), "failed_meetings": failed_meetings}
     except Exception as e:
         add_log(f"Batch save exception: {e}", "error")
         print(f"Error in batch save: {e}")
-        return {"saved": 0, "errors": len(meetings)}
+        # All meetings in this batch failed
+        failed_meetings = [
+            {"meeting": m, "error": {"message": "Exception", "detail": str(e)[:200]}}
+            for m in meetings
+        ]
+        return {"saved": 0, "errors": len(meetings), "failed_meetings": failed_meetings}
 
 def fetch_and_process_feed(feed_name, feed_config, feed_index):
     """Fetch meetings from a single feed and process them using batch operations.
@@ -2774,6 +2807,26 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
                 saved_count += result["saved"]
                 error_count += result["errors"]
                 scraping_state["total_saved"] += result["saved"]
+
+                # Track failed meetings for later inspection
+                if result.get("failed_meetings"):
+                    for failed in result["failed_meetings"]:
+                        # Limit stored data to essential fields for UI display
+                        meeting = failed.get("meeting", {})
+                        scraping_state["failed_saves"].append({
+                            "feed": feed_name,
+                            "name": meeting.get("name", "Unknown"),
+                            "city": meeting.get("city", ""),
+                            "state": meeting.get("state", ""),
+                            "day": meeting.get("day", ""),
+                            "time": meeting.get("time", ""),
+                            "address": meeting.get("address", ""),
+                            "meetingType": meeting.get("meetingType", ""),
+                            "error": failed.get("error", {}),
+                            "full_data": meeting  # Full meeting data for debugging
+                        })
+                    # Limit to last 100 failed saves to avoid memory issues
+                    scraping_state["failed_saves"] = scraping_state["failed_saves"][-100:]
 
                 # Update stats for saved meetings
                 for meeting in meetings_to_save[:result["saved"]]:
@@ -3135,6 +3188,7 @@ def save_scrape_history(status="completed", feeds_processed=0):
         "meetings_by_state": dict(scraping_state["meetings_by_state"]),
         "feed_stats": dict(scraping_state.get("feed_stats", {})),
         "errors": list(scraping_state["errors"]),
+        "failed_saves": list(scraping_state.get("failed_saves", [])),  # Include failed save data
         "status": status
     }
 
@@ -3321,6 +3375,7 @@ def start_scraping():
     scraping_state["current_meeting"] = None
     scraping_state["activity_log"] = []
     scraping_state["feed_stats"] = data.get('resume_feed_stats', {})
+    scraping_state["failed_saves"] = []  # Reset failed saves for new scrape
     scraping_state["started_at"] = data.get('resume_started_at') or datetime.now().isoformat()
     scraping_state["scrape_id"] = resume_scrape_id or generate_object_id()  # Use existing or new ID
 
