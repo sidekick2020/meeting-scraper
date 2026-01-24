@@ -1792,9 +1792,9 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                 </p>
               </div>
               <div className="meeting-cards-grid">
-                {filteredMeetings.map((meeting, index) => (
+                {filteredMeetings.map((meeting) => (
                   <div
-                    key={meeting.objectId || index}
+                    key={meeting.objectId || `${meeting.latitude}-${meeting.longitude}-${meeting.name}-${meeting.day}-${meeting.time}`}
                     data-meeting-id={meeting.objectId}
                     className={`meeting-card ${hoveredMeeting?.objectId === meeting.objectId ? 'hovered' : ''}`}
                     onClick={() => handleMeetingCardClick(meeting)}
