@@ -472,6 +472,13 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
     fetchStateDataRef.current = fetchStateData;
   }, [fetchStateData]);
 
+  // Track whether initial data has been fetched to prevent duplicate requests on mount
+  const initialFetchDoneRef = useRef(false);
+
+  // Main effect for map event handlers - uses refs to avoid dependency on callback references
+  // CRITICAL: Do NOT include fetchHeatmapData/fetchStateData in deps - this causes infinite loops
+  // because callback recreation triggers effect re-run, which triggers new fetches, which
+  // causes state updates, which recreates callbacks, causing 100+ requests/second.
   useEffect(() => {
     const handleMoveEnd = () => {
       const zoom = map.getZoom();
@@ -492,33 +499,38 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
         });
       }
 
-      // Debounce the fetch
+      // Debounce the fetch - use ref to avoid dependency issues
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
       }
-      fetchTimeoutRef.current = setTimeout(() => fetchHeatmapData(false), 300);
+      fetchTimeoutRef.current = setTimeout(() => {
+        fetchHeatmapDataRef.current?.(false);
+      }, 300);
     };
 
-    // Fetch state data immediately (cached)
-    fetchStateData();
+    // Only fetch initial data once on mount
+    if (!initialFetchDoneRef.current) {
+      initialFetchDoneRef.current = true;
+      // Fetch state data immediately (cached) - use ref
+      fetchStateDataRef.current?.();
+      // Initial fetch for clusters/meetings - use ref
+      fetchHeatmapDataRef.current?.(false);
 
-    // Initial fetch for clusters/meetings
-    fetchHeatmapData(false);
-
-    // Trigger onBoundsChange on initial mount to populate the meeting list
-    if (onBoundsChange) {
-      const bounds = map.getBounds();
-      const center = map.getCenter();
-      const zoom = map.getZoom();
-      onBoundsChange({
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-        zoom: zoom,
-        center_lat: center.lat,
-        center_lng: center.lng
-      });
+      // Trigger onBoundsChange on initial mount to populate the meeting list
+      if (onBoundsChange) {
+        const bounds = map.getBounds();
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+        onBoundsChange({
+          north: bounds.getNorth(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          west: bounds.getWest(),
+          zoom: zoom,
+          center_lat: center.lat,
+          center_lng: center.lng
+        });
+      }
     }
 
     map.on('moveend', handleMoveEnd);
@@ -538,7 +550,7 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
         pendingStateDataRef.current.abort();
       }
     };
-  }, [map, fetchHeatmapData, fetchStateData, onZoomChange, onBoundsChange]);
+  }, [map, onZoomChange, onBoundsChange]); // Removed fetchHeatmapData, fetchStateData - use refs instead
 
   // Refetch when filters change
   // IMPORTANT: Use refs to call callbacks to prevent infinite loops.
