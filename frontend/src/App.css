@@ -2949,10 +2949,11 @@ html, body {
   color: white;
   font-weight: 600;
   border-radius: 50%;
-  border: 3px solid white;
+  border: 3px solid;
+  border-color: #78716c; /* Default, overridden by inline style for meeting type colors */
   box-shadow: 0 3px 10px rgba(71, 85, 105, 0.4), 0 1px 3px rgba(0, 0, 0, 0.2);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .cluster-marker-inner:hover {
@@ -2976,6 +2977,44 @@ html, body {
   font-size: 0.75rem;
   color: #6b7280;
   margin-top: 0.25rem;
+}
+
+.cluster-popup-state {
+  font-size: 0.8rem;
+  color: #4b5563;
+  margin-top: 0.15rem;
+}
+
+.cluster-popup-types {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.cluster-type-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+  font-size: 0.8rem;
+}
+
+.cluster-type-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cluster-type-name {
+  color: #374151;
+  flex: 1;
+}
+
+.cluster-type-count {
+  color: #6b7280;
+  font-size: 0.75rem;
 }
 
 /* Highlighted marker for hovered meetings */
