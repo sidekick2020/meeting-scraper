@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDataCache } from '../contexts/DataCacheContext';
+import ScrapeHistorySidebar from './ScrapeHistorySidebar';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -13,9 +14,8 @@ function ScrapeHistory({ onViewProgress }) {
 
   const [history, setHistory] = useState(cachedHistory?.data || []);
   const [isLoading, setIsLoading] = useState(!cachedHistory?.data);
-  const [expandedId, setExpandedId] = useState(null);
-  const [expandedFailedSaves, setExpandedFailedSaves] = useState({});
-  const [expandedFailedItem, setExpandedFailedItem] = useState(null);
+  const [selectedEntry, setSelectedEntry] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const fetchHistory = useCallback(async (forceRefresh = false) => {
     // Skip if we have cached data and not forcing refresh
@@ -69,42 +69,15 @@ function ScrapeHistory({ onViewProgress }) {
     });
   };
 
-  const formatDuration = (startedAt, completedAt) => {
-    if (!startedAt || !completedAt) return 'N/A';
-    const start = new Date(startedAt);
-    const end = new Date(completedAt);
-    const diffMs = end - start;
-    const diffSec = Math.floor(diffMs / 1000);
-    const minutes = Math.floor(diffSec / 60);
-    const seconds = diffSec % 60;
-    if (minutes > 0) {
-      return `${minutes}m ${seconds}s`;
-    }
-    return `${seconds}s`;
+  const openSidebar = (entry) => {
+    setSelectedEntry(entry);
+    setIsSidebarOpen(true);
   };
 
-  const toggleExpand = (id) => {
-    setExpandedId(expandedId === id ? null : id);
-  };
-
-  const toggleFailedSaves = (entryId) => {
-    setExpandedFailedSaves(prev => ({
-      ...prev,
-      [entryId]: !prev[entryId]
-    }));
-  };
-
-  const toggleFailedItem = (itemKey) => {
-    setExpandedFailedItem(expandedFailedItem === itemKey ? null : itemKey);
-  };
-
-  const copyToClipboard = (data) => {
-    const text = JSON.stringify(data, null, 2);
-    navigator.clipboard.writeText(text).then(() => {
-      // Could add a toast notification here
-    }).catch(err => {
-      console.error('Failed to copy:', err);
-    });
+  const closeSidebar = () => {
+    setIsSidebarOpen(false);
+    // Delay clearing selectedEntry to allow closing animation
+    setTimeout(() => setSelectedEntry(null), 300);
   };
 
   if (isLoading) {
@@ -154,12 +127,10 @@ function ScrapeHistory({ onViewProgress }) {
           {history.map((entry) => (
             <div
               key={entry.id}
-              className={`history-entry ${expandedId === entry.id ? 'expanded' : ''}`}
+              className={`history-entry ${selectedEntry?.id === entry.id ? 'selected' : ''}`}
+              onClick={() => openSidebar(entry)}
             >
-              <div
-                className="history-entry-header"
-                onClick={() => toggleExpand(entry.id)}
-              >
+              <div className="history-entry-header">
                 <div className="history-entry-main">
                   <span className={`history-status status-${entry.status}`}>
                     {entry.status === 'completed' ? 'Completed' :
@@ -194,143 +165,23 @@ function ScrapeHistory({ onViewProgress }) {
                     </button>
                   )}
                   <span className="history-expand-icon">
-                    {expandedId === entry.id ? '−' : '+'}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
                   </span>
                 </div>
               </div>
-
-              {expandedId === entry.id && (
-                <div className="history-entry-details">
-                  <div className="history-detail-row">
-                    <span className="detail-label">Started:</span>
-                    <span>{formatDate(entry.started_at)}</span>
-                  </div>
-                  <div className="history-detail-row">
-                    <span className="detail-label">Duration:</span>
-                    <span>{formatDuration(entry.started_at, entry.completed_at)}</span>
-                  </div>
-
-                  {entry.meetings_by_state && Object.keys(entry.meetings_by_state).length > 0 && (
-                    <div className="history-detail-section">
-                      <span className="detail-label">By State:</span>
-                      <div className="history-state-tags">
-                        {Object.entries(entry.meetings_by_state).map(([state, count]) => (
-                          <span key={state} className="state-tag">
-                            {state}: {count}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {entry.errors && entry.errors.length > 0 && (
-                    <div className="history-detail-section">
-                      <span className="detail-label">Errors ({entry.errors.length}):</span>
-                      <ul className="history-errors">
-                        {entry.errors.map((error, idx) => (
-                          <li key={idx}>{error}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {entry.failed_saves && entry.failed_saves.length > 0 && (
-                    <div className="history-detail-section failed-saves-section">
-                      <div
-                        className="failed-saves-header"
-                        onClick={() => toggleFailedSaves(entry.id)}
-                      >
-                        <span className="detail-label">
-                          Failed Saves ({entry.failed_saves.length})
-                        </span>
-                        <span className="failed-saves-toggle">
-                          {expandedFailedSaves[entry.id] ? '▼' : '▶'}
-                        </span>
-                      </div>
-
-                      {expandedFailedSaves[entry.id] && (
-                        <div className="failed-saves-list">
-                          {entry.failed_saves.map((failed, idx) => {
-                            const itemKey = `${entry.id}-${idx}`;
-                            const isItemExpanded = expandedFailedItem === itemKey;
-                            return (
-                              <div key={idx} className="failed-save-item">
-                                <div
-                                  className="failed-save-summary"
-                                  onClick={() => toggleFailedItem(itemKey)}
-                                >
-                                  <span className="failed-save-toggle">
-                                    {isItemExpanded ? '▼' : '▶'}
-                                  </span>
-                                  <span className="failed-save-name">
-                                    {failed.name || 'Unknown Meeting'}
-                                  </span>
-                                  <span className="failed-save-location">
-                                    {[failed.city, failed.state].filter(Boolean).join(', ')}
-                                  </span>
-                                  <span className="failed-save-feed">{failed.feed}</span>
-                                </div>
-
-                                {isItemExpanded && (
-                                  <div className="failed-save-details">
-                                    <div className="failed-save-info">
-                                      <div className="failed-save-row">
-                                        <span className="label">Day/Time:</span>
-                                        <span>{failed.day} {failed.time}</span>
-                                      </div>
-                                      <div className="failed-save-row">
-                                        <span className="label">Address:</span>
-                                        <span>{failed.address || 'N/A'}</span>
-                                      </div>
-                                      <div className="failed-save-row">
-                                        <span className="label">Type:</span>
-                                        <span>{failed.meetingType || 'N/A'}</span>
-                                      </div>
-                                      <div className="failed-save-row error-row">
-                                        <span className="label">Error:</span>
-                                        <span className="error-message">
-                                          {typeof failed.error === 'object'
-                                            ? (failed.error.message || failed.error.detail || JSON.stringify(failed.error))
-                                            : failed.error}
-                                        </span>
-                                      </div>
-                                    </div>
-
-                                    <div className="failed-save-actions">
-                                      <button
-                                        className="btn btn-small btn-ghost"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          copyToClipboard(failed.full_data || failed);
-                                        }}
-                                      >
-                                        Copy Full Data
-                                      </button>
-                                    </div>
-
-                                    {failed.full_data && (
-                                      <div className="failed-save-raw">
-                                        <details>
-                                          <summary>Raw Meeting Data</summary>
-                                          <pre>{JSON.stringify(failed.full_data, null, 2)}</pre>
-                                        </details>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           ))}
         </div>
       )}
+
+      <ScrapeHistorySidebar
+        entry={selectedEntry}
+        isOpen={isSidebarOpen}
+        onClose={closeSidebar}
+        onViewProgress={onViewProgress}
+      />
     </div>
   );
 }
