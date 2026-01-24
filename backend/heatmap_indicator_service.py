@@ -47,6 +47,7 @@ indicator_job_state = {
     "started_at": None,
     "progress": 0,
     "current_phase": "",
+    "phase_detail": "",  # Detailed progress info (e.g., "5/42 filters")
     "total_meetings": 0,
     "new_meetings": 0,  # Meetings without clusterKey
     "indicators_created": 0,
@@ -55,11 +56,13 @@ indicator_job_state = {
     "last_completed_at": None,
     "last_duration_seconds": None,
     "mode": "full",  # "full" or "incremental"
+    "logs": [],  # Recent log entries for frontend display
 }
 
 # Job history (in-memory, limited to last 20 runs)
 _job_history = []
 MAX_JOB_HISTORY = 20
+MAX_LOG_ENTRIES = 100  # Keep last 100 log entries
 
 # Lock for thread safety
 _job_lock = threading.Lock()
@@ -77,12 +80,37 @@ _back4app_config = {
 }
 
 
+def _log(message, level="info"):
+    """Add a log entry to the job state and print to console.
+
+    Args:
+        message: Log message
+        level: Log level (info, success, warning, error)
+    """
+    timestamp = datetime.utcnow().isoformat() + "Z"
+    entry = {
+        "timestamp": timestamp,
+        "message": message,
+        "level": level
+    }
+
+    with _job_lock:
+        indicator_job_state["logs"].append(entry)
+        # Trim to max entries
+        if len(indicator_job_state["logs"]) > MAX_LOG_ENTRIES:
+            indicator_job_state["logs"] = indicator_job_state["logs"][-MAX_LOG_ENTRIES:]
+
+    # Also print to console with timestamp
+    level_prefix = {"info": "INFO", "success": "✓", "warning": "WARN", "error": "ERROR"}.get(level, "INFO")
+    print(f"[HEATMAP-SERVICE] [{level_prefix}] {message}")
+
+
 def init_heatmap_service(app_id, rest_key, session=None):
     """Initialize the heatmap indicator service with Back4App credentials."""
     _back4app_config["app_id"] = app_id
     _back4app_config["rest_key"] = rest_key
     _back4app_config["session"] = session
-    print(f"[HEATMAP-SERVICE] Initialized with app_id={app_id[:8]}...")
+    _log(f"Initialized with app_id={app_id[:8]}...", "info")
 
 
 def get_job_status():
@@ -141,16 +169,34 @@ def _get_headers():
     }
 
 
-def _update_progress(phase, progress=None, **kwargs):
-    """Update job progress state."""
+def _update_progress(phase, progress=None, detail=None, log_level="info", **kwargs):
+    """Update job progress state and log the update.
+
+    Args:
+        phase: Current phase description
+        progress: Progress percentage (0-100)
+        detail: Detailed progress info (e.g., "5/42 filters")
+        log_level: Log level for this update
+        **kwargs: Additional state updates
+    """
     with _job_lock:
         indicator_job_state["current_phase"] = phase
         if progress is not None:
             indicator_job_state["progress"] = progress
+        if detail is not None:
+            indicator_job_state["phase_detail"] = detail
         for key, value in kwargs.items():
             if key in indicator_job_state:
                 indicator_job_state[key] = value
-    print(f"[HEATMAP-SERVICE] {phase} - {progress}%" if progress else f"[HEATMAP-SERVICE] {phase}")
+
+    # Build log message
+    log_msg = phase
+    if detail:
+        log_msg = f"{phase} ({detail})"
+    if progress is not None:
+        log_msg = f"{log_msg} - {progress}%"
+
+    _log(log_msg, log_level)
 
 
 def _fetch_all_meetings(incremental=False):
@@ -191,7 +237,7 @@ def _fetch_all_meetings(incremental=False):
         try:
             response = session.get(url, headers=_get_headers(), timeout=30)
             if response.status_code != 200:
-                print(f"[HEATMAP-SERVICE] Error fetching meetings: {response.status_code}")
+                _log(f"Error fetching meetings: HTTP {response.status_code}", "error")
                 break
 
             data = response.json()
@@ -203,16 +249,16 @@ def _fetch_all_meetings(incremental=False):
             meetings.extend(results)
             skip += limit
 
-            _update_progress(f"Fetching meetings... {len(meetings)} loaded",
-                           progress=min(10, int(len(meetings) / 1000)))
+            _update_progress(f"Fetching meetings", progress=min(10, int(len(meetings) / 1000)),
+                           detail=f"{len(meetings):,} loaded")
 
             # Safety limit
             if skip > 500000:
-                print("[HEATMAP-SERVICE] Warning: Hit safety limit of 500k meetings")
+                _log("Warning: Hit safety limit of 500k meetings", "warning")
                 break
 
         except Exception as e:
-            print(f"[HEATMAP-SERVICE] Error fetching meetings: {e}")
+            _log(f"Error fetching meetings: {e}", "error")
             indicator_job_state["errors"].append(f"Fetch error: {str(e)}")
             break
 
@@ -385,11 +431,14 @@ def _save_indicators_batch(indicators):
             if response.status_code == 200:
                 results = response.json()
                 saved_count += sum(1 for r in results if isinstance(r, dict) and ("objectId" in r or "createdAt" in r or "success" in r))
+                # Log batch progress
+                if saved_count % 500 == 0:
+                    _log(f"Saved {saved_count:,} indicators so far...", "info")
             else:
-                print(f"[HEATMAP-SERVICE] Batch save error: {response.status_code} - {response.text[:200]}")
+                _log(f"Batch save error: HTTP {response.status_code}", "error")
                 indicator_job_state["errors"].append(f"Batch save error: {response.status_code}")
         except Exception as e:
-            print(f"[HEATMAP-SERVICE] Batch save exception: {e}")
+            _log(f"Batch save exception: {e}", "error")
             indicator_job_state["errors"].append(f"Batch save exception: {str(e)}")
 
     return saved_count
@@ -431,10 +480,13 @@ def _update_meetings_cluster_keys(cluster_keys):
             if response.status_code == 200:
                 results = response.json()
                 updated_count += sum(1 for r in results if isinstance(r, dict) and "updatedAt" in r)
+                # Log batch progress
+                if updated_count % 500 == 0:
+                    _log(f"Updated {updated_count:,} meetings so far...", "info")
             else:
-                print(f"[HEATMAP-SERVICE] Meeting update error: {response.status_code}")
+                _log(f"Meeting update error: HTTP {response.status_code}", "error")
         except Exception as e:
-            print(f"[HEATMAP-SERVICE] Meeting update exception: {e}")
+            _log(f"Meeting update exception: {e}", "error")
 
     return updated_count
 
@@ -492,9 +544,12 @@ def _delete_existing_indicators(filter_type=None):
 
             if del_response.status_code == 200:
                 deleted_count += len(results)
+                # Log progress every 500 deletes
+                if deleted_count % 500 == 0:
+                    _log(f"Deleted {deleted_count:,} indicators so far...", "info")
 
         except Exception as e:
-            print(f"[HEATMAP-SERVICE] Delete error: {e}")
+            _log(f"Delete error: {e}", "error")
             break
 
     return deleted_count
@@ -536,23 +591,29 @@ def generate_heatmap_indicators(include_state_filters=True, force=False, increme
         indicator_job_state["started_at"] = datetime.utcnow().isoformat()
         indicator_job_state["progress"] = 0
         indicator_job_state["current_phase"] = "Starting"
+        indicator_job_state["phase_detail"] = ""
         indicator_job_state["errors"] = []
         indicator_job_state["indicators_created"] = 0
         indicator_job_state["meetings_updated"] = 0
         indicator_job_state["new_meetings"] = 0
         indicator_job_state["mode"] = mode
+        indicator_job_state["logs"] = []  # Clear logs for new run
 
     start_time = time.time()
+    _log(f"=== Starting {mode.upper()} map indicator job ===", "info")
 
     try:
         if incremental:
             # Incremental mode: only process new meetings
-            _update_progress("Fetching new meetings (incremental)", progress=5)
+            phase_start = time.time()
+            _update_progress("Fetching new meetings", progress=5, detail="incremental mode")
             new_meetings = _fetch_all_meetings(incremental=True)
             indicator_job_state["new_meetings"] = len(new_meetings)
+            fetch_time = round(time.time() - phase_start, 2)
+            _log(f"Fetched meetings in {fetch_time}s", "info")
 
             if not new_meetings:
-                _update_progress("No new meetings to process", progress=100)
+                _update_progress("No new meetings to process", progress=100, log_level="success")
                 result = {
                     "success": True,
                     "mode": mode,
@@ -568,16 +629,18 @@ def generate_heatmap_indicators(include_state_filters=True, force=False, increme
                     indicator_job_state["is_running"] = False
                     indicator_job_state["last_completed_at"] = datetime.utcnow().isoformat()
                     indicator_job_state["last_duration_seconds"] = result["duration_seconds"]
+                _log(f"=== Completed in {result['duration_seconds']}s (no new meetings) ===", "success")
                 return result
 
-            print(f"[HEATMAP-SERVICE] Found {len(new_meetings)} new meetings to process")
+            _log(f"Found {len(new_meetings)} new meetings to process", "info")
 
             # For incremental, we only update cluster keys, no indicator regeneration
-            _update_progress("Assigning cluster keys to new meetings", progress=50)
+            phase_start = time.time()
+            _update_progress("Assigning cluster keys", progress=50, detail=f"{len(new_meetings)} meetings")
 
             # Generate cluster keys for new meetings only
             meeting_cluster_keys = {}
-            for meeting in new_meetings:
+            for i, meeting in enumerate(new_meetings):
                 lat = meeting.get("latitude")
                 lng = meeting.get("longitude")
                 object_id = meeting.get("objectId")
@@ -585,14 +648,25 @@ def generate_heatmap_indicators(include_state_filters=True, force=False, increme
                     grid_key = _compute_grid_key(5, lat, lng)
                     meeting_cluster_keys[object_id] = grid_key
 
-            _update_progress("Updating meetings with cluster keys", progress=75)
+                # Log progress every 100 meetings
+                if (i + 1) % 100 == 0:
+                    _update_progress("Assigning cluster keys", progress=50 + int(25 * i / len(new_meetings)),
+                                    detail=f"{i + 1}/{len(new_meetings)} meetings")
+
+            assign_time = round(time.time() - phase_start, 2)
+            _log(f"Assigned cluster keys in {assign_time}s", "info")
+
+            phase_start = time.time()
+            _update_progress("Updating meetings in Back4App", progress=75, detail=f"{len(meeting_cluster_keys)} meetings")
             updated = _update_meetings_cluster_keys(meeting_cluster_keys)
             indicator_job_state["meetings_updated"] = updated
-            print(f"[HEATMAP-SERVICE] Updated {updated} new meetings with cluster keys")
+            update_time = round(time.time() - phase_start, 2)
+            _log(f"Updated {updated} meetings with cluster keys in {update_time}s", "success")
 
             # Done with incremental
             duration = time.time() - start_time
-            _update_progress("Completed (incremental)", progress=100)
+            _update_progress("Completed (incremental)", progress=100, log_level="success")
+            _log(f"=== INCREMENTAL JOB COMPLETED in {round(duration, 2)}s ===", "success")
 
             result = {
                 "success": True,
@@ -607,38 +681,44 @@ def generate_heatmap_indicators(include_state_filters=True, force=False, increme
 
         else:
             # Full mode: regenerate all indicators
-            _update_progress("Fetching meetings from Back4App", progress=5)
+            phase_start = time.time()
+            _update_progress("Fetching all meetings from Back4App", progress=5, detail="full rebuild")
             meetings = _fetch_all_meetings(incremental=False)
             indicator_job_state["total_meetings"] = len(meetings)
+            fetch_time = round(time.time() - phase_start, 2)
+            _log(f"Fetched {len(meetings)} meetings in {fetch_time}s", "info")
 
             if not meetings:
-                _update_progress("No meetings found", progress=100)
+                _update_progress("No meetings found", progress=100, log_level="error")
                 result = {"success": False, "error": "No meetings found", "mode": mode}
                 _add_to_history(result)
                 return result
 
-            print(f"[HEATMAP-SERVICE] Loaded {len(meetings)} meetings")
-
             # Phase 2: Delete existing indicators
-            _update_progress("Deleting existing indicators", progress=15)
+            phase_start = time.time()
+            _update_progress("Deleting existing indicators", progress=15, detail="clearing old data")
             deleted = _delete_existing_indicators()
-            print(f"[HEATMAP-SERVICE] Deleted {deleted} existing indicators")
+            delete_time = round(time.time() - phase_start, 2)
+            _log(f"Deleted {deleted} existing indicators in {delete_time}s", "info")
 
             # Phase 3: Generate filter list
             filter_types = list(FILTER_TYPES)
             if include_state_filters:
                 active_states = _get_active_states(meetings)
                 filter_types.extend([f"state:{s}" for s in active_states])
+                _log(f"Found {len(active_states)} active states for filtering", "info")
 
-            print(f"[HEATMAP-SERVICE] Processing {len(filter_types)} filter types")
+            _log(f"Processing {len(filter_types)} filter types: {', '.join(filter_types[:5])}{'...' if len(filter_types) > 5 else ''}", "info")
 
             # Phase 4: Generate clusters for each filter
+            phase_start = time.time()
             all_indicators = []
             meeting_cluster_keys = {}
 
             for idx, filter_type in enumerate(filter_types):
                 progress = 20 + int((idx / len(filter_types)) * 60)
-                _update_progress(f"Generating clusters for {filter_type}", progress=progress)
+                _update_progress(f"Generating clusters: {filter_type}", progress=progress,
+                               detail=f"{idx + 1}/{len(filter_types)} filters")
 
                 indicators, cluster_keys = _generate_clusters_for_filter(meetings, filter_type)
                 all_indicators.extend(indicators)
@@ -647,23 +727,29 @@ def generate_heatmap_indicators(include_state_filters=True, force=False, increme
                 if filter_type == "all":
                     meeting_cluster_keys = cluster_keys
 
-            print(f"[HEATMAP-SERVICE] Generated {len(all_indicators)} indicators")
+            cluster_time = round(time.time() - phase_start, 2)
+            _log(f"Generated {len(all_indicators)} indicators across {len(filter_types)} filters in {cluster_time}s", "success")
 
             # Phase 5: Save indicators
-            _update_progress("Saving indicators to Back4App", progress=80)
+            phase_start = time.time()
+            _update_progress("Saving indicators to Back4App", progress=80, detail=f"{len(all_indicators)} indicators")
             saved = _save_indicators_batch(all_indicators)
             indicator_job_state["indicators_created"] = saved
-            print(f"[HEATMAP-SERVICE] Saved {saved} indicators")
+            save_time = round(time.time() - phase_start, 2)
+            _log(f"Saved {saved} indicators in {save_time}s", "success")
 
             # Phase 6: Update meetings with cluster keys
-            _update_progress("Updating meetings with cluster keys", progress=90)
+            phase_start = time.time()
+            _update_progress("Updating meetings with cluster keys", progress=90, detail=f"{len(meeting_cluster_keys)} meetings")
             updated = _update_meetings_cluster_keys(meeting_cluster_keys)
             indicator_job_state["meetings_updated"] = updated
-            print(f"[HEATMAP-SERVICE] Updated {updated} meetings with cluster keys")
+            update_time = round(time.time() - phase_start, 2)
+            _log(f"Updated {updated} meetings with cluster keys in {update_time}s", "success")
 
             # Done
             duration = time.time() - start_time
-            _update_progress("Completed", progress=100)
+            _update_progress("Completed", progress=100, log_level="success")
+            _log(f"=== FULL JOB COMPLETED in {round(duration, 2)}s ===", "success")
 
             result = {
                 "success": True,
@@ -690,8 +776,8 @@ def generate_heatmap_indicators(include_state_filters=True, force=False, increme
     except Exception as e:
         import traceback
         error_msg = f"Job failed: {str(e)}"
-        print(f"[HEATMAP-SERVICE] {error_msg}")
-        print(traceback.format_exc())
+        _log(error_msg, "error")
+        _log(traceback.format_exc(), "error")
 
         with _job_lock:
             indicator_job_state["is_running"] = False
@@ -736,14 +822,14 @@ def start_scheduler():
 
     def scheduler_loop():
         import time as time_module
-        print(f"[HEATMAP-SERVICE] Scheduler started. Will run daily at {DAILY_RUN_HOUR}:00 UTC")
+        _log(f"Scheduler started. Will run daily at {DAILY_RUN_HOUR}:00 UTC", "info")
 
         while _scheduler_running:
             now = datetime.utcnow()
 
             # Check if it's time to run (within the first minute of the scheduled hour)
             if now.hour == DAILY_RUN_HOUR and now.minute == 0:
-                print("[HEATMAP-SERVICE] Scheduled run starting (incremental mode)")
+                _log("Scheduled run starting (incremental mode)", "info")
                 run_job_in_background(include_state_filters=True, incremental=True)
                 # Sleep for 2 minutes to avoid running again in the same minute
                 time_module.sleep(120)
@@ -754,6 +840,7 @@ def start_scheduler():
     _scheduler_thread = threading.Thread(target=scheduler_loop, daemon=True, name="heatmap-scheduler")
     _scheduler_thread.start()
 
+    _log(f"Daily scheduler enabled - will run at {DAILY_RUN_HOUR}:00 UTC", "success")
     return {"success": True, "message": f"Scheduler started. Daily run at {DAILY_RUN_HOUR}:00 UTC"}
 
 
@@ -765,7 +852,7 @@ def stop_scheduler():
         return {"success": False, "error": "Scheduler not running"}
 
     _scheduler_running = False
-    print("[HEATMAP-SERVICE] Scheduler stopped")
+    _log("Daily scheduler stopped", "info")
 
     return {"success": True, "message": "Scheduler stopped"}
 

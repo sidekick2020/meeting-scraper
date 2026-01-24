@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import SourceDetailPanel from './SourceDetailPanel';
 
 // Generate static map tile URL from coordinates
@@ -60,6 +60,12 @@ const feedMetadata = {
 
 function MeetingDetail({ meeting, onClose, isSidebar = false }) {
   const [sourceDetailOpen, setSourceDetailOpen] = useState(false);
+  const [mapImageLoaded, setMapImageLoaded] = useState(false);
+
+  // Reset image loaded state when meeting changes
+  useEffect(() => {
+    setMapImageLoaded(false);
+  }, [meeting?.latitude, meeting?.longitude]);
 
   // Check if meeting has a full street address (contains numbers indicating street number)
   const hasFullStreetAddress = (meeting) => {
@@ -135,7 +141,8 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                   <img
                     src={getMapTileUrl(meeting.latitude, meeting.longitude)}
                     alt={`Map of ${meeting.name || 'meeting location'}`}
-                    className="sidebar-map-image"
+                    className={`sidebar-map-image ${mapImageLoaded ? 'loaded' : ''}`}
+                    onLoad={() => setMapImageLoaded(true)}
                   />
                   <div className="sidebar-map-marker">
                     <div className="sidebar-map-marker-inner" />

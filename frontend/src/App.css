@@ -563,6 +563,13 @@ html, body {
   color: var(--text-secondary);
 }
 
+.job-running .job-phase-detail {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+  font-family: 'SF Mono', Monaco, 'Consolas', monospace;
+}
+
 .job-completed,
 .job-never-run {
   display: flex;
@@ -702,6 +709,63 @@ html, body {
   display: flex;
   gap: 0.4rem;
   align-items: center;
+}
+
+/* Job Logs */
+.heatmap-job-logs {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.job-logs-container {
+  max-height: 250px;
+  overflow-y: auto;
+  background: var(--hover-bg);
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+  font-family: 'SF Mono', Monaco, 'Consolas', monospace;
+  font-size: 0.75rem;
+}
+
+.job-log-entry {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  line-height: 1.4;
+}
+
+.job-log-entry:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.job-log-time {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-size: 0.7rem;
+}
+
+.job-log-message {
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.job-log-info .job-log-message {
+  color: var(--text-secondary);
+}
+
+.job-log-success .job-log-message {
+  color: #22c55e;
+}
+
+.job-log-warning .job-log-message {
+  color: #f59e0b;
+}
+
+.job-log-error .job-log-message {
+  color: #ef4444;
 }
 
 /* Controls section */
@@ -12436,6 +12500,16 @@ a.sidebar-nav-item {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  animation: fadeInMap 0.3s ease-in-out;
+}
+
+@keyframes fadeInMap {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .meeting-card-icon {
@@ -12770,6 +12844,12 @@ a.sidebar-nav-item {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.sidebar-map-image.loaded {
+  opacity: 1;
 }
 
 /* Centered marker overlay for static map */
@@ -13298,6 +13378,15 @@ a.sidebar-nav-item {
   border: 1px solid rgba(0, 0, 0, 0.12);
 }
 
+/* Meeting card image placeholder - theme-aware background while image loads */
+[data-theme="light"] .meeting-card-image {
+  background: #e8ecf0;
+}
+
+[data-theme="dark"] .meeting-card-image {
+  background: #12121e;
+}
+
 /* Light Mode: Tables */
 [data-theme="light"] .directory-table {
   background: #ffffff;
@@ -13399,6 +13488,15 @@ a.sidebar-nav-item {
 
 [data-theme="light"] .sidebar-map-overlay {
   background: linear-gradient(to bottom, transparent, #f8fafc);
+}
+
+/* Map preview placeholder - theme-aware background while image loads */
+[data-theme="light"] .sidebar-map-preview {
+  background: #e8ecf0;
+}
+
+[data-theme="dark"] .sidebar-map-preview {
+  background: #12121e;
 }
 
 [data-theme="light"] .sidebar-detail-header h2 {
