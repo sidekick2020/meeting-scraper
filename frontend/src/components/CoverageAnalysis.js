@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import StateHeatmapModal from './StateHeatmapModal';
 import { useDataCache } from '../contexts/DataCacheContext';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+import { useParse } from '../contexts/ParseContext';
 
 // Cache key and TTL
 const COVERAGE_CACHE_KEY = 'coverage:data';
@@ -10,6 +9,7 @@ const COVERAGE_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 function CoverageAnalysis() {
   const { getCache, setCache } = useDataCache();
+  const { isInitialized, fetchCoverageAnalysis } = useParse();
   const cachedCoverage = getCache(COVERAGE_CACHE_KEY);
 
   const [coverage, setCoverage] = useState(cachedCoverage?.data || null);
@@ -25,39 +25,32 @@ function CoverageAnalysis() {
       return;
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
     try {
       // Only show loading spinner on initial load, not refreshes
       if (isInitialLoad && !cachedCoverage?.data) {
         setLoading(true);
       }
-      const response = await fetch(`${BACKEND_URL}/api/coverage`, {
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
 
-      if (response.ok) {
-        const data = await response.json();
-        setCoverage(data);
-        setError(null);
-        // Cache the data
-        setCache(COVERAGE_CACHE_KEY, data, COVERAGE_CACHE_TTL);
+      // Use Parse SDK directly (Back4app is source of truth)
+      if (isInitialized) {
+        const data = await fetchCoverageAnalysis();
+        if (data) {
+          setCoverage(data);
+          setError(null);
+          setCache(COVERAGE_CACHE_KEY, data, COVERAGE_CACHE_TTL);
+        } else {
+          setError('Failed to load coverage data from Back4app');
+        }
       } else {
-        setError('Failed to load coverage data');
+        setError('Back4app not configured');
       }
     } catch (err) {
-      clearTimeout(timeoutId);
-      if (err.name === 'AbortError') {
-        setError('Request timed out. Please try again.');
-      } else {
-        setError('Error connecting to server');
-      }
+      console.error('Coverage fetch error:', err);
+      setError('Error loading coverage data');
     } finally {
       setLoading(false);
     }
-  }, [cachedCoverage, setCache]);
+  }, [cachedCoverage, setCache, isInitialized, fetchCoverageAnalysis]);
 
   useEffect(() => {
     fetchCoverage(true); // Initial load shows spinner
