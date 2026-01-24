@@ -24809,3 +24809,388 @@ a.sidebar-nav-item {
     font-size: 10px;
   }
 }
+
+/* ========================================
+   Meeting Detail Page Styles
+   ======================================== */
+
+.meeting-detail-page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.meeting-detail-page-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 1rem 1.5rem;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--border-light);
+  backdrop-filter: blur(10px);
+}
+
+.meeting-detail-page-header .back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  transition: all 0.15s ease;
+}
+
+.meeting-detail-page-header .back-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+}
+
+.meeting-detail-page-header .back-button svg {
+  flex-shrink: 0;
+}
+
+.meeting-detail-page-loading,
+.meeting-detail-page-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  text-align: center;
+  padding: 2rem;
+}
+
+.meeting-detail-page-loading p {
+  margin-top: 1rem;
+  color: var(--text-muted);
+}
+
+.meeting-detail-page-error svg {
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.meeting-detail-page-error h2 {
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.meeting-detail-page-error p {
+  color: var(--text-muted);
+  margin: 0 0 1.5rem 0;
+}
+
+.meeting-detail-page-map {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.meeting-detail-page-map-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.meeting-detail-page-map-image.loaded {
+  opacity: 1;
+}
+
+.meeting-detail-page-map-marker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  z-index: 10;
+}
+
+.meeting-detail-page-map-marker-inner {
+  width: 24px;
+  height: 24px;
+  background: var(--accent-primary);
+  border: 3px solid white;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.meeting-detail-page-map-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(to top, var(--bg-primary) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+.meeting-detail-page-content {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.meeting-detail-page-title {
+  margin-bottom: 1rem;
+}
+
+.meeting-detail-page-title h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.meeting-detail-page-content .meeting-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.meeting-detail-page-content .meeting-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.meeting-detail-page-content .btn-action {
+  flex: 1;
+  min-width: 140px;
+}
+
+.meeting-detail-page-content .detail-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.meeting-detail-page-content .detail-section:last-of-type {
+  border-bottom: none;
+}
+
+.meeting-detail-page-content .detail-section h4 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.75rem 0;
+}
+
+.meeting-detail-page-content .detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  margin-bottom: 0.875rem;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+  padding: 0.25rem 0;
+}
+
+.meeting-detail-page-content .detail-icon {
+  flex-shrink: 0;
+  width: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+  margin-top: 2px;
+}
+
+.meeting-detail-page-content .detail-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.meeting-detail-page-content .detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.meeting-detail-page-content .detail-content > span:first-child,
+.meeting-detail-page-content .detail-content > a:first-child {
+  color: var(--text-primary);
+}
+
+.meeting-detail-page-content .field-description {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.meeting-detail-page-content .detail-notes {
+  background: var(--bg-secondary);
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-top: 0.25rem;
+}
+
+.meeting-detail-page-content .detail-notes-block {
+  background: var(--bg-secondary);
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
+
+.meeting-detail-page-content .detail-row a {
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+
+.meeting-detail-page-content .detail-row a:hover {
+  text-decoration: underline;
+}
+
+.meeting-detail-page-content .btn-small {
+  margin-top: 0.5rem;
+}
+
+/* Sidebar header actions for open in new window button */
+.sidebar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.sidebar-open-new-window {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.sidebar-open-new-window:hover {
+  background: var(--bg-hover);
+  color: var(--accent-primary);
+}
+
+/* Light theme overrides for meeting detail page */
+[data-theme="light"] .meeting-detail-page {
+  background: #f8fafc;
+}
+
+[data-theme="light"] .meeting-detail-page-header {
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom-color: #e5e7eb;
+}
+
+[data-theme="light"] .meeting-detail-page-header .back-button {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #4b5563;
+}
+
+[data-theme="light"] .meeting-detail-page-header .back-button:hover {
+  background: #e5e7eb;
+  color: #1f2937;
+  border-color: #d1d5db;
+}
+
+[data-theme="light"] .meeting-detail-page-map {
+  background: #e5e7eb;
+}
+
+[data-theme="light"] .meeting-detail-page-map-overlay {
+  background: linear-gradient(to top, #f8fafc 0%, transparent 100%);
+}
+
+[data-theme="light"] .meeting-detail-page-title h1 {
+  color: #1f2937;
+}
+
+[data-theme="light"] .meeting-detail-page-content .detail-section {
+  border-bottom-color: #e5e7eb;
+}
+
+[data-theme="light"] .meeting-detail-page-content .detail-section h4 {
+  color: #6b7280;
+}
+
+[data-theme="light"] .meeting-detail-page-content .detail-row {
+  color: #374151;
+}
+
+[data-theme="light"] .meeting-detail-page-content .detail-notes {
+  background: #f3f4f6;
+}
+
+[data-theme="light"] .meeting-detail-page-content .detail-notes-block {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+[data-theme="light"] .sidebar-open-new-window {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #6b7280;
+}
+
+[data-theme="light"] .sidebar-open-new-window:hover {
+  background: #e5e7eb;
+  color: #2563eb;
+}
+
+/* Mobile responsive for meeting detail page */
+@media (max-width: 768px) {
+  .meeting-detail-page-header {
+    padding: 0.75rem 1rem;
+  }
+
+  .meeting-detail-page-header .back-button {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.75rem;
+  }
+
+  .meeting-detail-page-map {
+    height: 160px;
+  }
+
+  .meeting-detail-page-content {
+    padding: 1rem;
+  }
+
+  .meeting-detail-page-title h1 {
+    font-size: 1.4rem;
+  }
+
+  .meeting-detail-page-content .btn-action {
+    flex: 1 1 100%;
+  }
+
+  .sidebar-open-new-window {
+    width: 32px;
+    height: 32px;
+  }
+
+  .sidebar-open-new-window svg {
+    width: 16px;
+    height: 16px;
+  }
+}

@@ -16,6 +16,7 @@ import DevModeApiIndicator from './components/DevModeApiIndicator';
 import DevDocs from './components/DevDocs';
 import DownloadPage from './components/DownloadPage';
 import NotFound from './components/NotFound';
+import MeetingDetailPage from './components/MeetingDetailPage';
 import LoadingOverlay from './components/LoadingOverlay';
 import PublicSidebar, { SidebarToggleButton } from './components/PublicSidebar';
 import MemoryCleanupIntegration from './components/MemoryCleanupIntegration';
@@ -206,6 +207,20 @@ function OnlineMeetingsPage() {
   );
 }
 
+function MeetingDetailPageWrapper() {
+  const handleAdminClick = () => {
+    window.location.href = '/?admin=1';
+  };
+
+  return (
+    <div className="App">
+      <DeploymentIndicator />
+      <MeetingDetailPage />
+      <PublicSidebar onAdminClick={handleAdminClick} />
+    </div>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -222,6 +237,7 @@ function App() {
                       <Route path="/online-meetings" element={<OnlineMeetingsPage />} />
                       <Route path="/docs" element={<DocsPage />} />
                       <Route path="/download" element={<DownloadPageWrapper />} />
+                      <Route path="/meeting/:id" element={<MeetingDetailPageWrapper />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                     <DevModeApiIndicator />
