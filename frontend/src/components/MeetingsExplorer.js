@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react';
 import MeetingMap from './MeetingMap';
 import MeetingDetail from './MeetingDetail';
 import ParseDiagnostics from './ParseDiagnostics';
@@ -295,6 +295,11 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
 
   const listRef = useRef(null);
   const thumbnailRequestsRef = useRef(new Set());
+
+  // Scroll position preservation to prevent scroll reset on re-renders
+  const scrollPositionRef = useRef(0);
+  const isRestoringScrollRef = useRef(false);
+  const lastMeetingsRef = useRef(meetings);
 
   // Refs for request optimization - prevents duplicate API calls
   const filtersRef = useRef({
@@ -668,6 +673,54 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
       }
     };
   }, []);
+
+  // Scroll position preservation - save position on scroll
+  useEffect(() => {
+    const listElement = listRef.current;
+    if (!listElement) return;
+
+    const handleScroll = () => {
+      // Don't save position while we're restoring it
+      if (!isRestoringScrollRef.current) {
+        scrollPositionRef.current = listElement.scrollTop;
+      }
+    };
+
+    listElement.addEventListener('scroll', handleScroll, { passive: true });
+    return () => listElement.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Restore scroll position after filteredMeetings changes (using useLayoutEffect to run before paint)
+  // Only restore if the underlying meetings data hasn't changed (i.e., just client-side filtering)
+  useLayoutEffect(() => {
+    const listElement = listRef.current;
+    if (!listElement) return;
+
+    // Check if meetings data changed (new fetch) vs just filter change
+    const meetingsChanged = lastMeetingsRef.current !== meetings;
+    lastMeetingsRef.current = meetings;
+
+    if (meetingsChanged) {
+      // New data fetched - scroll to top
+      listElement.scrollTop = 0;
+      scrollPositionRef.current = 0;
+      return;
+    }
+
+    // Client-side filter change - restore scroll position
+    if (scrollPositionRef.current === 0) return;
+
+    // Set flag to prevent scroll handler from overwriting during restoration
+    isRestoringScrollRef.current = true;
+
+    // Restore scroll position
+    listElement.scrollTop = scrollPositionRef.current;
+
+    // Reset flag after a brief delay to allow scroll to settle
+    requestAnimationFrame(() => {
+      isRestoringScrollRef.current = false;
+    });
+  }, [filteredMeetings, meetings]);
 
   // Apply client-side filters (search query and accessibility only - rest handled server-side)
   useEffect(() => {

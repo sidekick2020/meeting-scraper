@@ -10232,9 +10232,12 @@ a.sidebar-nav-item {
 .airbnb-list-panel {
   width: 50%;
   overflow-y: auto;
+  overflow-anchor: auto;
   padding: 1.5rem;
   transition: width 0.3s ease;
   background: var(--bg-secondary);
+  /* Improve scroll performance */
+  will-change: scroll-position;
 }
 
 .airbnb-list-panel.expanded {
@@ -10315,6 +10318,10 @@ a.sidebar-nav-item {
   transition: all 0.2s ease;
   padding: 0;
   box-shadow: var(--card-shadow);
+  /* Improve scroll performance with containment */
+  contain: layout style paint;
+  content-visibility: auto;
+  contain-intrinsic-size: 280px 220px;
 }
 
 .airbnb-list-panel .meeting-card:hover {
