@@ -188,7 +188,6 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const cachedFilterState = getCache(CACHE_KEYS.FILTER_STATE);
 
   const [meetings, setMeetings] = useState(cachedMeetings?.data || []);
-  const [filteredMeetings, setFilteredMeetings] = useState(cachedMeetings?.data || []);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [hoveredMeeting, setHoveredMeeting] = useState(null);
   const [isLoading, setIsLoading] = useState(!cachedMeetings?.data);
@@ -301,6 +300,33 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const meetingIdsKey = useMemo(() => {
     return meetings.map(m => m.objectId).filter(Boolean).join(',');
   }, [meetings]);
+
+  // Apply client-side filters (search query and accessibility only - rest handled server-side)
+  // IMPORTANT: Use useMemo instead of useEffect to prevent flicker when meetings change
+  // useEffect runs AFTER render, causing a frame where old filteredMeetings is shown
+  const filteredMeetings = useMemo(() => {
+    let filtered = meetings;
+
+    // Search query - filter client-side for instant feedback
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(m =>
+        m.name?.toLowerCase().includes(query) ||
+        m.locationName?.toLowerCase().includes(query) ||
+        m.city?.toLowerCase().includes(query) ||
+        m.address?.toLowerCase().includes(query)
+      );
+    }
+
+    // Accessibility - client-side only (not supported server-side)
+    if (selectedAccessibility.length > 0) {
+      filtered = filtered.filter(m =>
+        selectedAccessibility.every(key => m[key] === true)
+      );
+    }
+
+    return filtered;
+  }, [meetings, searchQuery, selectedAccessibility]);
 
   // Stable filtered meeting IDs - only changes when filter results change
   const filteredMeetingIdsKey = useMemo(() => {
@@ -761,31 +787,6 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
       });
     });
   }, [filteredMeetingIdsKey, meetingIdsKey]);
-
-  // Apply client-side filters (search query and accessibility only - rest handled server-side)
-  useEffect(() => {
-    let filtered = [...meetings];
-
-    // Search query - filter client-side for instant feedback
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(m =>
-        m.name?.toLowerCase().includes(query) ||
-        m.locationName?.toLowerCase().includes(query) ||
-        m.city?.toLowerCase().includes(query) ||
-        m.address?.toLowerCase().includes(query)
-      );
-    }
-
-    // Accessibility - client-side only (not supported server-side)
-    if (selectedAccessibility.length > 0) {
-      filtered = filtered.filter(m =>
-        selectedAccessibility.every(key => m[key] === true)
-      );
-    }
-
-    setFilteredMeetings(filtered);
-  }, [meetings, searchQuery, selectedAccessibility]);
 
   // Update available cities when states change
   useEffect(() => {
