@@ -1613,11 +1613,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     if (showTodayOnly) {
       filters.day = new Date().getDay();
     } else if (selectedDays.length === 1) {
-      // If single day selected, pass it to the map
-      const dayIndex = dayNames.indexOf(selectedDays[0]);
-      if (dayIndex !== -1) {
-        filters.day = dayIndex;
-      }
+      // If single day selected, pass it to the map (selectedDays contains numeric indices 0-6)
+      filters.day = selectedDays[0];
     }
     // Pass meeting type filter
     if (selectedTypes.length === 1) {
