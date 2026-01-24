@@ -440,6 +440,189 @@ export function clearInFlightRequests() {
 }
 
 // =============================================================================
+// THUMBNAIL CACHE
+// =============================================================================
+
+const THUMBNAIL_CACHE_KEY = 'thumbnail_cache';
+const THUMBNAIL_CACHE_MAX_SIZE = 500; // Max number of cached thumbnails
+
+/**
+ * In-memory thumbnail cache with sessionStorage persistence
+ * Prevents reloading the same thumbnail multiple times
+ */
+class ThumbnailCache {
+  constructor() {
+    this.cache = new Map();
+    this.loadFromStorage();
+  }
+
+  /**
+   * Load cache from sessionStorage
+   */
+  loadFromStorage() {
+    try {
+      const stored = sessionStorage.getItem(THUMBNAIL_CACHE_KEY);
+      if (stored) {
+        const entries = JSON.parse(stored);
+        // Only load valid entries (with both meetingId and url)
+        entries.forEach(([meetingId, url]) => {
+          if (meetingId && url) {
+            this.cache.set(meetingId, url);
+          }
+        });
+      }
+    } catch (error) {
+      // Silently fail - cache is optional
+      console.warn('Failed to load thumbnail cache:', error.message);
+    }
+  }
+
+  /**
+   * Save cache to sessionStorage
+   */
+  saveToStorage() {
+    try {
+      const entries = Array.from(this.cache.entries());
+      sessionStorage.setItem(THUMBNAIL_CACHE_KEY, JSON.stringify(entries));
+    } catch (error) {
+      // Silently fail - cache is optional (might hit quota)
+      console.warn('Failed to save thumbnail cache:', error.message);
+    }
+  }
+
+  /**
+   * Get a cached thumbnail URL
+   * @param {string} meetingId - Meeting ID
+   * @returns {string|null} - Cached URL or null
+   */
+  get(meetingId) {
+    return this.cache.get(meetingId) || null;
+  }
+
+  /**
+   * Cache a thumbnail URL
+   * @param {string} meetingId - Meeting ID
+   * @param {string} url - Thumbnail URL
+   */
+  set(meetingId, url) {
+    if (!meetingId || !url) return;
+
+    // Evict oldest entries if cache is too large
+    if (this.cache.size >= THUMBNAIL_CACHE_MAX_SIZE) {
+      const oldestKey = this.cache.keys().next().value;
+      this.cache.delete(oldestKey);
+    }
+
+    this.cache.set(meetingId, url);
+    this.saveToStorage();
+  }
+
+  /**
+   * Check if a thumbnail is cached
+   * @param {string} meetingId - Meeting ID
+   * @returns {boolean}
+   */
+  has(meetingId) {
+    return this.cache.has(meetingId);
+  }
+
+  /**
+   * Get multiple cached thumbnails
+   * @param {Array<string>} meetingIds - Array of meeting IDs
+   * @returns {Map<string, string>} - Map of meetingId to URL for cached items
+   */
+  getMultiple(meetingIds) {
+    const result = new Map();
+    meetingIds.forEach(id => {
+      const url = this.cache.get(id);
+      if (url) {
+        result.set(id, url);
+      }
+    });
+    return result;
+  }
+
+  /**
+   * Cache multiple thumbnails at once
+   * @param {Map<string, string>} thumbnails - Map of meetingId to URL
+   */
+  setMultiple(thumbnails) {
+    if (!thumbnails || thumbnails.size === 0) return;
+
+    thumbnails.forEach((url, meetingId) => {
+      if (meetingId && url) {
+        // Evict oldest if needed
+        if (this.cache.size >= THUMBNAIL_CACHE_MAX_SIZE) {
+          const oldestKey = this.cache.keys().next().value;
+          this.cache.delete(oldestKey);
+        }
+        this.cache.set(meetingId, url);
+      }
+    });
+
+    this.saveToStorage();
+  }
+
+  /**
+   * Clear the cache
+   */
+  clear() {
+    this.cache.clear();
+    try {
+      sessionStorage.removeItem(THUMBNAIL_CACHE_KEY);
+    } catch (error) {
+      // Ignore
+    }
+  }
+
+  /**
+   * Get cache statistics
+   * @returns {Object}
+   */
+  getStats() {
+    return {
+      size: this.cache.size,
+      maxSize: THUMBNAIL_CACHE_MAX_SIZE,
+    };
+  }
+}
+
+// Singleton instance
+const thumbnailCache = new ThumbnailCache();
+
+/**
+ * Get the thumbnail cache instance
+ * @returns {ThumbnailCache}
+ */
+export function getThumbnailCache() {
+  return thumbnailCache;
+}
+
+/**
+ * Get cached thumbnails for meetings
+ * @param {Array<string>} meetingIds - Meeting IDs
+ * @returns {Map<string, string>} - Cached thumbnails
+ */
+export function getCachedThumbnails(meetingIds) {
+  return thumbnailCache.getMultiple(meetingIds);
+}
+
+/**
+ * Cache thumbnails
+ * @param {Map<string, string>} thumbnails - Map of meetingId to URL
+ */
+export function cacheThumbnails(thumbnails) {
+  thumbnailCache.setMultiple(thumbnails);
+}
+
+/**
+ * Clear the thumbnail cache
+ */
+export function clearThumbnailCache() {
+  thumbnailCache.clear();
+}
+
+// =============================================================================
 // THROTTLED REQUEST QUEUE
 // =============================================================================
 
@@ -525,6 +708,7 @@ export function createThrottledQueue(maxConcurrent = 3) {
 /**
  * Fetches thumbnails with proper throttling based on network speed
  * Limits concurrent requests to prevent browser connection pool exhaustion
+ * Uses client-side cache to prevent reloading already-fetched thumbnails
  *
  * @param {Array<string>} meetingIds - Array of meeting IDs to fetch thumbnails for
  * @param {string} backendUrl - Backend URL
@@ -532,17 +716,39 @@ export function createThrottledQueue(maxConcurrent = 3) {
  * @param {AbortSignal} options.signal - Abort signal
  * @param {Function} options.onResult - Callback for each result (meetingId, thumbnailUrl)
  * @param {number} options.timeout - Request timeout in ms (default: 10000)
+ * @param {boolean} options.skipCache - Skip cache lookup (default: false)
  * @returns {Promise<Map<string, string>>} - Map of meetingId to thumbnailUrl
  */
 export async function fetchThumbnailsThrottled(meetingIds, backendUrl, options = {}) {
-  const { signal, onResult, timeout = 10000 } = options;
+  const { signal, onResult, timeout = 10000, skipCache = false } = options;
+
+  const results = new Map();
+
+  // Check cache first - return cached thumbnails immediately
+  if (!skipCache) {
+    const cachedThumbnails = thumbnailCache.getMultiple(meetingIds);
+    cachedThumbnails.forEach((url, meetingId) => {
+      results.set(meetingId, url);
+      if (onResult) {
+        onResult(meetingId, url);
+      }
+    });
+
+    // Filter out already-cached meeting IDs
+    meetingIds = meetingIds.filter(id => !cachedThumbnails.has(id));
+
+    // If all thumbnails were cached, return immediately
+    if (meetingIds.length === 0) {
+      return results;
+    }
+  }
 
   // Get network-based concurrency limit (1-4 based on speed)
   const speed = await measureNetworkSpeed();
   const maxConcurrent = calculateParallelRequests(speed);
 
   const queue = createThrottledQueue(maxConcurrent);
-  const results = new Map();
+  const newlyFetched = new Map();
   const errors = [];
 
   // Handle abort signal
@@ -550,7 +756,7 @@ export async function fetchThumbnailsThrottled(meetingIds, backendUrl, options =
     signal.addEventListener('abort', () => queue.clear());
   }
 
-  // Create fetch promises for all thumbnails
+  // Create fetch promises for thumbnails not in cache
   const promises = meetingIds.map(meetingId =>
     queue.add(async () => {
       if (signal?.aborted) {
@@ -568,6 +774,7 @@ export async function fetchThumbnailsThrottled(meetingIds, backendUrl, options =
           const data = await response.json();
           if (data.thumbnailUrl) {
             results.set(meetingId, data.thumbnailUrl);
+            newlyFetched.set(meetingId, data.thumbnailUrl);
             if (onResult) {
               onResult(meetingId, data.thumbnailUrl);
             }
@@ -590,6 +797,11 @@ export async function fetchThumbnailsThrottled(meetingIds, backendUrl, options =
   // Wait for all to complete (or fail)
   await Promise.allSettled(promises);
 
+  // Cache newly fetched thumbnails for future use
+  if (newlyFetched.size > 0) {
+    thumbnailCache.setMultiple(newlyFetched);
+  }
+
   return results;
 }
 
@@ -611,6 +823,10 @@ const networkSpeedUtils = {
   clearInFlightRequests,
   createThrottledQueue,
   fetchThumbnailsThrottled,
+  getThumbnailCache,
+  getCachedThumbnails,
+  cacheThumbnails,
+  clearThumbnailCache,
   BATCH_CONFIG,
   DEFAULT_FETCH_TIMEOUT,
 };

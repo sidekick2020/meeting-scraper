@@ -5,7 +5,7 @@ import ParseDiagnostics from './ParseDiagnostics';
 import { SidebarToggleButton } from './PublicSidebar';
 import { useDataCache } from '../contexts/DataCacheContext';
 import { useParse } from '../contexts/ParseContext';
-import { fetchThumbnailsThrottled } from '../utils/networkSpeed';
+import { fetchThumbnailsThrottled, getCachedThumbnails } from '../utils/networkSpeed';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -22,6 +22,25 @@ const CACHE_KEYS = {
 
 // Cache TTL: 10 minutes for meetings data
 const MEETINGS_CACHE_TTL = 10 * 60 * 1000;
+
+/**
+ * Apply cached thumbnails to meetings that don't have them
+ * This prevents re-fetching thumbnails that were already loaded
+ */
+const applyCachedThumbnails = (meetings) => {
+  const meetingIds = meetings.filter(m => !m.thumbnailUrl && m.objectId).map(m => m.objectId);
+  if (meetingIds.length === 0) return meetings;
+
+  const cached = getCachedThumbnails(meetingIds);
+  if (cached.size === 0) return meetings;
+
+  return meetings.map(m => {
+    if (!m.thumbnailUrl && m.objectId && cached.has(m.objectId)) {
+      return { ...m, thumbnailUrl: cached.get(m.objectId) };
+    }
+    return m;
+  });
+};
 
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const dayAbbrev = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -481,7 +500,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
           const total = result.total || newMeetings.length;
 
           setTotalMeetings(total);
-          setMeetings(newMeetings);
+          // Apply cached thumbnails to avoid re-fetching already-loaded thumbnails
+          setMeetings(applyCachedThumbnails(newMeetings));
 
           // Update available cities from results
           const cities = [...new Set(newMeetings.map(m => m.city).filter(Boolean))].sort();
@@ -534,7 +554,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
           const total = data.total || newMeetings.length;
 
           setTotalMeetings(total);
-          setMeetings(newMeetings);
+          // Apply cached thumbnails to avoid re-fetching already-loaded thumbnails
+          setMeetings(applyCachedThumbnails(newMeetings));
 
           const cities = [...new Set(newMeetings.map(m => m.city).filter(Boolean))].sort();
           setAvailableCities(cities);
