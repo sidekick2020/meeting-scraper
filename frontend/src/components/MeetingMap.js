@@ -759,9 +759,7 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
       <div className="map-header">
         <h3>Meeting Locations</h3>
         <span className="map-stats">
-          {isLoading && !mapData.clusters?.length && !mapData.meetings?.length && !stateData.states?.length ? (
-            'Loading...'
-          ) : showIndividualMeetings ? (
+          {showIndividualMeetings ? (
             `${validMeetings.length} meetings in view`
           ) : showStateLevel ? (
             `${effectiveStateData.total?.toLocaleString() || 0} meetings across ${effectiveStateData.statesWithMeetings || 0} states`
@@ -863,22 +861,6 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
           );
         })}
       </MapContainer>
-
-      {/* Show full loading overlay only when we have no data to show */}
-      {isLoading && !mapData.clusters?.length && !mapData.meetings?.length && !stateData.states?.length && (
-        <div className="map-loading-overlay">
-          <div className="loading-spinner small"></div>
-          <span>Loading map data...</span>
-        </div>
-      )}
-
-      {/* Show subtle refresh indicator when we have cached data and are updating */}
-      {isRefreshing && (mapData.clusters?.length > 0 || mapData.meetings?.length > 0) && (
-        <div className="map-refresh-indicator">
-          <div className="loading-spinner tiny"></div>
-          <span>Updating...</span>
-        </div>
-      )}
 
       <div className="map-legend">
         <div className="legend-item">
