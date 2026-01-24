@@ -1504,7 +1504,7 @@ function AdminPanel({ onBackToPublic }) {
                   Public View
                 </button>
                 <a
-                  href="https://dashboard.render.com"
+                  href="https://dashboard.render.com/project/prj-d5n7urje5dus73f07fr0"
                   className="dropdown-item"
                   target="_blank"
                   rel="noopener noreferrer"
