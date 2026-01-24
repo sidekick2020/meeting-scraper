@@ -4728,6 +4728,54 @@ a.sidebar-nav-item {
   animation: skeleton-shimmer 1.5s infinite;
 }
 
+/* Source row skeleton loading */
+.source-row.skeleton-row {
+  cursor: default;
+  pointer-events: none;
+}
+
+.source-row.skeleton-row td {
+  padding: 0.875rem 1rem;
+}
+
+.source-row.skeleton-row:nth-child(1) * { animation-delay: 0s; }
+.source-row.skeleton-row:nth-child(2) * { animation-delay: 0.05s; }
+.source-row.skeleton-row:nth-child(3) * { animation-delay: 0.1s; }
+.source-row.skeleton-row:nth-child(4) * { animation-delay: 0.15s; }
+.source-row.skeleton-row:nth-child(5) * { animation-delay: 0.2s; }
+.source-row.skeleton-row:nth-child(6) * { animation-delay: 0.25s; }
+.source-row.skeleton-row:nth-child(7) * { animation-delay: 0.3s; }
+.source-row.skeleton-row:nth-child(8) * { animation-delay: 0.35s; }
+
+/* Sources page empty state */
+.sources-content .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.sources-content .empty-state svg {
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.sources-content .empty-state p {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.sources-content .empty-state .empty-hint {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
+
 /* ============================================================================
    SOURCES PAGE - Consolidated Admin Sources UI
    ============================================================================ */

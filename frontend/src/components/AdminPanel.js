@@ -909,6 +909,7 @@ function AdminPanel({ onBackToPublic }) {
         return (
           <SourcesPage
             feeds={feeds}
+            feedsLoading={feedsLoading}
             onSelectSource={setSelectedSource}
             onRefreshFeeds={fetchFeeds}
           />
