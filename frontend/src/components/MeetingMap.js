@@ -858,7 +858,7 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
 
   // Determine what to display based on zoom level
   const showStateLevel = currentZoom < STATE_ZOOM_THRESHOLD && effectiveStateData.states?.length > 0;
-  const showClusters = !showStateLevel && effectiveMapData.mode === 'clustered' && effectiveMapData.clusters?.length > 0;
+  const showClusters = !showStateLevel && (effectiveMapData.mode === 'clustered' || effectiveMapData.mode === 'indicators') && effectiveMapData.clusters?.length > 0;
   const showIndividualMeetings = effectiveMapData.mode === 'individual' && effectiveMapData.meetings?.length > 0;
   // Show heatmap during loading/transitions - only hide when we actually have individual meetings displayed
   // The heatmap persists while waiting for data, ensuring users see context until better data loads
