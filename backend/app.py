@@ -7343,33 +7343,6 @@ def add_meeting_source():
     })
 
 
-@app.route('/api/feeds', methods=['GET'])
-def list_all_feeds():
-    """List all configured meeting feeds"""
-    all_feeds = get_all_feeds()
-
-    feeds_list = []
-    for name, config in all_feeds.items():
-        feeds_list.append({
-            'name': name,
-            'url': config.get('url'),
-            'state': config.get('state'),
-            'type': config.get('type', 'tsml')
-        })
-
-    # Sort by state then name
-    feeds_list.sort(key=lambda x: (x['state'], x['name']))
-
-    return jsonify({
-        'feeds': feeds_list,
-        'totalFeeds': len(feeds_list),
-        'byType': {
-            'tsml': len([f for f in feeds_list if f['type'] == 'tsml']),
-            'bmlt': len([f for f in feeds_list if f['type'] == 'bmlt'])
-        }
-    })
-
-
 # ============================================
 # Pending Source Submissions (for non-admin review workflow)
 # ============================================
