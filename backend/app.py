@@ -4075,6 +4075,33 @@ def get_coverage():
 def get_meetings():
     """Get all meetings from Back4app for public viewing.
 
+    Query Parameters:
+        limit (int): Max results to return (default 1000, max 1000)
+        skip (int): Number of results to skip for pagination (default 0)
+        state (str): Filter by US state abbreviation (e.g., 'CA', 'NY')
+        day (str): Filter by day of week (0=Sunday, 6=Saturday)
+        search (str): Search in meeting name (case-insensitive)
+        type (str): Filter by meeting type
+        city (str): Filter by city name
+        online (str): Filter online meetings ('true')
+        hybrid (str): Filter hybrid meetings ('true')
+        format (str): Filter by meeting format
+
+    Geographic Filtering Parameters:
+        north (float): Northern latitude boundary (-90 to 90)
+        south (float): Southern latitude boundary (-90 to 90)
+        east (float): Eastern longitude boundary (-180 to 180)
+        west (float): Western longitude boundary (-180 to 180)
+        center_lat (float): Center latitude for distance-based sorting
+        center_lng (float): Center longitude for distance-based sorting
+
+    Note: When all four bounds (north, south, east, west) are provided,
+    only meetings within the bounding box are returned. Supports dateline
+    crossing when east < west (e.g., viewing Pacific Ocean from Asia to Americas).
+
+    Returns:
+        JSON with 'meetings' array and 'total' count
+
     Performance optimizations:
     - Uses connection pooling via requests.Session
     - Field projection reduces payload by ~60%
@@ -4129,10 +4156,28 @@ def get_meetings():
         if meeting_format:
             where['format'] = meeting_format
 
-        # Add geographic bounds filtering
+        # Add geographic bounds filtering with validation
         if all(v is not None for v in [north, south, east, west]):
+            # Validate coordinate ranges
+            if not (-90 <= south <= 90 and -90 <= north <= 90):
+                return jsonify({"error": "Latitude must be between -90 and 90"}), 400
+            if not (-180 <= west <= 180 and -180 <= east <= 180):
+                return jsonify({"error": "Longitude must be between -180 and 180"}), 400
+            if south > north:
+                return jsonify({"error": "South latitude must be less than or equal to north"}), 400
+
             where['latitude'] = {"$gte": south, "$lte": north}
-            where['longitude'] = {"$gte": west, "$lte": east}
+
+            # Handle dateline crossing (when bounding box spans the international dateline)
+            if west > east:
+                # Dateline crossing: match longitudes >= west OR <= east
+                # e.g., west=170, east=-170 means from 170 to 180 and -180 to -170
+                where['$or'] = [
+                    {'longitude': {'$gte': west}},
+                    {'longitude': {'$lte': east}}
+                ]
+            else:
+                where['longitude'] = {"$gte": west, "$lte": east}
 
         import urllib.parse
         params = {
