@@ -2,6 +2,154 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
+// Meeting Preview Component - shows sample meetings with expandable details
+function MeetingPreview({ meeting, isExpanded, onToggle }) {
+  const formatTime = (time) => {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':');
+    const h = parseInt(hours);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `${h12}:${minutes} ${ampm}`;
+  };
+
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  return (
+    <div className={`meeting-preview-item ${isExpanded ? 'expanded' : ''}`}>
+      <div className="meeting-preview-header" onClick={onToggle}>
+        <div className="meeting-basic-info">
+          <span className="meeting-name">{meeting.name || 'Unnamed Meeting'}</span>
+          <span className="meeting-schedule">
+            {dayNames[meeting.day] || ''} {formatTime(meeting.time)}
+          </span>
+        </div>
+        <svg
+          className={`expand-chevron ${isExpanded ? 'expanded' : ''}`}
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </div>
+      {isExpanded && (
+        <div className="meeting-details">
+          {meeting.location && (
+            <div className="meeting-detail-row">
+              <span className="detail-label">Location:</span>
+              <span className="detail-value">{meeting.location}</span>
+            </div>
+          )}
+          {(meeting.formatted_address || meeting.address) && (
+            <div className="meeting-detail-row">
+              <span className="detail-label">Address:</span>
+              <span className="detail-value">{meeting.formatted_address || meeting.address}</span>
+            </div>
+          )}
+          {meeting.types && meeting.types.length > 0 && (
+            <div className="meeting-detail-row">
+              <span className="detail-label">Types:</span>
+              <span className="detail-value meeting-types">
+                {meeting.types.map((type, idx) => (
+                  <span key={idx} className="meeting-type-badge">{type}</span>
+                ))}
+              </span>
+            </div>
+          )}
+          {meeting.notes && (
+            <div className="meeting-detail-row">
+              <span className="detail-label">Notes:</span>
+              <span className="detail-value meeting-notes">{meeting.notes}</span>
+            </div>
+          )}
+          {meeting.conference_url && (
+            <div className="meeting-detail-row">
+              <span className="detail-label">Online:</span>
+              <a href={meeting.conference_url} target="_blank" rel="noopener noreferrer" className="detail-value meeting-link">
+                Join Online
+              </a>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Source Card with meeting preview
+function SourceCard({ source, onUse }) {
+  const [showMeetings, setShowMeetings] = useState(false);
+  const [expandedMeeting, setExpandedMeeting] = useState(null);
+
+  return (
+    <div className={`source-card ${source.discovered ? 'discovered' : ''}`}>
+      <div className="source-card-header">
+        <div className="source-info">
+          <span className="source-name">{source.name}</span>
+          <span className="source-url">{source.url}</span>
+          <div className="source-stats">
+            <span className="source-meeting-count">{source.meetingCount} meetings</span>
+            {source.discovered && <span className="source-badge discovered">NEW</span>}
+          </div>
+        </div>
+        <div className="source-actions">
+          <button
+            className="btn btn-sm btn-primary"
+            onClick={() => onUse(source)}
+          >
+            Use This Source
+          </button>
+        </div>
+      </div>
+
+      {source.sampleMeetings && source.sampleMeetings.length > 0 && (
+        <div className="source-meetings-section">
+          <button
+            className="meetings-toggle"
+            onClick={() => setShowMeetings(!showMeetings)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <span>Preview Meetings ({source.sampleMeetings.length})</span>
+            <svg
+              className={`expand-icon ${showMeetings ? 'expanded' : ''}`}
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+
+          {showMeetings && (
+            <div className="meetings-preview-list">
+              {source.sampleMeetings.map((meeting, idx) => (
+                <MeetingPreview
+                  key={idx}
+                  meeting={meeting}
+                  isExpanded={expandedMeeting === idx}
+                  onToggle={() => setExpandedMeeting(expandedMeeting === idx ? null : idx)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Expandable script preview component
 function ScriptDraftPreview({ draft, onDelete, onUse }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -143,6 +291,9 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
   const [discoveryNotes, setDiscoveryNotes] = useState([]);
   const [intergroups, setIntergroups] = useState({ known: [], generated: [] });
   const [validateUrls, setValidateUrls] = useState(true);
+  const [useDeepDiscovery, setUseDeepDiscovery] = useState(true);
+  const [discoveredSources, setDiscoveredSources] = useState([]);
+  const [allDiscoveredMeetings, setAllDiscoveredMeetings] = useState([]);
 
   // Testing state
   const [isTesting, setIsTesting] = useState(false);
@@ -205,6 +356,9 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
     setDiscoveryNotes([]);
     setIntergroups({ known: [], generated: [] });
     setValidateUrls(true);
+    setUseDeepDiscovery(true);
+    setDiscoveredSources([]);
+    setAllDiscoveredMeetings([]);
     setIsTesting(false);
     setTestResults(null);
     setAttemptHistory([]);
@@ -327,15 +481,84 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
     setIsDiscovering(true);
     setDiscoveryNotes([]);
     setIntergroups({ known: [], generated: [] });
+    setDiscoveredSources([]);
+    setAllDiscoveredMeetings([]);
 
-    // Add initial discovery note
+    // Also load any existing drafts for this state
+    loadDrafts(selectedState);
+
+    // Use deep discovery streaming endpoint if enabled
+    if (useDeepDiscovery) {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/intergroup-research/discover-deep-stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            state: selectedState
+          })
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+
+                if (data.type === 'note') {
+                  setDiscoveryNotes(data.notes || []);
+                } else if (data.type === 'source_found') {
+                  setDiscoveredSources(prev => [...prev, data.source]);
+                  setDiscoveryNotes(data.notes || []);
+                } else if (data.type === 'complete') {
+                  setDiscoveryNotes(data.notes || []);
+                  setDiscoveredSources(data.sources || []);
+                  setAllDiscoveredMeetings(data.allMeetings || []);
+
+                  // Also update intergroups for backward compatibility
+                  setIntergroups({
+                    known: [],
+                    generated: data.sources?.map(s => ({
+                      name: s.name,
+                      domain: s.domain || new URL(s.url).hostname,
+                      type: s.type,
+                      validated: true,
+                      meetingCount: s.meetingCount,
+                      url: s.url,
+                      sampleMeetings: s.sampleMeetings
+                    })) || []
+                  });
+                }
+              } catch (e) {
+                console.error('Error parsing SSE data:', e);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Deep discovery error:', error);
+        setDiscoveryNotes(prev => [...prev, `Error: ${error.message}`]);
+      } finally {
+        setIsDiscovering(false);
+      }
+      return;
+    }
+
+    // Original non-streaming discovery
     const initialNote = validateUrls
       ? `Searching and validating AA intergroups in ${stateNames[selectedState]}...`
       : `Searching for AA intergroups in ${stateNames[selectedState]}...`;
     setDiscoveryNotes([initialNote]);
-
-    // Also load any existing drafts for this state
-    loadDrafts(selectedState);
 
     try {
       // Use validated endpoint if validation is enabled
@@ -614,22 +837,43 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
         </select>
       </div>
 
-      {/* URL Validation Toggle */}
-      <div className="validation-toggle">
-        <label className="toggle-label">
-          <input
-            type="checkbox"
-            checked={validateUrls}
-            onChange={(e) => setValidateUrls(e.target.checked)}
-            disabled={isDiscovering}
-          />
-          <span className="toggle-text">
-            Only show validated URLs
-            <span className="toggle-hint">
-              {validateUrls ? '(Tests each URL - slower but more accurate)' : '(Shows all patterns - faster but includes dead links)'}
+      {/* Discovery Mode Toggle */}
+      <div className="discovery-options">
+        <div className="validation-toggle">
+          <label className="toggle-label">
+            <input
+              type="checkbox"
+              checked={useDeepDiscovery}
+              onChange={(e) => setUseDeepDiscovery(e.target.checked)}
+              disabled={isDiscovering}
+            />
+            <span className="toggle-text">
+              Deep Discovery Mode
+              <span className="toggle-hint">
+                {useDeepDiscovery ? '(Real-time scraping with meeting previews)' : '(Quick pattern-based search)'}
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
+        </div>
+
+        {!useDeepDiscovery && (
+          <div className="validation-toggle">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={validateUrls}
+                onChange={(e) => setValidateUrls(e.target.checked)}
+                disabled={isDiscovering}
+              />
+              <span className="toggle-text">
+                Only show validated URLs
+                <span className="toggle-hint">
+                  {validateUrls ? '(Tests each URL - slower but more accurate)' : '(Shows all patterns - faster but includes dead links)'}
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
       </div>
 
       <button
@@ -662,18 +906,52 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
               <polyline points="14,2 14,8 20,8"/>
             </svg>
             <span>Discovery Log</span>
+            {isDiscovering && <span className="discovery-spinner"></span>}
           </div>
           <div className="discovery-notes-list">
             {discoveryNotes.map((note, index) => (
               <div
                 key={index}
-                className={`discovery-note ${note.startsWith('✓') ? 'success' : note.startsWith('✗') ? 'error' : note.includes('Error') ? 'error' : ''}`}
+                className={`discovery-note ${note.startsWith('✓') ? 'success' : note.startsWith('✗') ? 'error' : note.includes('Error') ? 'error' : note.includes('DISCOVERED') ? 'discovered' : ''}`}
               >
                 <span className="note-bullet">
-                  {note.startsWith('✓') ? '' : note.startsWith('✗') ? '' : note.includes('SUCCESS') ? '✓' : note.includes('Checking') || note.includes('Testing') ? '→' : '•'}
+                  {note.startsWith('✓') ? '' : note.startsWith('✗') ? '' : note.includes('SUCCESS') ? '✓' : note.includes('Checking') || note.includes('Testing') || note.includes('Trying') ? '→' : '•'}
                 </span>
                 <span className="note-text">{note}</span>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Discovered Sources with Meeting Preview (Deep Discovery Mode) */}
+      {useDeepDiscovery && discoveredSources.length > 0 && (
+        <div className="discovered-sources-section">
+          <div className="discovered-sources-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <span>Found {discoveredSources.length} source(s) with {discoveredSources.reduce((acc, s) => acc + (s.meetingCount || 0), 0)} total meetings</span>
+          </div>
+          <div className="discovered-sources-list">
+            {discoveredSources.map((source, index) => (
+              <SourceCard
+                key={index}
+                source={source}
+                onUse={(s) => {
+                  setSourceName(s.name);
+                  setSourceUrl(s.url);
+                  setFeedType('tsml');
+                  setTestResults({
+                    success: true,
+                    totalMeetings: s.meetingCount,
+                    feedType: 'tsml',
+                    sampleMeetings: s.sampleMeetings
+                  });
+                  setCurrentStep('review');
+                }}
+              />
             ))}
           </div>
         </div>
@@ -1006,7 +1284,19 @@ function SourceWizard({ isOpen, onClose, onComplete, initialState, existingSessi
         <div className="review-card">
           <div className="review-card-header">
             <span className="review-state-badge">{selectedState}</span>
-            <span className="review-source-name">{sourceName}</span>
+          </div>
+
+          {/* Editable Source Name */}
+          <div className="review-name-edit">
+            <label>Source Name</label>
+            <input
+              type="text"
+              value={sourceName}
+              onChange={(e) => setSourceName(e.target.value)}
+              placeholder="Enter a name for this source"
+              className="source-name-input"
+            />
+            <span className="form-hint">This name will appear in the sources list</span>
           </div>
 
           <div className="review-details">
