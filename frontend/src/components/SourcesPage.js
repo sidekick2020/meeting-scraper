@@ -956,7 +956,7 @@ function AddSourcePanel({ isOpen, onClose, initialState, prefillData, onComplete
 }
 
 // Main SourcesPage Component
-function SourcesPage({ feeds, onSelectSource, onRefreshFeeds }) {
+function SourcesPage({ feeds, feedsLoading, onSelectSource, onRefreshFeeds }) {
   const { getCache, setCache } = useDataCache();
 
   // State
@@ -1264,81 +1264,123 @@ function SourcesPage({ feeds, onSelectSource, onRefreshFeeds }) {
             )}
           </div>
 
-          <div className="sources-count">
-            {sortedSources.length} of {feeds.length} sources
-          </div>
+          {!feedsLoading && (
+            <div className="sources-count">
+              {sortedSources.length} of {feeds.length} sources
+            </div>
+          )}
 
-          <div className="sources-table-wrapper">
-            <table className="sources-table">
-              <thead>
-                <tr>
-                  <th className="sortable" onClick={() => handleSort('name')}>
-                    Name
-                    {sortColumn === 'name' && (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d={sortDirection === 'asc' ? 'M7 14l5-5 5 5' : 'M7 10l5 5 5-5'}/>
-                      </svg>
-                    )}
-                  </th>
-                  <th className="sortable" onClick={() => handleSort('state')}>
-                    State
-                    {sortColumn === 'state' && (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d={sortDirection === 'asc' ? 'M7 14l5-5 5 5' : 'M7 10l5 5 5-5'}/>
-                      </svg>
-                    )}
-                  </th>
-                  <th className="sortable" onClick={() => handleSort('lastScraped')}>
-                    Last Run
-                    {sortColumn === 'lastScraped' && (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d={sortDirection === 'asc' ? 'M7 14l5-5 5 5' : 'M7 10l5 5 5-5'}/>
-                      </svg>
-                    )}
-                  </th>
-                  <th className="sortable" onClick={() => handleSort('meetingCount')}>
-                    Meetings
-                    {sortColumn === 'meetingCount' && (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d={sortDirection === 'asc' ? 'M7 14l5-5 5 5' : 'M7 10l5 5 5-5'}/>
-                      </svg>
-                    )}
-                  </th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedSources.map((feed, index) => {
-                  const isStale = !feed.lastScraped ||
-                    (new Date() - new Date(feed.lastScraped)) > (7 * 24 * 60 * 60 * 1000);
-                  return (
-                    <tr
-                      key={index}
-                      className="source-row"
-                      onClick={() => onSelectSource?.(feed)}
-                    >
+          {feedsLoading ? (
+            <div className="sources-table-wrapper">
+              <table className="sources-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>State</th>
+                    <th>Last Run</th>
+                    <th>Meetings</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...Array(8)].map((_, i) => (
+                    <tr key={i} className="source-row skeleton-row">
                       <td className="source-name-cell">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <circle cx="12" cy="12" r="10"/>
-                          <path d="M2 12h20"/>
-                          <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
-                        </svg>
-                        <span>{feed.name}</span>
+                        <div className="skeleton-icon"></div>
+                        <div className="skeleton-text" style={{ width: `${120 + (i % 4) * 30}px` }}></div>
                       </td>
-                      <td><span className="state-badge">{feed.state}</span></td>
-                      <td className={isStale ? 'stale' : ''}>{formatLastScraped(feed.lastScraped)}</td>
-                      <td>{feed.meetingCount > 0 ? feed.meetingCount.toLocaleString() : '—'}</td>
-                      <td>
-                        <span className={`status-badge ${isStale ? 'stale' : 'active'}`}>
-                          {isStale ? 'Needs Refresh' : 'Active'}
-                        </span>
-                      </td>
+                      <td><div className="skeleton-badge"></div></td>
+                      <td><div className="skeleton-text" style={{ width: '60px' }}></div></td>
+                      <td><div className="skeleton-text" style={{ width: '40px' }}></div></td>
+                      <td><div className="skeleton-badge" style={{ width: '80px' }}></div></td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : feeds.length === 0 ? (
+            <div className="empty-state">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+              </svg>
+              <p>No sources configured</p>
+              <span className="empty-hint">Add meeting data sources to get started</span>
+            </div>
+          ) : (
+            <div className="sources-table-wrapper">
+              <table className="sources-table">
+                <thead>
+                  <tr>
+                    <th className="sortable" onClick={() => handleSort('name')}>
+                      Name
+                      {sortColumn === 'name' && (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d={sortDirection === 'asc' ? 'M7 14l5-5 5 5' : 'M7 10l5 5 5-5'}/>
+                        </svg>
+                      )}
+                    </th>
+                    <th className="sortable" onClick={() => handleSort('state')}>
+                      State
+                      {sortColumn === 'state' && (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d={sortDirection === 'asc' ? 'M7 14l5-5 5 5' : 'M7 10l5 5 5-5'}/>
+                        </svg>
+                      )}
+                    </th>
+                    <th className="sortable" onClick={() => handleSort('lastScraped')}>
+                      Last Run
+                      {sortColumn === 'lastScraped' && (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d={sortDirection === 'asc' ? 'M7 14l5-5 5 5' : 'M7 10l5 5 5-5'}/>
+                        </svg>
+                      )}
+                    </th>
+                    <th className="sortable" onClick={() => handleSort('meetingCount')}>
+                      Meetings
+                      {sortColumn === 'meetingCount' && (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d={sortDirection === 'asc' ? 'M7 14l5-5 5 5' : 'M7 10l5 5 5-5'}/>
+                        </svg>
+                      )}
+                    </th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedSources.map((feed, index) => {
+                    const isStale = !feed.lastScraped ||
+                      (new Date() - new Date(feed.lastScraped)) > (7 * 24 * 60 * 60 * 1000);
+                    return (
+                      <tr
+                        key={index}
+                        className="source-row"
+                        onClick={() => onSelectSource?.(feed)}
+                      >
+                        <td className="source-name-cell">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M2 12h20"/>
+                            <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+                          </svg>
+                          <span>{feed.name}</span>
+                        </td>
+                        <td><span className="state-badge">{feed.state}</span></td>
+                        <td className={isStale ? 'stale' : ''}>{formatLastScraped(feed.lastScraped)}</td>
+                        <td>{feed.meetingCount > 0 ? feed.meetingCount.toLocaleString() : '—'}</td>
+                        <td>
+                          <span className={`status-badge ${isStale ? 'stale' : 'active'}`}>
+                            {isStale ? 'Needs Refresh' : 'Active'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
