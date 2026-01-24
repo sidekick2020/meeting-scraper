@@ -5,6 +5,9 @@ import Combine
 
 // MARK: - Meeting Model
 struct Meeting: ParseObject {
+    // Map to the "Meetings" class in Back4App (plural)
+    static var className: String { "Meetings" }
+
     var objectId: String?
     var createdAt: Date?
     var updatedAt: Date?
