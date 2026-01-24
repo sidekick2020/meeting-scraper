@@ -291,6 +291,36 @@ const ADMIN_CACHE_KEYS = {
 // Cache TTL: 5 minutes for admin data
 const ADMIN_CACHE_TTL = 5 * 60 * 1000;
 
+// Calculate distance between two lat/lng points using Haversine formula
+// Returns distance in miles
+const calculateDistance = (lat1, lng1, lat2, lng2) => {
+  if (!lat1 || !lng1 || !lat2 || !lng2) return Infinity;
+  const R = 3959; // Earth's radius in miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+// Calculate bounding box from center point and radius in miles
+const calculateBoundingBox = (centerLat, centerLng, radiusMiles) => {
+  const R = 3959; // Earth's radius in miles
+  const lat = centerLat * Math.PI / 180;
+  const deltaLat = radiusMiles / R;
+  const deltaLng = radiusMiles / (R * Math.cos(lat));
+
+  return {
+    north: centerLat + (deltaLat * 180 / Math.PI),
+    south: centerLat - (deltaLat * 180 / Math.PI),
+    east: centerLng + (deltaLng * 180 / Math.PI),
+    west: centerLng - (deltaLng * 180 / Math.PI)
+  };
+};
+
 function AdminPanel({ onBackToPublic }) {
   const { user, signOut } = useAuth();
   const { getCache, setCache } = useDataCache();
@@ -400,6 +430,19 @@ function AdminPanel({ onBackToPublic }) {
   const [availableStates, setAvailableStates] = useState(cachedStates?.data || []);
   const DIRECTORY_PAGE_SIZE = 25;
 
+  // Location filter state
+  const [directoryLocation, setDirectoryLocation] = useState(null); // { lat, lng, name }
+  const [directoryLocationSearch, setDirectoryLocationSearch] = useState('');
+  const [directoryLocationResults, setDirectoryLocationResults] = useState([]);
+  const [directoryLocationSearching, setDirectoryLocationSearching] = useState(false);
+  const [directoryRadius, setDirectoryRadius] = useState(25); // miles
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const locationSearchTimeoutRef = useRef(null);
+  const locationDropdownRef = useRef(null);
+
+  // Sorting state
+  const [directorySort, setDirectorySort] = useState({ column: null, direction: 'asc' });
+
   const isRunningRef = useRef(false);
   const pollIntervalRef = useRef(null);
   const statusFetchInProgressRef = useRef(false);
@@ -504,7 +547,7 @@ function AdminPanel({ onBackToPublic }) {
   }, []);
 
   // Fetch directory meetings (initial load or filter change)
-  const fetchDirectoryMeetings = useCallback(async (search = '', state = '', day = '', type = '', online = '') => {
+  const fetchDirectoryMeetings = useCallback(async (search = '', state = '', day = '', type = '', online = '', location = null, radius = 25) => {
     setDirectoryLoading(true);
     setDirectoryMeetings([]);
     const controller = new AbortController();
@@ -519,6 +562,13 @@ function AdminPanel({ onBackToPublic }) {
       if (online === 'online') url += `&online=true`;
       if (online === 'hybrid') url += `&hybrid=true`;
       if (online === 'in-person') url += `&online=false`;
+
+      // Add location bounds if location is set
+      if (location && location.lat && location.lng) {
+        const bounds = calculateBoundingBox(location.lat, location.lng, radius);
+        url += `&north=${bounds.north}&south=${bounds.south}&east=${bounds.east}&west=${bounds.west}`;
+        url += `&center_lat=${location.lat}&center_lng=${location.lng}`;
+      }
 
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -559,6 +609,13 @@ function AdminPanel({ onBackToPublic }) {
       if (directoryOnline === 'hybrid') url += `&hybrid=true`;
       if (directoryOnline === 'in-person') url += `&online=false`;
 
+      // Add location bounds if location is set
+      if (directoryLocation && directoryLocation.lat && directoryLocation.lng) {
+        const bounds = calculateBoundingBox(directoryLocation.lat, directoryLocation.lng, directoryRadius);
+        url += `&north=${bounds.north}&south=${bounds.south}&east=${bounds.east}&west=${bounds.west}`;
+        url += `&center_lat=${directoryLocation.lat}&center_lng=${directoryLocation.lng}`;
+      }
+
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
 
@@ -577,7 +634,93 @@ function AdminPanel({ onBackToPublic }) {
     } finally {
       setDirectoryLoadingMore(false);
     }
-  }, [directoryMeetings.length, directorySearch, directoryState, directoryDay, directoryType, directoryOnline, directoryLoadingMore, directoryHasMore, DIRECTORY_PAGE_SIZE]);
+  }, [directoryMeetings.length, directorySearch, directoryState, directoryDay, directoryType, directoryOnline, directoryLoadingMore, directoryHasMore, directoryLocation, directoryRadius, DIRECTORY_PAGE_SIZE]);
+
+  // Search for locations using Nominatim
+  const searchLocations = useCallback(async (query) => {
+    if (!query || query.length < 2) {
+      setDirectoryLocationResults([]);
+      return;
+    }
+
+    // Clear any pending search
+    if (locationSearchTimeoutRef.current) {
+      clearTimeout(locationSearchTimeoutRef.current);
+    }
+
+    // Debounce the API call
+    locationSearchTimeoutRef.current = setTimeout(async () => {
+      setDirectoryLocationSearching(true);
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?` +
+          `format=json&q=${encodeURIComponent(query)}&countrycodes=us&limit=5&addressdetails=1`,
+          {
+            headers: {
+              'User-Agent': 'MeetingScraper/1.0'
+            }
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const locations = data.map(item => ({
+            value: item.display_name.split(',').slice(0, 2).join(',').trim(),
+            fullLabel: item.display_name,
+            lat: parseFloat(item.lat),
+            lng: parseFloat(item.lon),
+            city: item.address?.city || item.address?.town || item.address?.village || '',
+            state: item.address?.state || ''
+          }));
+          setDirectoryLocationResults(locations);
+        }
+      } catch (error) {
+        console.error('Location search error:', error);
+      } finally {
+        setDirectoryLocationSearching(false);
+      }
+    }, 300);
+  }, []);
+
+  // Handle location selection
+  const handleLocationSelect = useCallback((location) => {
+    setDirectoryLocation({
+      lat: location.lat,
+      lng: location.lng,
+      name: location.value
+    });
+    setDirectoryLocationSearch(location.value);
+    setShowLocationDropdown(false);
+    setDirectoryLocationResults([]);
+  }, []);
+
+  // Clear location filter
+  const clearLocationFilter = useCallback(() => {
+    setDirectoryLocation(null);
+    setDirectoryLocationSearch('');
+    setDirectoryLocationResults([]);
+    setShowLocationDropdown(false);
+  }, []);
+
+  // Handle click outside location dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (locationDropdownRef.current && !locationDropdownRef.current.contains(event.target)) {
+        setShowLocationDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Cleanup location search timeout
+  useEffect(() => {
+    return () => {
+      if (locationSearchTimeoutRef.current) {
+        clearTimeout(locationSearchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Poll scraping state from backend (for scraper progress updates only)
   const fetchScrapingState = useCallback(async () => {
@@ -680,7 +823,7 @@ function AdminPanel({ onBackToPublic }) {
 
   useEffect(() => {
     if (activeSection === 'directory') {
-      const hasFilters = directorySearch || directoryState || directoryDay || directoryType || directoryOnline;
+      const hasFilters = directorySearch || directoryState || directoryDay || directoryType || directoryOnline || directoryLocation;
       // Fetch if:
       // 1. We have no meetings and haven't done initial fetch yet, OR
       // 2. Filters changed (hasFilters is truthy means user set a filter)
@@ -688,13 +831,13 @@ function AdminPanel({ onBackToPublic }) {
 
       if (needsInitialFetch || hasFilters) {
         initialDirectoryFetchRef.current = true;
-        fetchDirectoryMeetings(directorySearch, directoryState, directoryDay, directoryType, directoryOnline);
+        fetchDirectoryMeetings(directorySearch, directoryState, directoryDay, directoryType, directoryOnline, directoryLocation, directoryRadius);
       }
     } else {
       // Reset the ref when leaving directory section so next visit fetches fresh
       initialDirectoryFetchRef.current = false;
     }
-  }, [activeSection, directorySearch, directoryState, directoryDay, directoryType, directoryOnline, fetchDirectoryMeetings, directoryMeetings.length]);
+  }, [activeSection, directorySearch, directoryState, directoryDay, directoryType, directoryOnline, directoryLocation, directoryRadius, fetchDirectoryMeetings, directoryMeetings.length]);
 
   // Cache feeds when they change
   useEffect(() => {
@@ -1197,7 +1340,7 @@ function AdminPanel({ onBackToPublic }) {
         };
 
         // Check if any filters are active
-        const hasActiveFilters = directorySearch || directoryState || directoryDay !== '' || directoryType || directoryOnline;
+        const hasActiveFilters = directorySearch || directoryState || directoryDay !== '' || directoryType || directoryOnline || directoryLocation;
 
         // Clear all filters
         const clearAllFilters = () => {
@@ -1206,6 +1349,80 @@ function AdminPanel({ onBackToPublic }) {
           setDirectoryDay('');
           setDirectoryType('');
           setDirectoryOnline('');
+          clearLocationFilter();
+        };
+
+        // Handle column sorting
+        const handleSort = (column) => {
+          setDirectorySort(prev => ({
+            column,
+            direction: prev.column === column && prev.direction === 'asc' ? 'desc' : 'asc'
+          }));
+        };
+
+        // Get sort indicator
+        const getSortIndicator = (column) => {
+          if (directorySort.column !== column) return null;
+          return directorySort.direction === 'asc' ? ' ↑' : ' ↓';
+        };
+
+        // Sort meetings client-side
+        const sortedMeetings = [...directoryMeetings].sort((a, b) => {
+          if (!directorySort.column) {
+            // If location is set and no explicit sort, sort by distance
+            if (directoryLocation) {
+              const distA = calculateDistance(directoryLocation.lat, directoryLocation.lng, a.latitude, a.longitude);
+              const distB = calculateDistance(directoryLocation.lat, directoryLocation.lng, b.latitude, b.longitude);
+              return distA - distB;
+            }
+            return 0;
+          }
+
+          let aVal, bVal;
+          switch (directorySort.column) {
+            case 'name':
+              aVal = (a.name || '').toLowerCase();
+              bVal = (b.name || '').toLowerCase();
+              break;
+            case 'location':
+              aVal = (a.locationName || a.address || '').toLowerCase();
+              bVal = (b.locationName || b.address || '').toLowerCase();
+              break;
+            case 'day':
+              aVal = a.day ?? 7;
+              bVal = b.day ?? 7;
+              break;
+            case 'time':
+              aVal = a.time || '';
+              bVal = b.time || '';
+              break;
+            case 'type':
+              aVal = (a.meetingType || '').toLowerCase();
+              bVal = (b.meetingType || '').toLowerCase();
+              break;
+            case 'state':
+              aVal = (a.state || '').toLowerCase();
+              bVal = (b.state || '').toLowerCase();
+              break;
+            case 'distance':
+              aVal = directoryLocation ? calculateDistance(directoryLocation.lat, directoryLocation.lng, a.latitude, a.longitude) : 0;
+              bVal = directoryLocation ? calculateDistance(directoryLocation.lat, directoryLocation.lng, b.latitude, b.longitude) : 0;
+              break;
+            default:
+              return 0;
+          }
+
+          if (aVal < bVal) return directorySort.direction === 'asc' ? -1 : 1;
+          if (aVal > bVal) return directorySort.direction === 'asc' ? 1 : -1;
+          return 0;
+        });
+
+        // Format distance for display
+        const formatDistance = (meeting) => {
+          if (!directoryLocation || !meeting.latitude || !meeting.longitude) return '—';
+          const dist = calculateDistance(directoryLocation.lat, directoryLocation.lng, meeting.latitude, meeting.longitude);
+          if (dist === Infinity) return '—';
+          return dist < 1 ? `${(dist * 5280).toFixed(0)} ft` : `${dist.toFixed(1)} mi`;
         };
 
         return (
@@ -1273,6 +1490,79 @@ function AdminPanel({ onBackToPublic }) {
                 </button>
               )}
             </div>
+            <div className="directory-toolbar directory-toolbar-location">
+              <div className="location-filter-group" ref={locationDropdownRef}>
+                <div className="directory-search location-search">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search location..."
+                    value={directoryLocationSearch}
+                    onChange={(e) => {
+                      setDirectoryLocationSearch(e.target.value);
+                      searchLocations(e.target.value);
+                      setShowLocationDropdown(true);
+                    }}
+                    onFocus={() => {
+                      if (directoryLocationResults.length > 0) {
+                        setShowLocationDropdown(true);
+                      }
+                    }}
+                  />
+                  {directoryLocation && (
+                    <button
+                      className="location-clear-btn"
+                      onClick={clearLocationFilter}
+                      title="Clear location"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                {showLocationDropdown && directoryLocationResults.length > 0 && (
+                  <div className="location-dropdown">
+                    {directoryLocationSearching && (
+                      <div className="location-dropdown-item loading">Searching...</div>
+                    )}
+                    {directoryLocationResults.map((location, idx) => (
+                      <div
+                        key={idx}
+                        className="location-dropdown-item"
+                        onClick={() => handleLocationSelect(location)}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                          <circle cx="12" cy="10" r="3"/>
+                        </svg>
+                        <span>{location.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {directoryLocation && (
+                <div className="radius-filter-group">
+                  <label>Radius:</label>
+                  <select
+                    className="directory-filter radius-select"
+                    value={directoryRadius}
+                    onChange={(e) => setDirectoryRadius(Number(e.target.value))}
+                  >
+                    <option value="5">5 miles</option>
+                    <option value="10">10 miles</option>
+                    <option value="25">25 miles</option>
+                    <option value="50">50 miles</option>
+                    <option value="100">100 miles</option>
+                  </select>
+                </div>
+              )}
+            </div>
             <div className="directory-count-row">
               <div className="directory-count">
                 {directoryMeetings.length} of {directoryTotal} meeting{directoryTotal !== 1 ? 's' : ''}
@@ -1316,16 +1606,33 @@ function AdminPanel({ onBackToPublic }) {
                   <table className="directory-table">
                     <thead>
                       <tr>
-                        <th>Name</th>
-                        <th>Location</th>
-                        <th>Day</th>
-                        <th>Time</th>
-                        <th>Type</th>
-                        <th>State</th>
+                        <th className="sortable-header" onClick={() => handleSort('name')}>
+                          Name{getSortIndicator('name')}
+                        </th>
+                        <th className="sortable-header" onClick={() => handleSort('location')}>
+                          Location{getSortIndicator('location')}
+                        </th>
+                        {directoryLocation && (
+                          <th className="sortable-header distance-col" onClick={() => handleSort('distance')}>
+                            Distance{getSortIndicator('distance')}
+                          </th>
+                        )}
+                        <th className="sortable-header" onClick={() => handleSort('day')}>
+                          Day{getSortIndicator('day')}
+                        </th>
+                        <th className="sortable-header" onClick={() => handleSort('time')}>
+                          Time{getSortIndicator('time')}
+                        </th>
+                        <th className="sortable-header" onClick={() => handleSort('type')}>
+                          Type{getSortIndicator('type')}
+                        </th>
+                        <th className="sortable-header" onClick={() => handleSort('state')}>
+                          State{getSortIndicator('state')}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {directoryMeetings.map((meeting, index) => (
+                      {sortedMeetings.map((meeting, index) => (
                         <tr
                           key={meeting.objectId || index}
                           onClick={() => setSelectedMeeting(meeting)}
@@ -1344,6 +1651,9 @@ function AdminPanel({ onBackToPublic }) {
                           <td className="location-cell">
                             {highlightText(meeting.locationName || meeting.address || '—', directorySearch)}
                           </td>
+                          {directoryLocation && (
+                            <td className="distance-cell">{formatDistance(meeting)}</td>
+                          )}
                           <td>{meeting.day !== undefined ? dayNames[meeting.day] : '—'}</td>
                           <td>{formatTime(meeting.time) || '—'}</td>
                           <td>
