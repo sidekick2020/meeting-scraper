@@ -1773,7 +1773,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                 </button>
               )}
             </div>
-          ) : filteredMeetings.length === 0 && mapMeetingCount > 0 ? (
+          ) : filteredMeetings.length === 0 && mapMeetingCount > 0 && isLoading ? (
             <div className="list-empty list-empty-loading">
               <div className="loading-spinner"></div>
               <h3>Loading meetings...</h3>

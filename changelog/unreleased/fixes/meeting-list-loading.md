@@ -1,4 +1,3 @@
-**Meeting List Loading**: Fixed issue where meeting list would remain stuck on "Loading meetings..." even when the map showed data
-- Removed race condition where initial no-bounds fetch could overwrite bounds-filtered results
-- Auto-fetch now triggers reliably when map has data but list is empty
-- List now properly queries database for meetings within the visible map bounds
+**Meeting List Loading**: Fixed issue where "Loading meetings..." indicator never disappeared even when map showed data
+- Added missing `isLoading` state check to loading indicator condition
+- Indicator now properly hides once data fetch completes
