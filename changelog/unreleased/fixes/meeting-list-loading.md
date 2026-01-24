@@ -1,4 +1,4 @@
-**Meeting List Loading**: Fixed issue where meeting list would remain stuck on "Loading meetings..." even when the map showed data
-- Removed race condition where initial no-bounds fetch could overwrite bounds-filtered results
-- Auto-fetch now triggers reliably when map has data but list is empty
-- List now properly queries database for meetings within the visible map bounds
+**Meeting List Loading**: Fixed loading indicator and search panning issues
+- Added missing `isLoading` state check to loading indicator condition so it properly hides once data fetch completes
+- Fixed map not panning when searching for a location by setting programmatic pan flag before geocoding
+- Search auto-pan now preserves filters instead of clearing them
