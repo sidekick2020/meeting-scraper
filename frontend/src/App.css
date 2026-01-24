@@ -511,6 +511,199 @@ html, body {
   font-size: 1rem;
 }
 
+/* Heatmap Job Controls */
+.heatmap-job-controls {
+  background: var(--card-background);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.heatmap-job-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+}
+
+.heatmap-job-description {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0 0 1rem 0;
+}
+
+.heatmap-job-status {
+  margin-bottom: 1rem;
+}
+
+.job-running .job-progress-bar {
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.job-running .job-progress-fill {
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.job-running .job-progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.job-running .job-phase {
+  color: var(--text-secondary);
+}
+
+.job-completed,
+.job-never-run {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.job-completed-label {
+  color: var(--text-secondary);
+}
+
+.job-duration {
+  color: var(--text-muted);
+}
+
+.job-error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.job-stats {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.job-stats .stat-divider {
+  color: var(--border-color);
+}
+
+.heatmap-job-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.heatmap-job-history {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.heatmap-job-history h4 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 0.75rem 0;
+}
+
+.job-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.job-history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: var(--hover-bg);
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.job-history-item .job-time {
+  color: var(--text-secondary);
+}
+
+.job-history-item .job-result {
+  display: flex;
+  gap: 0.5rem;
+  color: var(--text-muted);
+}
+
+.job-history-item .job-result .success {
+  color: #22c55e;
+}
+
+.job-history-item .job-result .error {
+  color: #ef4444;
+}
+
+.job-schedule-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.job-schedule-info svg {
+  opacity: 0.6;
+}
+
+.job-mode-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  font-size: 0.7rem;
+  font-weight: 500;
+  border-radius: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+.job-mode-tag {
+  display: inline-block;
+  padding: 0.1rem 0.3rem;
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  font-size: 0.65rem;
+  font-weight: 500;
+  border-radius: 0.2rem;
+  margin-left: 0.35rem;
+}
+
+.job-history-item .job-time {
+  display: flex;
+  align-items: center;
+}
+
+.job-history-item .job-result {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
 /* Controls section */
 .controls-section {
   margin-bottom: 1.5rem;
@@ -2949,10 +3142,11 @@ html, body {
   color: white;
   font-weight: 600;
   border-radius: 50%;
-  border: 3px solid white;
+  border: 3px solid;
+  border-color: #78716c; /* Default, overridden by inline style for meeting type colors */
   box-shadow: 0 3px 10px rgba(71, 85, 105, 0.4), 0 1px 3px rgba(0, 0, 0, 0.2);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .cluster-marker-inner:hover {
@@ -2976,6 +3170,44 @@ html, body {
   font-size: 0.75rem;
   color: #6b7280;
   margin-top: 0.25rem;
+}
+
+.cluster-popup-state {
+  font-size: 0.8rem;
+  color: #4b5563;
+  margin-top: 0.15rem;
+}
+
+.cluster-popup-types {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.cluster-type-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+  font-size: 0.8rem;
+}
+
+.cluster-type-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cluster-type-name {
+  color: #374151;
+  flex: 1;
+}
+
+.cluster-type-count {
+  color: #6b7280;
+  font-size: 0.75rem;
 }
 
 /* Highlighted marker for hovered meetings */

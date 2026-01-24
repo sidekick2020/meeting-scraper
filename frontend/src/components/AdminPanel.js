@@ -21,6 +21,261 @@ import SourcesPage from './SourcesPage';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
+// Heatmap Indicator Job Controls Component
+function HeatmapJobControls() {
+  const [jobStatus, setJobStatus] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSchedulerLoading, setIsSchedulerLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Fetch job status
+  const fetchStatus = useCallback(async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/admin/heatmap-indicators/status`);
+      if (response.ok) {
+        const data = await response.json();
+        setJobStatus(data);
+      }
+    } catch (err) {
+      console.error('Error fetching heatmap job status:', err);
+    }
+  }, []);
+
+  // Poll status when job is running
+  useEffect(() => {
+    fetchStatus();
+    const interval = setInterval(() => {
+      if (jobStatus?.is_running) {
+        fetchStatus();
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [fetchStatus, jobStatus?.is_running]);
+
+  // Start the job
+  const startJob = async (incremental = false) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/admin/heatmap-indicators/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ include_state_filters: true, incremental })
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchStatus();
+      } else {
+        setError(data.error || 'Failed to start job');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Toggle scheduler
+  const toggleScheduler = async () => {
+    setIsSchedulerLoading(true);
+    setError(null);
+    try {
+      const endpoint = jobStatus?.scheduler_enabled
+        ? '/api/admin/heatmap-indicators/scheduler/stop'
+        : '/api/admin/heatmap-indicators/scheduler/start';
+      const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+        method: 'POST'
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchStatus();
+      } else {
+        setError(data.error || 'Failed to toggle scheduler');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSchedulerLoading(false);
+    }
+  };
+
+  // Format relative time
+  const formatRelativeTime = (isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays === 1) return 'yesterday';
+    return `${diffDays}d ago`;
+  };
+
+  return (
+    <div className="heatmap-job-controls">
+      <div className="heatmap-job-header">
+        <h3>Map Indicator Job</h3>
+        <p className="heatmap-job-description">
+          Pre-compute clustered map data for faster map loading
+        </p>
+      </div>
+
+      <div className="heatmap-job-status">
+        {jobStatus?.is_running ? (
+          <div className="job-running">
+            <div className="job-progress-bar">
+              <div
+                className="job-progress-fill"
+                style={{ width: `${jobStatus.progress || 0}%` }}
+              />
+            </div>
+            <div className="job-progress-info">
+              <span className="job-phase">{jobStatus.current_phase}</span>
+              <span className="job-percent">{jobStatus.progress}%</span>
+            </div>
+            {jobStatus.mode === 'incremental' && (
+              <div className="job-mode-badge">Incremental</div>
+            )}
+          </div>
+        ) : jobStatus?.last_completed_at ? (
+          <div className="job-completed">
+            <span className="job-completed-label">Last run:</span>
+            <span className="job-completed-time">
+              {formatRelativeTime(jobStatus.last_completed_at)}
+            </span>
+            {jobStatus.last_duration_seconds && (
+              <span className="job-duration">
+                ({jobStatus.last_duration_seconds}s)
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="job-never-run">
+            <span>Never run</span>
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <div className="job-error">
+          {error}
+        </div>
+      )}
+
+      <div className="heatmap-job-actions">
+        <button
+          className="btn btn-primary"
+          onClick={() => startJob(false)}
+          disabled={isLoading || jobStatus?.is_running}
+          title="Regenerate all indicators from scratch"
+        >
+          {isLoading ? (
+            <>
+              <span className="btn-spinner"></span>
+              Starting...
+            </>
+          ) : jobStatus?.is_running ? (
+            'Running...'
+          ) : (
+            'Full Rebuild'
+          )}
+        </button>
+        <button
+          className="btn btn-secondary"
+          onClick={() => startJob(true)}
+          disabled={isLoading || jobStatus?.is_running}
+          title="Only process new meetings (faster)"
+        >
+          Incremental
+        </button>
+        <button
+          className={`btn ${jobStatus?.scheduler_enabled ? 'btn-danger' : 'btn-ghost'}`}
+          onClick={toggleScheduler}
+          disabled={isSchedulerLoading || jobStatus?.is_running}
+          title={jobStatus?.scheduler_enabled ? 'Stop daily auto-run' : 'Enable daily auto-run at 3 AM UTC'}
+        >
+          {isSchedulerLoading ? (
+            <span className="btn-spinner"></span>
+          ) : jobStatus?.scheduler_enabled ? (
+            'Stop Daily'
+          ) : (
+            'Enable Daily'
+          )}
+        </button>
+      </div>
+
+      {jobStatus?.scheduler_enabled && jobStatus?.next_scheduled_run && (
+        <div className="job-schedule-info">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12,6 12,12 16,14"/>
+          </svg>
+          <span>Next run: {new Date(jobStatus.next_scheduled_run).toLocaleString()}</span>
+        </div>
+      )}
+
+      {jobStatus?.indicators_created > 0 && !jobStatus?.is_running && (
+        <div className="job-stats">
+          <span>{jobStatus.indicators_created.toLocaleString()} indicators</span>
+          <span className="stat-divider">·</span>
+          <span>{jobStatus.meetings_updated.toLocaleString()} meetings updated</span>
+        </div>
+      )}
+
+      {/* Job History */}
+      {jobStatus?.history && jobStatus.history.length > 0 && (
+        <div className="heatmap-job-history">
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setShowHistory(!showHistory)}
+          >
+            {showHistory ? 'Hide History' : `Show History (${jobStatus.history.length})`}
+          </button>
+          {showHistory && (
+            <div className="job-history-list">
+              {jobStatus.history.map((entry, idx) => (
+                <div key={idx} className="job-history-item">
+                  <span className="job-time">
+                    {formatRelativeTime(entry.completed_at)}
+                    {entry.mode === 'incremental' && (
+                      <span className="job-mode-tag">inc</span>
+                    )}
+                  </span>
+                  <span className="job-result">
+                    {entry.success ? (
+                      <>
+                        <span className="success">✓</span>
+                        {entry.indicators_created > 0 && (
+                          <span>{entry.indicators_created} ind</span>
+                        )}
+                        {entry.meetings_updated > 0 && (
+                          <span>{entry.meetings_updated} mtgs</span>
+                        )}
+                        {entry.new_meetings > 0 && entry.mode === 'incremental' && (
+                          <span>{entry.new_meetings} new</span>
+                        )}
+                        <span>{entry.duration_seconds}s</span>
+                      </>
+                    ) : (
+                      <span className="error">✗ {entry.error || 'Failed'}</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const POLL_INTERVAL_ACTIVE = 500;
 const POLL_INTERVAL_IDLE = 2000;
 
@@ -897,6 +1152,7 @@ function AdminPanel({ onBackToPublic }) {
       case 'statistics':
         return (
           <>
+            <HeatmapJobControls />
             <CoverageAnalysis />
             <Stats
               byState={scrapingState.meetings_by_state}

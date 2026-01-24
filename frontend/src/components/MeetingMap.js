@@ -87,10 +87,30 @@ const createHighlightedIcon = (color = '#2f5dff') => {
   });
 };
 
-// Cluster marker icon with count
-const createClusterIcon = (count) => {
+// Meeting type colors for cluster indicators
+const MEETING_TYPE_COLORS = {
+  'AA': '#3b82f6',      // Blue
+  'NA': '#22c55e',      // Green
+  'Al-Anon': '#a855f7', // Purple
+  'Other': '#78716c',   // Gray
+};
+
+// Get dominant meeting type from meetingTypes object
+const getDominantType = (meetingTypes) => {
+  if (!meetingTypes || typeof meetingTypes !== 'object') return null;
+  const entries = Object.entries(meetingTypes);
+  if (entries.length === 0) return null;
+  return entries.reduce((a, b) => (a[1] > b[1] ? a : b))[0];
+};
+
+// Cluster marker icon with count and optional type indicator
+const createClusterIcon = (count, meetingTypes = null) => {
   const size = count > 100 ? 50 : count > 50 ? 44 : count > 20 ? 38 : count > 10 ? 32 : 26;
   const fontSize = count > 100 ? 14 : count > 50 ? 13 : 12;
+
+  // Get border color based on dominant meeting type
+  const dominantType = getDominantType(meetingTypes);
+  const borderColor = dominantType ? MEETING_TYPE_COLORS[dominantType] || '#78716c' : '#78716c';
 
   return L.divIcon({
     className: 'cluster-marker',
@@ -98,6 +118,7 @@ const createClusterIcon = (count) => {
       width: ${size}px;
       height: ${size}px;
       font-size: ${fontSize}px;
+      border-color: ${borderColor};
     ">${count > 999 ? '999+' : count}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
@@ -513,7 +534,15 @@ function StateMarker({ stateData, onStateClick }) {
   );
 }
 
-// Cluster marker component
+// Format meeting types for display
+const formatMeetingTypes = (meetingTypes) => {
+  if (!meetingTypes || typeof meetingTypes !== 'object') return null;
+  const entries = Object.entries(meetingTypes).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) return null;
+  return entries.map(([type, count]) => ({ type, count }));
+};
+
+// Cluster marker component with enhanced popup
 function ClusterMarker({ cluster, onClusterClick }) {
   const map = useMap();
 
@@ -524,16 +553,36 @@ function ClusterMarker({ cluster, onClusterClick }) {
     if (onClusterClick) onClusterClick(cluster);
   }, [map, cluster, onClusterClick]);
 
+  // Get meeting type breakdown if available (from indicator data)
+  const typeBreakdown = formatMeetingTypes(cluster.meetingTypes);
+
   return (
     <Marker
       position={[cluster.lat, cluster.lng]}
-      icon={createClusterIcon(cluster.count)}
+      icon={createClusterIcon(cluster.count, cluster.meetingTypes)}
       eventHandlers={{ click: handleClick }}
       bubblingMouseEvents={false}
     >
       <Popup>
         <div className="cluster-popup">
-          <strong>{cluster.count} meetings</strong>
+          <strong>{cluster.count.toLocaleString()} meetings</strong>
+          {cluster.state && (
+            <div className="cluster-popup-state">{cluster.state}</div>
+          )}
+          {typeBreakdown && typeBreakdown.length > 0 && (
+            <div className="cluster-popup-types">
+              {typeBreakdown.slice(0, 4).map(({ type, count }) => (
+                <div key={type} className="cluster-type-row">
+                  <span
+                    className="cluster-type-dot"
+                    style={{ background: MEETING_TYPE_COLORS[type] || '#78716c' }}
+                  />
+                  <span className="cluster-type-name">{type}</span>
+                  <span className="cluster-type-count">{count}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="cluster-popup-hint">Click to zoom in</div>
         </div>
       </Popup>
