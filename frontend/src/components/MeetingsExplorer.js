@@ -269,6 +269,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const reverseGeocodeTimeoutRef = useRef(null);
   // Flag to track if map movement is from programmatic pan (vs user drag)
   const isProgrammaticPanRef = useRef(false);
+  // Timeout ref for debouncing the programmatic pan flag reset
+  const programmaticPanTimeoutRef = useRef(null);
   // Track meeting count from map for list/map sync
   const [mapMeetingCount, setMapMeetingCount] = useState(0);
 
@@ -757,11 +759,14 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     }
   }, [filteredMeetings, requestMissingThumbnails]);
 
-  // Cleanup reverse geocode timeout on unmount
+  // Cleanup reverse geocode timeout and programmatic pan timeout on unmount
   useEffect(() => {
     return () => {
       if (reverseGeocodeTimeoutRef.current) {
         clearTimeout(reverseGeocodeTimeoutRef.current);
+      }
+      if (programmaticPanTimeoutRef.current) {
+        clearTimeout(programmaticPanTimeoutRef.current);
       }
     };
   }, []);
@@ -1594,8 +1599,16 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     setMapBounds(bounds);
 
     // Only update location display when user manually pans the map
+    // Use debounced reset to handle multiple rapid events (moveend + zoomend can both fire)
     if (isProgrammaticPanRef.current) {
-      isProgrammaticPanRef.current = false;
+      // Clear any pending reset timeout
+      if (programmaticPanTimeoutRef.current) {
+        clearTimeout(programmaticPanTimeoutRef.current);
+      }
+      // Reset flag after a short delay to catch all events from the same programmatic pan
+      programmaticPanTimeoutRef.current = setTimeout(() => {
+        isProgrammaticPanRef.current = false;
+      }, 500);
     } else {
       // User manually dragged the map - clear state/city filters and reverse geocode
       setSelectedStates([]);
@@ -2293,7 +2306,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                   {isLoading ? (
                     'Loading...'
                   ) : (
-                    <>{filteredMeetings.length} meeting{filteredMeetings.length !== 1 ? 's' : ''}{totalMeetings > 50 && ` (showing 50 of ${totalMeetings})`}</>
+                    <>{filteredMeetings.length} meeting{filteredMeetings.length !== 1 ? 's' : ''}{filteredMeetings.length > 0 && totalMeetings > filteredMeetings.length && ` (showing ${filteredMeetings.length} of ${totalMeetings})`}</>
                   )}
                 </p>
               </div>
