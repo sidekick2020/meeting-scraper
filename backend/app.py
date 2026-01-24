@@ -183,6 +183,109 @@ def test_back4app_connection():
 parse_connection_ok = test_back4app_connection()
 log_parse_init(f"Initialization complete. Connection OK: {parse_connection_ok}")
 
+
+# =============================================================================
+# STANDARDIZED ERROR RESPONSE HELPER
+# =============================================================================
+
+def build_error_response(exception, endpoint_name, extra_data=None, include_config_status=True):
+    """Build a standardized, detailed error response for API debugging.
+
+    Args:
+        exception: The caught exception
+        endpoint_name: Name of the endpoint for logging (e.g., 'meetings/by-state')
+        extra_data: Dict of endpoint-specific fields to include in response (e.g., {'states': []})
+        include_config_status: Whether to include Back4App configuration status
+
+    Returns:
+        Tuple of (response_dict, status_code) for use with jsonify
+    """
+    import traceback
+
+    error_details = {
+        "endpoint": f"/api/{endpoint_name}",
+        "exception_type": type(exception).__name__,
+        "exception_message": str(exception),
+        "traceback": traceback.format_exc()[-1500:],  # Last 1500 chars of traceback
+        "timestamp": datetime.now().isoformat(),
+    }
+
+    if include_config_status:
+        error_details.update({
+            "back4app_app_id_set": bool(BACK4APP_APP_ID),
+            "back4app_rest_key_set": bool(BACK4APP_REST_KEY),
+            "init_logs": parse_init_log[-10:],  # Last 10 initialization log entries
+        })
+
+    # Determine appropriate status code based on exception type
+    status_code = 500
+    if isinstance(exception, requests.exceptions.Timeout):
+        status_code = 504
+        error_details["error_category"] = "timeout"
+    elif isinstance(exception, requests.exceptions.ConnectionError):
+        status_code = 503
+        error_details["error_category"] = "connection_error"
+    elif isinstance(exception, requests.exceptions.RequestException):
+        error_details["error_category"] = "request_error"
+    else:
+        error_details["error_category"] = "internal_error"
+
+    # Log the error
+    print(f"[ERROR] {endpoint_name}: {type(exception).__name__}: {exception}")
+
+    # Build response
+    response = {
+        "error": f"{type(exception).__name__}: {str(exception)}",
+        "error_details": error_details
+    }
+
+    # Merge in extra data (e.g., empty arrays for expected response fields)
+    if extra_data:
+        response.update(extra_data)
+
+    return response, status_code
+
+
+def build_http_error_response(response, endpoint_name, extra_data=None):
+    """Build error response for non-200 HTTP responses from external APIs.
+
+    Args:
+        response: The requests.Response object
+        endpoint_name: Name of the endpoint for logging
+        extra_data: Dict of endpoint-specific fields to include
+
+    Returns:
+        Tuple of (response_dict, status_code) for use with jsonify
+    """
+    try:
+        response_body = response.text[:1000]  # First 1000 chars
+    except:
+        response_body = "<unable to read response body>"
+
+    error_details = {
+        "endpoint": f"/api/{endpoint_name}",
+        "error_category": "external_api_error",
+        "external_status_code": response.status_code,
+        "external_url": response.url[:200] if hasattr(response, 'url') else "unknown",
+        "external_response": response_body,
+        "timestamp": datetime.now().isoformat(),
+        "back4app_app_id_set": bool(BACK4APP_APP_ID),
+        "back4app_rest_key_set": bool(BACK4APP_REST_KEY),
+    }
+
+    print(f"[ERROR] {endpoint_name}: External API returned HTTP {response.status_code}")
+
+    response_dict = {
+        "error": f"External API error (HTTP {response.status_code})",
+        "error_details": error_details
+    }
+
+    if extra_data:
+        response_dict.update(extra_data)
+
+    return response_dict, 502  # Bad Gateway for upstream errors
+
+
 # Fields to return for meeting listings (reduces payload size by ~60%)
 MEETING_LIST_FIELDS = "objectId,name,day,time,city,state,latitude,longitude,locationName,meetingType,isOnline,isHybrid,format,address,thumbnailUrl"
 
@@ -3822,11 +3925,13 @@ def get_changelog():
             changelog_cache.set('changelog', result)
             return jsonify(result)
 
-        return jsonify({
-            "changelog": [],
-            "total_versions": 0,
-            "error": str(e)
-        })
+        response, status_code = build_error_response(
+            exception=e,
+            endpoint_name="changelog",
+            extra_data={"changelog": [], "total_versions": 0},
+            include_config_status=False  # Changelog doesn't need Back4App status
+        )
+        return jsonify(response), status_code
 
 @app.route('/api/history', methods=['GET'])
 def get_history():
@@ -4068,8 +4173,12 @@ def get_coverage():
         })
 
     except Exception as e:
-        print(f"Error getting coverage: {e}")
-        return jsonify({"error": str(e)}), 500
+        response, status_code = build_error_response(
+            exception=e,
+            endpoint_name="coverage",
+            extra_data={"coverage": [], "priorityStates": [], "statesWithoutCoverage": []}
+        )
+        return jsonify(response), status_code
 
 @app.route('/api/meetings', methods=['GET'])
 def get_meetings():
@@ -4465,8 +4574,12 @@ def get_meetings_heatmap():
         })
 
     except Exception as e:
-        print(f"Error fetching heatmap data: {e}")
-        return jsonify({"clusters": [], "total": 0, "error": str(e)}), 500
+        response, status_code = build_error_response(
+            exception=e,
+            endpoint_name="meetings/heatmap",
+            extra_data={"clusters": [], "total": 0, "mode": "error"}
+        )
+        return jsonify(response), status_code
 
 
 # ==================== Thumbnail Generation ====================
@@ -4626,8 +4739,12 @@ def get_meetings_by_state():
         return jsonify(result)
 
     except Exception as e:
-        print(f"Error fetching meetings by state: {e}")
-        return jsonify({"states": [], "total": 0, "error": str(e)}), 500
+        response, status_code = build_error_response(
+            exception=e,
+            endpoint_name="meetings/by-state",
+            extra_data={"states": [], "total": 0, "statesWithMeetings": 0}
+        )
+        return jsonify(response), status_code
 
 
 @app.route('/api/thumbnail/<meeting_id>', methods=['GET'])
@@ -4667,7 +4784,12 @@ def get_thumbnail(meeting_id):
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        response, status_code = build_error_response(
+            exception=e,
+            endpoint_name=f"thumbnail/{meeting_id}",
+            extra_data={"thumbnailUrl": None, "status": "error"}
+        )
+        return jsonify(response), status_code
 
 
 @app.route('/api/thumbnail/<meeting_id>/placeholder', methods=['GET'])
@@ -4938,11 +5060,21 @@ def get_users():
         else:
             return jsonify({'error': 'Failed to fetch users'}), response.status_code
 
-    except requests.exceptions.Timeout:
+    except requests.exceptions.Timeout as e:
         # Return cached data if available, even if expired
-        return jsonify({'error': 'Request timed out. Please try again.'}), 504
+        response, status_code = build_error_response(
+            exception=e,
+            endpoint_name="users",
+            extra_data={"users": []}
+        )
+        return jsonify(response), status_code
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        response, status_code = build_error_response(
+            exception=e,
+            endpoint_name="users",
+            extra_data={"users": []}
+        )
+        return jsonify(response), status_code
 
 
 @app.route('/api/permissions', methods=['GET'])
