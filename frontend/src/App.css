@@ -7299,6 +7299,11 @@ a.sidebar-nav-item {
   border-radius: 0.25rem;
 }
 
+.view-progress-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .history-entry-details {
   padding: 0 1rem 1rem 1rem;
   border-top: 1px solid var(--border-light);

@@ -1273,7 +1273,7 @@ function AdminPanel({ onBackToPublic }) {
             </div>
 
             {/* Scrape History - Always visible */}
-            <ScrapeHistory />
+            <ScrapeHistory onViewProgress={() => setShowScrapePanel(true)} />
           </>
         );
 
