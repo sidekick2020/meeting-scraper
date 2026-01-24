@@ -186,8 +186,10 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const [hoveredMeeting, setHoveredMeeting] = useState(null);
   const [isLoading, setIsLoading] = useState(!cachedMeetings?.data);
   const [error, setError] = useState(null);
+  const [errorDetails, setErrorDetails] = useState(null); // Detailed error info for debugging
   const [isMapCollapsed, setIsMapCollapsed] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [showErrorLogs, setShowErrorLogs] = useState(false); // Toggle for detailed error logs
 
   // Derive configStatus from Parse context (maps to legacy status values for UI compatibility)
   const configStatus = useMemo(() => {
@@ -335,6 +337,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
 
     setIsLoading(true);
     setError(null);
+    setErrorDetails(null);
 
     try {
       // Build URL with bounds (required) and limit of 50
@@ -372,9 +375,9 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
       }
 
       const response = await fetch(url);
+      const data = await response.json();
 
       if (response.ok) {
-        const data = await response.json();
         const newMeetings = data.meetings || [];
         const total = data.total || newMeetings.length;
 
@@ -389,11 +392,39 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         const allTypes = Object.keys(MEETING_TYPES).filter(t => t !== 'Other');
         allTypes.push('Other');
         setAvailableTypes(allTypes);
+
+        // Check if we got 0 results with debug info - potential configuration issue
+        if (newMeetings.length === 0 && data.debug) {
+          setError('No meetings found - possible configuration issue');
+          setErrorDetails({
+            timestamp: new Date().toISOString(),
+            type: 'empty_results_with_debug',
+            debug: data.debug,
+            requestUrl: url.replace(BACKEND_URL, ''),
+            bounds: bounds
+          });
+        }
       } else {
-        setError('Failed to load meetings');
+        // Server returned an error
+        setError(data.error || 'Failed to load meetings');
+        setErrorDetails({
+          timestamp: new Date().toISOString(),
+          type: 'api_error',
+          httpStatus: response.status,
+          errorMessage: data.error,
+          errorDetails: data.error_details,
+          requestUrl: url.replace(BACKEND_URL, '')
+        });
       }
     } catch (err) {
       setError('Unable to connect to server');
+      setErrorDetails({
+        timestamp: new Date().toISOString(),
+        type: 'network_error',
+        errorMessage: err.message,
+        errorName: err.name,
+        backendUrl: BACKEND_URL
+      });
     } finally {
       setIsLoading(false);
     }
@@ -1748,7 +1779,10 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                   <p className="error-detail">Cannot connect to the backend server. It may be starting up or deploying.</p>
                 </>
               ) : (
-                <p>{error}</p>
+                <>
+                  <p><strong>Failed to Load Meetings</strong></p>
+                  <p className="error-detail">{error}</p>
+                </>
               )}
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
                 <button className="btn btn-primary" onClick={() => mapBounds && fetchMeetings(mapBounds)}>
@@ -1757,7 +1791,55 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                 <button className="btn btn-secondary" onClick={() => setShowDiagnostics(true)}>
                   View Diagnostics
                 </button>
+                {errorDetails && (
+                  <button className="btn btn-secondary" onClick={() => setShowErrorLogs(!showErrorLogs)}>
+                    {showErrorLogs ? 'Hide' : 'Show'} Error Logs
+                  </button>
+                )}
               </div>
+              {/* Copyable Error Logs Section */}
+              {showErrorLogs && errorDetails && (
+                <div className="error-logs-section" style={{ marginTop: '16px', textAlign: 'left', width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)' }}>Debug Logs</span>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 8px', fontSize: '11px' }}
+                      onClick={() => {
+                        const logText = JSON.stringify(errorDetails, null, 2);
+                        navigator.clipboard.writeText(logText).then(() => {
+                          alert('Error logs copied to clipboard');
+                        }).catch(() => {
+                          // Fallback for older browsers
+                          const textarea = document.createElement('textarea');
+                          textarea.value = logText;
+                          document.body.appendChild(textarea);
+                          textarea.select();
+                          document.execCommand('copy');
+                          document.body.removeChild(textarea);
+                          alert('Error logs copied to clipboard');
+                        });
+                      }}
+                    >
+                      Copy Logs
+                    </button>
+                  </div>
+                  <pre style={{
+                    background: 'var(--bg-tertiary, #1a1a1a)',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    fontSize: '11px',
+                    overflow: 'auto',
+                    maxHeight: '300px',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    color: 'var(--text-secondary)',
+                    margin: 0
+                  }}>
+                    {JSON.stringify(errorDetails, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
           ) : filteredMeetings.length === 0 && mapMeetingCount === 0 && !isLoading ? (
             <div className="list-empty">

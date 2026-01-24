@@ -4192,16 +4192,58 @@ def get_meetings():
                     except:
                         pass  # Use len(results) as fallback
 
-            return jsonify({
+            response_data = {
                 "meetings": results,
                 "total": total
-            })
+            }
+            # Include debug info when 0 results (helps diagnose wrong keys or empty DB)
+            if len(results) == 0:
+                response_data["debug"] = {
+                    "message": "Query succeeded but returned 0 results",
+                    "where_clause": where,
+                    "bounds": {"north": north, "south": south, "east": east, "west": west} if all(v is not None for v in [north, south, east, west]) else None,
+                    "app_id_set": bool(BACK4APP_APP_ID),
+                    "rest_key_set": bool(BACK4APP_REST_KEY),
+                    "app_id_prefix": BACK4APP_APP_ID[:8] + "..." if BACK4APP_APP_ID else None,
+                    "init_logs": parse_init_log[-5:],
+                    "suggestion": "Verify your BACK4APP_APP_ID and BACK4APP_REST_KEY are correct. The database may be empty or the keys may be invalid."
+                }
+            return jsonify(response_data)
         else:
-            return jsonify({"meetings": [], "total": 0, "error": "Failed to fetch meetings"}), 500
+            # Include diagnostic details for debugging
+            error_details = {
+                "status_code": response.status_code,
+                "response_text": response.text[:500] if response.text else "Empty response",
+                "url_queried": url[:200] + "..." if len(url) > 200 else url,
+                "app_id_set": bool(BACK4APP_APP_ID),
+                "rest_key_set": bool(BACK4APP_REST_KEY),
+                "init_logs": parse_init_log[-10:]  # Last 10 log entries
+            }
+            print(f"Error fetching meetings: status={response.status_code}, response={response.text[:200]}")
+            return jsonify({
+                "meetings": [],
+                "total": 0,
+                "error": f"Failed to fetch meetings (HTTP {response.status_code})",
+                "error_details": error_details
+            }), 500
 
     except Exception as e:
+        import traceback
+        error_details = {
+            "exception_type": type(e).__name__,
+            "exception_message": str(e),
+            "traceback": traceback.format_exc()[-1000:],  # Last 1000 chars of traceback
+            "app_id_set": bool(BACK4APP_APP_ID),
+            "rest_key_set": bool(BACK4APP_REST_KEY),
+            "init_logs": parse_init_log[-10:]
+        }
         print(f"Error fetching meetings: {e}")
-        return jsonify({"meetings": [], "total": 0, "error": str(e)}), 500
+        return jsonify({
+            "meetings": [],
+            "total": 0,
+            "error": f"Exception: {type(e).__name__}: {str(e)}",
+            "error_details": error_details
+        }), 500
 
 
 @app.route('/api/meetings/heatmap', methods=['GET'])
