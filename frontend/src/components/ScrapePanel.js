@@ -36,23 +36,17 @@ function ScrapePanel({
       </div>
 
       <div className="scrape-panel-content">
-        {/* Control buttons */}
-        <div className="scrape-panel-controls">
-          {scrapingState.is_running ? (
-            <>
-              <button onClick={onStopScraping} className="btn btn-danger">
-                Stop Scraping
-              </button>
-              <button onClick={onStartNew} className="btn btn-secondary">
-                Start New
-              </button>
-            </>
-          ) : (
-            <button onClick={onReset} className="btn btn-ghost" title="Reset scraper if stuck">
-              Reset
+        {/* Control buttons - inline with header style */}
+        {scrapingState.is_running && (
+          <div className="scrape-panel-controls-compact">
+            <button onClick={onStopScraping} className="btn-compact btn-stop">
+              Stop
             </button>
-          )}
-        </div>
+            <button onClick={onStartNew} className="btn-compact btn-restart">
+              Restart
+            </button>
+          </div>
+        )}
 
         {/* Dashboard Stats */}
         <Dashboard scrapingState={scrapingState} />
