@@ -28,8 +28,24 @@ const COVERAGE_GAPS_CACHE_KEY = 'sources:coverageGaps';
 const DRAFTS_CACHE_KEY = 'sources:drafts';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Get status badge class and label
+function getStatusBadge(gap) {
+  const status = gap.status || (gap.hasFeed ? 'below_average' : 'critical');
+  const statusMap = {
+    'critical': { className: 'status-critical', label: 'Critical' },
+    'low': { className: 'status-low', label: 'Low' },
+    'below_average': { className: 'status-below-avg', label: 'Below Avg' },
+    'good': { className: 'status-good', label: 'Good' },
+  };
+  return statusMap[status] || { className: 'status-none', label: gap.hasFeed ? 'Partial' : 'No Source' };
+}
+
 // Expandable Coverage Gap Row Component
 function CoverageGapRow({ gap, isExpanded, onToggle, onAddSource }) {
+  const statusBadge = getStatusBadge(gap);
+  const gapScore = gap.gapScore ?? 0;
+  const nationalAvg = gap.nationalAvgRatio ?? 0;
+
   return (
     <>
       <tr
@@ -44,19 +60,21 @@ function CoverageGapRow({ gap, isExpanded, onToggle, onAddSource }) {
           {(gap.population / 1000000).toFixed(1)}M
         </td>
         <td className="gap-meetings-cell">
-          {gap.meetingCount.toLocaleString()}
+          {(gap.meetingCount ?? 0).toLocaleString()}
         </td>
         <td className="gap-coverage-cell">
-          <span className={`coverage-ratio ${gap.coverageRatio < 1 ? 'low' : gap.coverageRatio < 5 ? 'medium' : 'good'}`}>
-            {gap.coverageRatio.toFixed(2)}/100k
-          </span>
+          <div className="coverage-cell-content">
+            <span className={`coverage-ratio ${(gap.coverageRatio ?? 0) < nationalAvg * 0.5 ? 'low' : (gap.coverageRatio ?? 0) < nationalAvg ? 'medium' : 'good'}`}>
+              {(gap.coverageRatio ?? 0).toFixed(1)}/100k
+            </span>
+            {nationalAvg > 0 && (
+              <span className="coverage-avg-hint">avg: {nationalAvg.toFixed(1)}</span>
+            )}
+          </div>
         </td>
         <td className="gap-status-cell">
-          {gap.hasFeed ? (
-            <span className="status-badge status-partial">Partial</span>
-          ) : (
-            <span className="status-badge status-none">No Source</span>
-          )}
+          <span className={`status-badge ${statusBadge.className}`}>{statusBadge.label}</span>
+          {gapScore > 0 && <span className="gap-score-badge" title="Gap priority score">{gapScore.toFixed(0)}</span>}
         </td>
         <td className="gap-actions-cell">
           <button
@@ -90,35 +108,52 @@ function CoverageGapRow({ gap, isExpanded, onToggle, onAddSource }) {
                 <div className="gap-detail-stats">
                   <div className="gap-detail-stat">
                     <span className="stat-label">Population</span>
-                    <span className="stat-value">{gap.population.toLocaleString()}</span>
+                    <span className="stat-value">{(gap.population ?? 0).toLocaleString()}</span>
                   </div>
                   <div className="gap-detail-stat">
-                    <span className="stat-label">Current Meetings</span>
-                    <span className="stat-value">{gap.meetingCount.toLocaleString()}</span>
+                    <span className="stat-label">Meetings</span>
+                    <span className="stat-value">{(gap.meetingCount ?? 0).toLocaleString()}</span>
                   </div>
                   <div className="gap-detail-stat">
-                    <span className="stat-label">Coverage Ratio</span>
-                    <span className="stat-value">{gap.coverageRatio.toFixed(2)} per 100k</span>
+                    <span className="stat-label">Coverage</span>
+                    <span className="stat-value">{(gap.coverageRatio ?? 0).toFixed(2)} / 100k</span>
                   </div>
                   <div className="gap-detail-stat">
-                    <span className="stat-label">Has Feed</span>
-                    <span className="stat-value">{gap.hasFeed ? 'Yes (partial)' : 'No'}</span>
+                    <span className="stat-label">National Avg</span>
+                    <span className="stat-value">{nationalAvg.toFixed(2)} / 100k</span>
+                  </div>
+                  <div className="gap-detail-stat">
+                    <span className="stat-label">Sources</span>
+                    <span className="stat-value">{gap.sourceCount ?? (gap.hasFeed ? '1+' : '0')}</span>
+                  </div>
+                  <div className="gap-detail-stat">
+                    <span className="stat-label">Gap Score</span>
+                    <span className="stat-value">{gapScore.toFixed(1)} / 100</span>
                   </div>
                 </div>
               </div>
               <div className="gap-detail-section">
                 <h4>Recommendations</h4>
                 <ul className="gap-recommendations">
-                  {!gap.hasFeed && (
-                    <li>Search for {gap.stateName} AA/NA intergroup websites</li>
+                  {/* Use persisted recommendations if available */}
+                  {gap.recommendations && gap.recommendations.length > 0 ? (
+                    gap.recommendations.map((rec, idx) => (
+                      <li key={idx}>{rec}</li>
+                    ))
+                  ) : (
+                    <>
+                      {!gap.hasFeed && (
+                        <li>Search for {gap.stateName} AA/NA intergroup websites</li>
+                      )}
+                      {(gap.coverageRatio ?? 0) < nationalAvg * 0.5 && (
+                        <li>Priority: Coverage significantly below national average</li>
+                      )}
+                      {gap.population > 5000000 && (gap.sourceCount ?? 0) < 3 && (
+                        <li>Large population state - consider multiple regional sources</li>
+                      )}
+                      <li>Check TSML and BMLT directories for existing feeds</li>
+                    </>
                   )}
-                  {gap.coverageRatio < 1 && (
-                    <li>Priority: Very low coverage - needs immediate attention</li>
-                  )}
-                  {gap.population > 2000000 && (
-                    <li>Large population state - consider multiple regional sources</li>
-                  )}
-                  <li>Check TSML and BMLT directories for existing feeds</li>
                 </ul>
               </div>
               <div className="gap-detail-actions">
@@ -965,6 +1000,7 @@ function SourcesPage({ feeds, feedsLoading, onSelectSource, onRefreshFeeds }) {
   const [prefillData, setPrefillData] = useState(null);
   const [coverageGaps, setCoverageGaps] = useState([]);
   const [isLoadingGaps, setIsLoadingGaps] = useState(true);
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [expandedGapState, setExpandedGapState] = useState(null);
   const [activeTab, setActiveTab] = useState('sources'); // sources | gaps | drafts
   const [drafts, setDrafts] = useState([]);
@@ -1002,6 +1038,27 @@ function SourcesPage({ feeds, feedsLoading, onSelectSource, onRefreshFeeds }) {
       setIsLoadingGaps(false);
     }
   }, [getCache, setCache]);
+
+  // Reanalyze coverage - recomputes and persists analysis to Back4App
+  const reanalyzeCoverage = useCallback(async () => {
+    setIsReanalyzing(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/coverage/refresh`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        // Clear cache and fetch fresh data
+        setCache(COVERAGE_GAPS_CACHE_KEY, null, 0);
+        await fetchCoverageGaps(true);
+      } else {
+        console.error('Error reanalyzing coverage:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error reanalyzing coverage:', error);
+    } finally {
+      setIsReanalyzing(false);
+    }
+  }, [fetchCoverageGaps, setCache]);
 
   // Fetch all drafts
   const fetchDrafts = useCallback(async (forceRefresh = false) => {
@@ -1387,28 +1444,56 @@ function SourcesPage({ feeds, feedsLoading, onSelectSource, onRefreshFeeds }) {
       {activeTab === 'gaps' && (
         <div className="gaps-content">
           <div className="gaps-header">
-            <p>States with low meeting coverage or missing data sources. Click a row for more details.</p>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => fetchCoverageGaps(true)}
-              disabled={isLoadingGaps}
-            >
-              {isLoadingGaps ? 'Refreshing...' : 'Refresh'}
-            </button>
+            <p>States with coverage below national average or missing data sources. Click a row for details.</p>
+            <div className="gaps-header-actions">
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => fetchCoverageGaps(true)}
+                disabled={isLoadingGaps || isReanalyzing}
+              >
+                {isLoadingGaps ? 'Loading...' : 'Refresh'}
+              </button>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={reanalyzeCoverage}
+                disabled={isReanalyzing || isLoadingGaps}
+                title="Recompute coverage statistics for all states"
+              >
+                {isReanalyzing ? (
+                  <>
+                    <span className="spinner-inline"></span>
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 3v18h18"/>
+                      <path d="M18 17V9"/>
+                      <path d="M13 17V5"/>
+                      <path d="M8 17v-3"/>
+                    </svg>
+                    Reanalyze
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
-          {isLoadingGaps ? (
+          {isLoadingGaps || isReanalyzing ? (
             <div className="loading-state">
               <span className="spinner"></span>
-              Loading coverage gaps...
+              {isReanalyzing ? 'Reanalyzing coverage for all states...' : 'Loading coverage gaps...'}
             </div>
           ) : coverageGaps.length === 0 ? (
             <div className="empty-state">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
-                <polyline points="22,4 12,14.01 9,11.01"/>
+                <path d="M3 3v18h18"/>
+                <path d="M18 17V9"/>
+                <path d="M13 17V5"/>
+                <path d="M8 17v-3"/>
               </svg>
-              <p>Great coverage! No major gaps detected.</p>
+              <p>No coverage analysis data available.</p>
+              <p className="empty-state-hint">Click "Reanalyze" to compute coverage statistics for all states.</p>
             </div>
           ) : (
             <div className="gaps-table-wrapper">
