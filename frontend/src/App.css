@@ -3616,6 +3616,11 @@ html, body {
   background: #f2efe9 !important;
 }
 
+/* Make leaflet.heat canvas layer pass through pointer events so map clicks work */
+.leaflet-overlay-pane canvas {
+  pointer-events: none;
+}
+
 .leaflet-popup-content-wrapper {
   border-radius: 0.5rem;
 }
