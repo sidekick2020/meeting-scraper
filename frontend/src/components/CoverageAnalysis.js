@@ -6,6 +6,7 @@ import { useParse } from '../contexts/ParseContext';
 // Cache key and TTL
 const COVERAGE_CACHE_KEY = 'coverage:data';
 const COVERAGE_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
 function CoverageAnalysis() {
   const { getCache, setCache } = useDataCache();
@@ -31,18 +32,38 @@ function CoverageAnalysis() {
         setLoading(true);
       }
 
-      // Use Parse SDK directly (Back4app is source of truth)
+      let data = null;
+
+      // Try Parse SDK first (direct connection to Back4app)
       if (isInitialized) {
-        const data = await fetchCoverageAnalysis();
-        if (data) {
-          setCoverage(data);
-          setError(null);
-          setCache(COVERAGE_CACHE_KEY, data, COVERAGE_CACHE_TTL);
-        } else {
-          setError('Failed to load coverage data from Back4app');
+        try {
+          data = await fetchCoverageAnalysis();
+        } catch (parseError) {
+          console.warn('Parse SDK coverage fetch failed, trying backend API:', parseError);
         }
+      }
+
+      // Fallback to backend API if Parse SDK fails or isn't available
+      if (!data) {
+        try {
+          const response = await fetch(`${BACKEND_URL}/api/coverage`, {
+            signal: AbortSignal.timeout(30000) // 30 second timeout
+          });
+          if (response.ok) {
+            data = await response.json();
+            data.source = 'backend-api';
+          }
+        } catch (backendError) {
+          console.error('Backend coverage API also failed:', backendError);
+        }
+      }
+
+      if (data) {
+        setCoverage(data);
+        setError(null);
+        setCache(COVERAGE_CACHE_KEY, data, COVERAGE_CACHE_TTL);
       } else {
-        setError('Back4app not configured');
+        setError('Failed to load coverage data');
       }
     } catch (err) {
       console.error('Coverage fetch error:', err);
