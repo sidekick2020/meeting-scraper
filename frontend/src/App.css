@@ -12770,6 +12770,12 @@ a.sidebar-nav-item {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.sidebar-map-image.loaded {
+  opacity: 1;
 }
 
 /* Centered marker overlay for static map */
@@ -13399,6 +13405,15 @@ a.sidebar-nav-item {
 
 [data-theme="light"] .sidebar-map-overlay {
   background: linear-gradient(to bottom, transparent, #f8fafc);
+}
+
+/* Map preview placeholder - theme-aware background while image loads */
+[data-theme="light"] .sidebar-map-preview {
+  background: #e8ecf0;
+}
+
+[data-theme="dark"] .sidebar-map-preview {
+  background: #12121e;
 }
 
 [data-theme="light"] .sidebar-detail-header h2 {
