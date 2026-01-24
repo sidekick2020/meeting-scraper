@@ -210,7 +210,7 @@ function HeatmapLayer({ clusters }) {
 }
 
 // Component to handle map movement events and fetch data
-function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadingChange, filters, onBoundsChange, cacheContext, parseFetchMeetingsByState, parseInitialized }) {
+function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadingChange, filters, onBoundsChange, cacheContext, parseFetchMeetingsByState, parseFetchMeetings, parseInitialized }) {
   const map = useMap();
   const fetchTimeoutRef = useRef(null);
   const lastFetchRef = useRef(null);
@@ -219,6 +219,11 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
   // Refs for state data request deduplication
   const lastStateDataKeyRef = useRef(null);
   const pendingStateDataRef = useRef(null);
+
+  // Refs to hold latest callback versions - prevents infinite loops
+  // when callbacks are recreated (which would otherwise trigger useEffect)
+  const fetchHeatmapDataRef = useRef(null);
+  const fetchStateDataRef = useRef(null);
 
   // Fetch state-level data with filter support and request deduplication
   // Uses Parse SDK directly when available, falls back to backend API
@@ -367,44 +372,85 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
 
     try {
       onLoadingChange?.(true);
-      let url = `${BACKEND_URL}/api/meetings/heatmap?zoom=${zoom}&north=${bounds.getNorth()}&south=${bounds.getSouth()}&east=${bounds.getEast()}&west=${bounds.getWest()}&center_lat=${center.lat}&center_lng=${center.lng}`;
 
-      // Add filter parameters
-      if (currentFilters.day !== undefined && currentFilters.day !== null) {
-        url += `&day=${currentFilters.day}`;
-      }
-      if (currentFilters.type) {
-        url += `&type=${encodeURIComponent(currentFilters.type)}`;
-      }
-      if (currentFilters.state) {
-        url += `&state=${encodeURIComponent(currentFilters.state)}`;
-      }
-      if (currentFilters.city) {
-        url += `&city=${encodeURIComponent(currentFilters.city)}`;
-      }
-      if (currentFilters.online) {
-        url += `&online=true`;
-      }
-      if (currentFilters.hybrid) {
-        url += `&hybrid=true`;
-      }
-      if (currentFilters.format) {
-        url += `&format=${encodeURIComponent(currentFilters.format)}`;
-      }
+      // At high zoom levels, use Parse SDK directly for individual meetings
+      // This bypasses the backend API and queries Back4App directly
+      const useParseForIndividualMeetings = zoom >= DETAIL_ZOOM_THRESHOLD && parseInitialized && parseFetchMeetings;
 
-      const response = await fetch(url, {
-        signal: pendingFetchRef.current.signal
-      });
+      if (useParseForIndividualMeetings) {
+        // Query Parse directly for individual meetings
+        const result = await parseFetchMeetings({
+          bounds: {
+            north: bounds.getNorth(),
+            south: bounds.getSouth(),
+            east: bounds.getEast(),
+            west: bounds.getWest()
+          },
+          center: { lat: center.lat, lng: center.lng },
+          day: currentFilters.day,
+          type: currentFilters.type,
+          state: currentFilters.state,
+          city: currentFilters.city,
+          online: currentFilters.online,
+          hybrid: currentFilters.hybrid,
+          format: currentFilters.format,
+          limit: 200 // Reasonable limit for individual meetings view
+        });
 
-      if (response.ok) {
-        const data = await response.json();
+        const data = {
+          meetings: result.meetings || [],
+          clusters: [],
+          total: result.total || result.meetings?.length || 0,
+          mode: 'individual'
+        };
 
         // Cache the fresh data
         if (cacheContext) {
           cacheContext.setCache(persistentCacheKey, data, HEATMAP_CACHE_TTL);
         }
 
-        onDataLoaded(data, false); // false indicates this is fresh data
+        onDataLoaded(data, false);
+      } else {
+        // Fall back to backend API for cluster data or when Parse unavailable
+        let url = `${BACKEND_URL}/api/meetings/heatmap?zoom=${zoom}&north=${bounds.getNorth()}&south=${bounds.getSouth()}&east=${bounds.getEast()}&west=${bounds.getWest()}&center_lat=${center.lat}&center_lng=${center.lng}`;
+
+        // Add filter parameters
+        if (currentFilters.day !== undefined && currentFilters.day !== null) {
+          url += `&day=${currentFilters.day}`;
+        }
+        if (currentFilters.type) {
+          url += `&type=${encodeURIComponent(currentFilters.type)}`;
+        }
+        if (currentFilters.state) {
+          url += `&state=${encodeURIComponent(currentFilters.state)}`;
+        }
+        if (currentFilters.city) {
+          url += `&city=${encodeURIComponent(currentFilters.city)}`;
+        }
+        if (currentFilters.online) {
+          url += `&online=true`;
+        }
+        if (currentFilters.hybrid) {
+          url += `&hybrid=true`;
+        }
+        if (currentFilters.format) {
+          url += `&format=${encodeURIComponent(currentFilters.format)}`;
+        }
+
+        const response = await fetch(url, {
+          signal: pendingFetchRef.current.signal
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          // Cache the fresh data
+          if (cacheContext) {
+            cacheContext.setCache(persistentCacheKey, data, HEATMAP_CACHE_TTL);
+          }
+
+          onDataLoaded(data, false); // false indicates this is fresh data
+        }
       }
     } catch (error) {
       if (error.name === 'AbortError') {
@@ -415,7 +461,16 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
     } finally {
       onLoadingChange?.(false);
     }
-  }, [map, onDataLoaded, onLoadingChange, cacheContext]);
+  }, [map, onDataLoaded, onLoadingChange, cacheContext, parseInitialized, parseFetchMeetings]);
+
+  // Keep refs updated with latest callback versions
+  useEffect(() => {
+    fetchHeatmapDataRef.current = fetchHeatmapData;
+  }, [fetchHeatmapData]);
+
+  useEffect(() => {
+    fetchStateDataRef.current = fetchStateData;
+  }, [fetchStateData]);
 
   useEffect(() => {
     const handleMoveEnd = () => {
@@ -486,6 +541,10 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
   }, [map, fetchHeatmapData, fetchStateData, onZoomChange, onBoundsChange]);
 
   // Refetch when filters change
+  // IMPORTANT: Use refs to call callbacks to prevent infinite loops.
+  // If we included fetchHeatmapData/fetchStateData in deps, any change to
+  // their dependencies would trigger this effect, reset deduplication keys,
+  // and fire requests - causing a cascading loop of 100+ requests/second.
   useEffect(() => {
     if (filters) {
       // Update filtersRef BEFORE fetching to avoid race condition
@@ -494,11 +553,12 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
       // Force refresh when filters change - reset deduplication keys
       lastFetchRef.current = null;
       lastStateDataKeyRef.current = null;
-      fetchHeatmapData(true);
+      // Call through refs to avoid dependency on callback references
+      fetchHeatmapDataRef.current?.(true);
       // Also refetch state data with new filters
-      fetchStateData();
+      fetchStateDataRef.current?.();
     }
-  }, [filters, fetchHeatmapData, fetchStateData]);
+  }, [filters]); // Only depend on filters, not on callback references
 
   return null;
 }
@@ -653,7 +713,7 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
   const cacheContext = useDataCache();
 
   // Get Parse context for direct database queries (bypasses backend)
-  const { isInitialized: parseInitialized, fetchMeetingsByState: parseFetchMeetingsByState } = useParse();
+  const { isInitialized: parseInitialized, fetchMeetingsByState: parseFetchMeetingsByState, fetchMeetings: parseFetchMeetings } = useParse();
 
   // Cache previous valid data to show during loading transitions
   const prevMapDataRef = useRef(null);
@@ -840,6 +900,7 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
           cacheContext={cacheContext}
           parseInitialized={parseInitialized}
           parseFetchMeetingsByState={parseFetchMeetingsByState}
+          parseFetchMeetings={parseFetchMeetings}
         />
 
         <MapPanHandler targetLocation={targetLocation} />
