@@ -393,15 +393,16 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         allTypes.push('Other');
         setAvailableTypes(allTypes);
 
-        // Check if we got 0 results with debug info - potential configuration issue
-        if (newMeetings.length === 0 && data.debug) {
-          setError('No meetings found - possible configuration issue');
+        // Store debug info if present (for diagnostics) but don't show error for normal empty results
+        // Debug info indicates potential config issues only when initial load returns 0 across entire database
+        if (data.debug) {
           setErrorDetails({
             timestamp: new Date().toISOString(),
-            type: 'empty_results_with_debug',
+            type: 'empty_results_debug_info',
             debug: data.debug,
             requestUrl: url.replace(BACKEND_URL, ''),
-            bounds: bounds
+            bounds: bounds,
+            note: 'This is debug info, not necessarily an error. Empty results in a specific area is normal.'
           });
         }
       } else {
@@ -1852,11 +1853,47 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                 <path d="M21 21l-4.35-4.35"/>
               </svg>
               <h3>No meetings found</h3>
-              <p>Try adjusting your filters or search terms</p>
-              {hasActiveFilters && (
-                <button className="btn btn-secondary" onClick={clearFilters}>
-                  Clear all filters
+              <p>Try adjusting your filters or zooming out on the map</p>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
+                {hasActiveFilters && (
+                  <button className="btn btn-secondary" onClick={clearFilters}>
+                    Clear all filters
+                  </button>
+                )}
+                <button className="btn btn-secondary" onClick={() => setShowDiagnostics(true)}>
+                  View Diagnostics
                 </button>
+              </div>
+              {/* Show debug info if available (for troubleshooting config issues) */}
+              {errorDetails?.type === 'empty_results_debug_info' && (
+                <div style={{ marginTop: '16px', textAlign: 'left', width: '100%' }}>
+                  <details style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    <summary style={{ cursor: 'pointer', marginBottom: '8px' }}>Debug Info (for troubleshooting)</summary>
+                    <pre style={{
+                      background: 'var(--bg-tertiary, #1a1a1a)',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      fontSize: '11px',
+                      overflow: 'auto',
+                      maxHeight: '200px',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      margin: 0
+                    }}>
+                      {JSON.stringify(errorDetails, null, 2)}
+                    </pre>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 8px', fontSize: '11px', marginTop: '8px' }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(JSON.stringify(errorDetails, null, 2));
+                        alert('Debug info copied to clipboard');
+                      }}
+                    >
+                      Copy Debug Info
+                    </button>
+                  </details>
+                </div>
               )}
             </div>
           ) : filteredMeetings.length === 0 && mapMeetingCount > 0 && isLoading ? (
