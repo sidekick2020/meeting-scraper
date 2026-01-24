@@ -230,6 +230,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
 
   // Filters - restore from cache if available
   const [searchQuery, setSearchQuery] = useState(cachedFilterState?.data?.searchQuery || '');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(cachedFilterState?.data?.searchQuery || '');
+  const searchDebounceRef = useRef(null);
   const [selectedStates, setSelectedStates] = useState(cachedFilterState?.data?.selectedStates || []);
   const [selectedCity, setSelectedCity] = useState(cachedFilterState?.data?.selectedCity || '');
   const [selectedDays, setSelectedDays] = useState(cachedFilterState?.data?.selectedDays || []); // Changed to array for multi-select
@@ -320,15 +322,40 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     return meetings.map(m => m.objectId).filter(Boolean).join(',');
   }, [meetings]);
 
+  // Debounce search query for filtering - prevents excessive re-filtering on every keystroke
+  // When search is cleared (empty), immediately clear the debounced value to show all meetings
+  useEffect(() => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    // Immediately clear filter when search is empty
+    if (!searchQuery) {
+      setDebouncedSearchQuery('');
+      return;
+    }
+
+    // Debounce non-empty search queries by 300ms
+    searchDebounceRef.current = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [searchQuery]);
+
   // Apply client-side filters (search query and accessibility only - rest handled server-side)
   // IMPORTANT: Use useMemo instead of useEffect to prevent flicker when meetings change
   // useEffect runs AFTER render, causing a frame where old filteredMeetings is shown
   const filteredMeetings = useMemo(() => {
     let filtered = meetings;
 
-    // Search query - filter client-side for instant feedback
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+    // Search query - filter client-side for instant feedback (uses debounced value)
+    if (debouncedSearchQuery) {
+      const query = debouncedSearchQuery.toLowerCase();
       filtered = filtered.filter(m =>
         m.name?.toLowerCase().includes(query) ||
         m.locationName?.toLowerCase().includes(query) ||
@@ -345,7 +372,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     }
 
     return filtered;
-  }, [meetings, searchQuery, selectedAccessibility]);
+  }, [meetings, debouncedSearchQuery, selectedAccessibility]);
 
   // Stable filtered meeting IDs - only changes when filter results change
   const filteredMeetingIdsKey = useMemo(() => {
