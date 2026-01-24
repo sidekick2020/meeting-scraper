@@ -289,6 +289,22 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const listRef = useRef(null);
   const thumbnailRequestsRef = useRef(new Set());
 
+  // Refs for request optimization - prevents duplicate API calls
+  const filtersRef = useRef({
+    selectedStates: [],
+    selectedDays: [],
+    selectedTypes: [],
+    selectedCity: '',
+    showOnlineOnly: false,
+    showHybridOnly: false,
+    showTodayOnly: false,
+    selectedFormat: ''
+  });
+  const filterFetchTimeoutRef = useRef(null);
+  const pendingFetchRef = useRef(null);
+  const lastFetchKeyRef = useRef(null);
+  const fetchMeetingsRef = useRef(null);
+
   // Fetch thumbnail for a single meeting
   const fetchThumbnail = useCallback(async (meetingId) => {
     if (thumbnailRequestsRef.current.has(meetingId)) return null;
@@ -331,9 +347,41 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     }
   }, [fetchThumbnail]);
 
+  // Keep filtersRef updated - allows fetchMeetings to have stable reference
+  useEffect(() => {
+    filtersRef.current = {
+      selectedStates,
+      selectedDays,
+      selectedTypes,
+      selectedCity,
+      showOnlineOnly,
+      showHybridOnly,
+      showTodayOnly,
+      selectedFormat
+    };
+  }, [selectedStates, selectedDays, selectedTypes, selectedCity, showOnlineOnly, showHybridOnly, showTodayOnly, selectedFormat]);
+
   // Simple fetch function - fetches meetings based on bounds and filters, limit 50
+  // Uses refs for filters to maintain stable function reference and prevent duplicate calls
   const fetchMeetings = useCallback(async (bounds) => {
     if (!bounds) return;
+
+    const filters = filtersRef.current;
+
+    // Create request key for deduplication - includes bounds and all filter values
+    const requestKey = `${bounds.north.toFixed(3)}-${bounds.south.toFixed(3)}-${bounds.east.toFixed(3)}-${bounds.west.toFixed(3)}-${JSON.stringify(filters)}`;
+
+    // Skip if identical request was just made
+    if (lastFetchKeyRef.current === requestKey) {
+      return;
+    }
+    lastFetchKeyRef.current = requestKey;
+
+    // Cancel any pending fetch to prevent race conditions
+    if (pendingFetchRef.current) {
+      pendingFetchRef.current.abort();
+    }
+    pendingFetchRef.current = new AbortController();
 
     setIsLoading(true);
     setError(null);
@@ -349,32 +397,34 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         url += `&center_lat=${bounds.center_lat}&center_lng=${bounds.center_lng}`;
       }
 
-      // Add filters if present
-      if (selectedStates.length > 0) {
-        url += `&state=${encodeURIComponent(selectedStates[0])}`;
+      // Add filters if present (read from filters object, not closure)
+      if (filters.selectedStates.length > 0) {
+        url += `&state=${encodeURIComponent(filters.selectedStates[0])}`;
       }
-      if (showTodayOnly) {
+      if (filters.showTodayOnly) {
         url += `&day=${new Date().getDay()}`;
-      } else if (selectedDays.length === 1) {
-        url += `&day=${selectedDays[0]}`;
+      } else if (filters.selectedDays.length === 1) {
+        url += `&day=${filters.selectedDays[0]}`;
       }
-      if (selectedTypes.length === 1) {
-        url += `&type=${encodeURIComponent(selectedTypes[0])}`;
+      if (filters.selectedTypes.length === 1) {
+        url += `&type=${encodeURIComponent(filters.selectedTypes[0])}`;
       }
-      if (selectedCity) {
-        url += `&city=${encodeURIComponent(selectedCity)}`;
+      if (filters.selectedCity) {
+        url += `&city=${encodeURIComponent(filters.selectedCity)}`;
       }
-      if (showOnlineOnly) {
+      if (filters.showOnlineOnly) {
         url += `&online=true`;
       }
-      if (showHybridOnly) {
+      if (filters.showHybridOnly) {
         url += `&hybrid=true`;
       }
-      if (selectedFormat) {
-        url += `&format=${encodeURIComponent(selectedFormat)}`;
+      if (filters.selectedFormat) {
+        url += `&format=${encodeURIComponent(filters.selectedFormat)}`;
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        signal: pendingFetchRef.current.signal
+      });
       const data = await response.json();
 
       if (response.ok) {
@@ -418,6 +468,10 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         });
       }
     } catch (err) {
+      // Ignore abort errors - they're expected when cancelling stale requests
+      if (err.name === 'AbortError') {
+        return;
+      }
       setError('Unable to connect to server');
       setErrorDetails({
         timestamp: new Date().toISOString(),
@@ -429,14 +483,56 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedStates, selectedDays, selectedTypes, selectedCity, showOnlineOnly, showHybridOnly, showTodayOnly, selectedFormat]);
+  }, []); // Empty deps - uses refs for all filter values
 
-  // Fetch meetings when bounds or filters change
+  // Keep fetchMeetingsRef updated for use in callbacks
+  useEffect(() => {
+    fetchMeetingsRef.current = fetchMeetings;
+  }, [fetchMeetings]);
+
+  // Fetch meetings when bounds change (map pan/zoom)
   useEffect(() => {
     if (mapBounds) {
       fetchMeetings(mapBounds);
     }
   }, [mapBounds, fetchMeetings]);
+
+  // Debounced fetch when filters change - prevents rapid API calls during filter updates
+  useEffect(() => {
+    // Only trigger debounced fetch if we have bounds (map is initialized)
+    if (!mapBounds) return;
+
+    // Clear any pending debounced fetch
+    if (filterFetchTimeoutRef.current) {
+      clearTimeout(filterFetchTimeoutRef.current);
+    }
+
+    // Reset the request key to force a new fetch when filters change
+    lastFetchKeyRef.current = null;
+
+    // Debounce the fetch - 300ms matches MeetingMap.js debounce timing
+    filterFetchTimeoutRef.current = setTimeout(() => {
+      fetchMeetings(mapBounds);
+    }, 300);
+
+    return () => {
+      if (filterFetchTimeoutRef.current) {
+        clearTimeout(filterFetchTimeoutRef.current);
+      }
+    };
+  }, [selectedStates, selectedDays, selectedTypes, selectedCity, showOnlineOnly, showHybridOnly, showTodayOnly, selectedFormat, mapBounds, fetchMeetings]);
+
+  // Cleanup on unmount - abort pending requests and clear timeouts
+  useEffect(() => {
+    return () => {
+      if (pendingFetchRef.current) {
+        pendingFetchRef.current.abort();
+      }
+      if (filterFetchTimeoutRef.current) {
+        clearTimeout(filterFetchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Cache meetings data when it changes
   useEffect(() => {
@@ -634,8 +730,10 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         searchQuery,
         onSearchChange: setSearchQuery,
         onSearchSubmit: () => {
-          // Trigger search/filter update via bounds change
-          if (mapBounds) fetchMeetings(mapBounds);
+          // Trigger search/filter update - uses ref to avoid dependency on fetchMeetings
+          if (mapBounds && fetchMeetingsRef.current) {
+            fetchMeetingsRef.current(mapBounds);
+          }
         },
         // Quick filters
         showTodayOnly,
@@ -694,8 +792,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     availableStates,
     hasActiveFilters,
     clearFilters,
-    fetchMeetings,
     mapBounds
+    // Note: fetchMeetings removed - using fetchMeetingsRef instead to prevent effect re-runs
   ]);
 
   // Close dropdowns when clicking outside
