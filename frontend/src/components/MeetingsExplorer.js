@@ -726,6 +726,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
 
           // Auto-pan to the first result immediately
           if (locations.length > 0) {
+            // Mark as programmatic pan so handleBoundsChange doesn't clear filters
+            isProgrammaticPanRef.current = true;
             setTargetLocation({
               lat: locations[0].lat,
               lng: locations[0].lon,
@@ -1096,6 +1098,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const handleSearchSubmit = () => {
     if (searchQuery) {
       saveRecentSearch(searchQuery);
+      // Mark as programmatic pan so handleBoundsChange doesn't clear filters
+      isProgrammaticPanRef.current = true;
       // Geocode and pan map to the searched location - this will trigger bounds change and fetch
       geocodeAndPanMap(searchQuery, selectedStates.length === 1 ? selectedStates[0] : null);
     }
