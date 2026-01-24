@@ -296,11 +296,22 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const listRef = useRef(null);
   const thumbnailRequestsRef = useRef(new Set());
 
+  // Stable meeting IDs string - only changes when actual meeting list changes (not thumbnails)
+  // This prevents scroll restoration from triggering on thumbnail updates
+  const meetingIdsKey = useMemo(() => {
+    return meetings.map(m => m.objectId).filter(Boolean).join(',');
+  }, [meetings]);
+
+  // Stable filtered meeting IDs - only changes when filter results change
+  const filteredMeetingIdsKey = useMemo(() => {
+    return filteredMeetings.map(m => m.objectId).filter(Boolean).join(',');
+  }, [filteredMeetings]);
+
   // Scroll position preservation using meeting ID anchor (prevents scroll reset when thumbnails load)
   const anchorMeetingIdRef = useRef(null);      // ID of meeting at top of viewport
   const anchorOffsetRef = useRef(0);            // Offset of anchor meeting from top of list
   const isRestoringScrollRef = useRef(false);
-  const lastMeetingIdsRef = useRef(new Set());  // Track actual meeting IDs (not object reference)
+  const lastMeetingIdsRef = useRef('');         // Track meeting IDs as string key (stable comparison)
 
   // Refs for request optimization - prevents duplicate API calls
   const filtersRef = useRef({
@@ -342,18 +353,16 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
 
     try {
       // Use throttled fetcher that respects browser connection limits
+      // IMPORTANT: Do NOT use onResult callback - it causes rapid state updates
+      // that trigger scroll restoration 20+ times, causing scroll position resets.
+      // Instead, batch all thumbnail updates into a single state update at the end.
       const results = await fetchThumbnailsThrottled(meetingIds, BACKEND_URL, {
         signal: thumbnailAbortRef.current.signal,
-        timeout: 10000,
-        onResult: (meetingId, thumbnailUrl) => {
-          // Update state incrementally as each thumbnail loads
-          setMeetings(prev => prev.map(m =>
-            m.objectId === meetingId ? { ...m, thumbnailUrl } : m
-          ));
-        }
+        timeout: 10000
+        // No onResult callback - see comment above
       });
 
-      // Final batch update for any remaining
+      // Single batch update for all thumbnails - prevents scroll reset cascade
       if (results.size > 0) {
         setMeetings(prev => prev.map(m => {
           const thumbnailUrl = results.get(m.objectId);
@@ -704,20 +713,18 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   }, []);
 
   // Restore scroll position after filteredMeetings changes (using useLayoutEffect to run before paint)
-  // Uses meeting ID anchor to handle thumbnail loads without scroll jumping
+  // Uses meeting ID anchor to handle filter/search changes without scroll jumping
+  // IMPORTANT: Uses stable ID keys as dependencies to prevent running on thumbnail updates
   useLayoutEffect(() => {
     const listElement = listRef.current;
     if (!listElement) return;
 
-    // Build set of current meeting IDs to detect actual data changes
-    const currentMeetingIds = new Set(meetings.map(m => m.objectId).filter(Boolean));
-    const previousMeetingIds = lastMeetingIdsRef.current;
+    // Check if this is the first render or meeting IDs have changed
+    const previousKey = lastMeetingIdsRef.current;
+    const hasNewMeetings = previousKey !== meetingIdsKey;
 
-    // Check if meeting IDs actually changed (new fetch) vs just thumbnail/property updates
-    const hasNewMeetings = currentMeetingIds.size !== previousMeetingIds.size ||
-      [...currentMeetingIds].some(id => !previousMeetingIds.has(id));
-
-    lastMeetingIdsRef.current = currentMeetingIds;
+    // Update ref to current key
+    lastMeetingIdsRef.current = meetingIdsKey;
 
     if (hasNewMeetings) {
       // Actually new data fetched - scroll to top and reset anchor
@@ -727,7 +734,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
       return;
     }
 
-    // Same meetings, possibly with updated thumbnails - restore scroll to anchor meeting
+    // Same meetings - this effect only runs when filteredMeetingIdsKey changes
+    // (i.e., search/filter changed), not when thumbnails load
     if (!anchorMeetingIdRef.current) return;
 
     // Set flag to prevent scroll handler from overwriting during restoration
@@ -752,7 +760,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         isRestoringScrollRef.current = false;
       });
     });
-  }, [filteredMeetings, meetings]);
+  }, [filteredMeetingIdsKey, meetingIdsKey]);
 
   // Apply client-side filters (search query and accessibility only - rest handled server-side)
   useEffect(() => {
