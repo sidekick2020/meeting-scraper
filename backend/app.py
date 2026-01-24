@@ -2082,6 +2082,8 @@ scraping_state = {
     "scrape_id": None,  # Unique ID for the current scrape run
     "feed_stats": {},  # Per-feed breakdown: {feed_name: {found, saved, duplicates, errors}}
     "failed_saves": [],  # Meetings that failed to save to Back4app with error details
+    "duplicate_meetings": [],  # Meetings skipped because they already exist in database
+    "saved_meetings": [],  # Meetings successfully saved to Back4app
 }
 
 # Scrape history - stores last 50 scrape runs
@@ -2826,11 +2828,27 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
             # Step 2: Check duplicates for this batch (1 query for up to 50 keys)
             existing_keys = check_duplicates_batch(batch_keys) if batch_keys else set()
 
-            # Filter out duplicates
+            # Filter out duplicates and track them
             meetings_to_save = []
             for meeting in batch_meetings:
                 if meeting.get("uniqueKey") in existing_keys:
                     duplicate_count += 1
+                    # Track duplicate meeting with details for debugging
+                    scraping_state["duplicate_meetings"].append({
+                        "feed": feed_name,
+                        "name": meeting.get("name", "Unknown"),
+                        "city": meeting.get("city", ""),
+                        "state": meeting.get("state", ""),
+                        "day": meeting.get("day", ""),
+                        "time": meeting.get("time", ""),
+                        "address": meeting.get("address", ""),
+                        "meetingType": meeting.get("meetingType", ""),
+                        "uniqueKey": meeting.get("uniqueKey", ""),
+                        "reason": "Already exists in database"
+                    })
+                    # Limit to last 200 duplicates to avoid memory issues
+                    if len(scraping_state["duplicate_meetings"]) > 200:
+                        scraping_state["duplicate_meetings"] = scraping_state["duplicate_meetings"][-200:]
                 else:
                     meetings_to_save.append(meeting)
 
@@ -2864,8 +2882,19 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
                     # Limit to last 100 failed saves to avoid memory issues
                     scraping_state["failed_saves"] = scraping_state["failed_saves"][-100:]
 
+                # Determine which meetings were successfully saved
+                # (exclude the ones that failed)
+                failed_keys = set()
+                if result.get("failed_meetings"):
+                    for failed in result["failed_meetings"]:
+                        failed_meeting = failed.get("meeting", {})
+                        failed_keys.add(failed_meeting.get("uniqueKey"))
+
                 # Update stats for saved meetings
-                for meeting in meetings_to_save[:result["saved"]]:
+                for meeting in meetings_to_save:
+                    if meeting.get("uniqueKey") in failed_keys:
+                        continue  # Skip failed meetings
+
                     state = meeting.get("state", "Unknown")
                     scraping_state["meetings_by_state"][state] = scraping_state["meetings_by_state"].get(state, 0) + 1
 
@@ -2883,6 +2912,22 @@ def fetch_and_process_feed(feed_name, feed_config, feed_index):
                     # Keep recent meetings (last 20)
                     scraping_state["recent_meetings"].insert(0, meeting)
                     scraping_state["recent_meetings"] = scraping_state["recent_meetings"][:20]
+
+                    # Track successfully saved meeting with details
+                    scraping_state["saved_meetings"].append({
+                        "feed": feed_name,
+                        "name": meeting.get("name", "Unknown"),
+                        "city": meeting.get("city", ""),
+                        "state": meeting.get("state", ""),
+                        "day": meeting.get("day", ""),
+                        "time": meeting.get("time", ""),
+                        "address": meeting.get("address", ""),
+                        "meetingType": meeting.get("meetingType", ""),
+                        "uniqueKey": meeting.get("uniqueKey", ""),
+                    })
+                    # Limit to last 200 saved meetings to avoid memory issues
+                    if len(scraping_state["saved_meetings"]) > 200:
+                        scraping_state["saved_meetings"] = scraping_state["saved_meetings"][-200:]
 
                 add_log(f"Batch {batch_num}: saved {result['saved']}, {len(batch_meetings) - len(meetings_to_save)} duplicates", "info")
             else:
@@ -3225,6 +3270,8 @@ def save_scrape_history(status="completed", feeds_processed=0):
         "feed_stats": dict(scraping_state.get("feed_stats", {})),
         "errors": list(scraping_state["errors"]),
         "failed_saves": list(scraping_state.get("failed_saves", [])),  # Include failed save data
+        "duplicate_meetings": list(scraping_state.get("duplicate_meetings", [])),  # Include duplicate meeting details
+        "saved_meetings": list(scraping_state.get("saved_meetings", [])),  # Include saved meeting details
         "status": status
     }
 
@@ -3413,6 +3460,8 @@ def start_scraping():
     scraping_state["activity_log"] = []
     scraping_state["feed_stats"] = data.get('resume_feed_stats', {})
     scraping_state["failed_saves"] = []  # Reset failed saves for new scrape
+    scraping_state["duplicate_meetings"] = []  # Reset duplicate tracking for new scrape
+    scraping_state["saved_meetings"] = []  # Reset saved tracking for new scrape
     scraping_state["started_at"] = data.get('resume_started_at') or datetime.now().isoformat()
     scraping_state["scrape_id"] = resume_scrape_id or generate_object_id()  # Use existing or new ID
 
