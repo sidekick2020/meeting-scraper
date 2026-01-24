@@ -38,6 +38,30 @@ const FeedIcon = () => (
   </svg>
 );
 
+const ClockIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <polyline points="12,6 12,12 16,14"/>
+  </svg>
+);
+
+// Format seconds into human-readable duration
+function formatDuration(seconds) {
+  if (seconds == null || seconds < 0) return '--';
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  } else if (minutes > 0) {
+    return `${minutes}m ${secs}s`;
+  } else {
+    return `${secs}s`;
+  }
+}
+
 function Dashboard({ scrapingState }) {
   const {
     is_running,
@@ -49,7 +73,10 @@ function Dashboard({ scrapingState }) {
     total_feeds,
     current_feed_progress,
     current_feed_total,
-    meetings_by_type
+    meetings_by_type,
+    elapsed_seconds,
+    estimated_remaining_seconds,
+    items_per_second
   } = scrapingState;
 
   // Calculate progress percentage for current feed
@@ -106,6 +133,24 @@ function Dashboard({ scrapingState }) {
             </div>
           </div>
         )}
+
+        {is_running && elapsed_seconds != null && (
+          <div className="card card-time">
+            <div className="card-icon">
+              <ClockIcon />
+            </div>
+            <div className="card-content">
+              <span className="card-value">
+                {estimated_remaining_seconds != null
+                  ? formatDuration(estimated_remaining_seconds)
+                  : '--'}
+              </span>
+              <span className="card-label">
+                {elapsed_seconds != null ? `${formatDuration(elapsed_seconds)} elapsed` : 'Time'}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {is_running && (
@@ -140,7 +185,12 @@ function Dashboard({ scrapingState }) {
           )}
 
           {progress_message && (
-            <div className="progress-message">{progress_message}</div>
+            <div className="progress-message">
+              {progress_message}
+              {items_per_second != null && items_per_second > 0 && (
+                <span className="velocity-info"> ({items_per_second.toFixed(1)}/sec)</span>
+              )}
+            </div>
           )}
         </div>
       )}

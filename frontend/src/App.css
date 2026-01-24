@@ -971,6 +971,11 @@ html, body {
   color: #a855f7;
 }
 
+.card-time .card-icon {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
 .icon-spin {
   animation: spin 1.5s linear infinite;
 }
@@ -1135,6 +1140,11 @@ html, body {
   margin-top: 0.625rem;
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.velocity-info {
+  color: var(--text-muted);
+  opacity: 0.8;
 }
 
 /* Activity Log */
