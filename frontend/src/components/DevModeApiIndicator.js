@@ -102,6 +102,22 @@ function DevModeApiIndicator() {
     copyToClipboard(curl, 'curl');
   };
 
+  const copyAllLogs = () => {
+    const allLogsData = logs.map(log => ({
+      timestamp: log.timestamp.toISOString(),
+      method: log.method,
+      url: log.url,
+      status: log.statusCode,
+      duration: log.duration,
+      requestHeaders: log.requestHeaders,
+      requestBody: log.requestBody,
+      responseHeaders: log.responseHeaders,
+      response: log.response,
+      error: log.error
+    }));
+    copyToClipboard(JSON.stringify(allLogsData, null, 2), 'all');
+  };
+
   const handleLogClick = (log) => {
     setSelectedLog(selectedLog?.id === log.id ? null : log);
   };
@@ -135,6 +151,13 @@ function DevModeApiIndicator() {
       {isExpanded && (
         <div className="dev-mode-panel" ref={panelRef}>
           <div className="dev-mode-toolbar">
+            <button
+              className={`dev-mode-btn ${copyFeedback === 'all' ? 'copied' : ''}`}
+              onClick={copyAllLogs}
+              disabled={logs.length === 0}
+            >
+              {copyFeedback === 'all' ? 'Copied!' : 'Copy All Logs'}
+            </button>
             <button
               className="dev-mode-btn"
               onClick={clearLogs}
