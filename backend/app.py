@@ -119,6 +119,7 @@ state_counts_cache = CacheManager('state_counts', ttl_seconds=600, max_entries=2
 coverage_analysis_cache = CacheManager('coverage_analysis', ttl_seconds=300, max_entries=5)  # 5 min TTL for full coverage data
 statistics_cache = CacheManager('statistics', ttl_seconds=180, max_entries=10)  # 3 min TTL for statistics
 sources_cache = CacheManager('sources', ttl_seconds=300, max_entries=20)  # 5 min TTL for sources
+scrape_history_cache = CacheManager('scrape_history', ttl_seconds=120, max_entries=10)  # 2 min TTL for scrape history
 
 
 def cache_first_with_fallback(cache_manager, cache_key, fetch_function, fallback_data=None):
@@ -3084,7 +3085,7 @@ def test_single_save():
         }), 500
 
 def save_scrape_history(status="completed", feeds_processed=0):
-    """Save scrape run to history (both in-memory and Back4app)"""
+    """Save scrape run to history (Back4App is source of truth, cache for performance)"""
     global current_scrape_object_id
 
     history_entry = {
@@ -3102,16 +3103,9 @@ def save_scrape_history(status="completed", feeds_processed=0):
         "status": status
     }
 
-    # Update or insert in-memory history
-    existing_idx = next((i for i, h in enumerate(scrape_history) if h.get("id") == history_entry["id"]), None)
-    if existing_idx is not None:
-        scrape_history[existing_idx] = history_entry
-    else:
-        scrape_history.insert(0, history_entry)
-        while len(scrape_history) > 50:
-            scrape_history.pop()
+    back4app_success = False
 
-    # Also persist to Back4app for durability across restarts
+    # Back4App is source of truth - save there FIRST
     if BACK4APP_APP_ID and BACK4APP_REST_KEY:
         try:
             headers = {
@@ -3135,6 +3129,7 @@ def save_scrape_history(status="completed", feeds_processed=0):
                     current_scrape_object_id = result.get("objectId")
 
             if response.status_code in [200, 201]:
+                back4app_success = True
                 if status != "in_progress":
                     add_log(f"Scrape history saved to Back4app", "info")
             else:
@@ -3142,6 +3137,19 @@ def save_scrape_history(status="completed", feeds_processed=0):
                 add_log(f"Failed to save history to Back4app: {response.status_code} - {error_detail}", "warning")
         except Exception as e:
             add_log(f"Error saving history to Back4app: {e}", "warning")
+
+    # Update in-memory cache after Back4App save (or always for fallback during outages)
+    existing_idx = next((i for i, h in enumerate(scrape_history) if h.get("id") == history_entry["id"]), None)
+    if existing_idx is not None:
+        scrape_history[existing_idx] = history_entry
+    else:
+        scrape_history.insert(0, history_entry)
+        while len(scrape_history) > 50:
+            scrape_history.pop()
+
+    # Invalidate scrape_history_cache so next read fetches fresh data from Back4App
+    if back4app_success:
+        scrape_history_cache.invalidate()
 
     return history_entry
 
@@ -3990,12 +3998,21 @@ def get_changelog():
 
 @app.route('/api/history', methods=['GET'])
 def get_history():
-    """Get scrape history - from memory and Back4app"""
-    # If we have in-memory history, return it
-    if scrape_history:
-        return jsonify({"history": scrape_history})
+    """Get scrape history - Back4App is source of truth, cache for performance
 
-    # Otherwise try to fetch from Back4app
+    Query params:
+        refresh: If 'true', bypass cache and fetch fresh from Back4App
+    """
+    from flask import request
+    force_refresh = request.args.get('refresh', '').lower() == 'true'
+
+    # Check cache first (unless force refresh requested)
+    if not force_refresh:
+        cached_history = scrape_history_cache.get('history')
+        if cached_history is not None:
+            return jsonify({"history": cached_history, "source": "cache"})
+
+    # Fetch from Back4App (source of truth)
     if BACK4APP_APP_ID and BACK4APP_REST_KEY:
         try:
             headers = {
@@ -4022,23 +4039,34 @@ def get_history():
                         "errors": item.get("errors", []),
                         "status": item.get("status", "completed")
                     })
-                return jsonify({"history": history})
+                # Cache the result for future requests
+                scrape_history_cache.set('history', history)
+                return jsonify({"history": history, "source": "back4app"})
         except Exception as e:
             print(f"Error fetching history from Back4app: {e}")
 
-    return jsonify({"history": []})
+    # Fallback to in-memory history if Back4App unavailable
+    if scrape_history:
+        return jsonify({"history": scrape_history, "source": "memory_fallback"})
+
+    return jsonify({"history": [], "source": "none"})
 
 @app.route('/api/history/feed/<path:feed_name>', methods=['GET'])
 def get_feed_history(feed_name):
-    """Get scrape history for a specific feed/source"""
+    """Get scrape history for a specific feed/source - Back4App is source of truth
+
+    Query params:
+        refresh: If 'true', bypass cache and fetch fresh from Back4App
+    """
     from urllib.parse import unquote
+    from flask import request
     feed_name = unquote(feed_name)
+    force_refresh = request.args.get('refresh', '').lower() == 'true'
 
-    feed_history = []
-
-    # First check in-memory history
-    if scrape_history:
-        for entry in scrape_history:
+    def extract_feed_history(history_entries):
+        """Extract feed-specific stats from history entries"""
+        feed_history = []
+        for entry in history_entries:
             feed_stats = entry.get("feed_stats", {})
             if feed_name in feed_stats:
                 stats = feed_stats[feed_name]
@@ -4052,10 +4080,16 @@ def get_feed_history(feed_name):
                     "duplicates": stats.get("duplicates", 0),
                     "errors": stats.get("errors", 0)
                 })
-        if feed_history:
-            return jsonify({"feed_name": feed_name, "history": feed_history})
+        return feed_history
 
-    # Fall back to Back4app
+    # Check cache first (unless force refresh requested)
+    if not force_refresh:
+        cached_history = scrape_history_cache.get('history')
+        if cached_history is not None:
+            feed_history = extract_feed_history(cached_history)
+            return jsonify({"feed_name": feed_name, "history": feed_history, "source": "cache"})
+
+    # Fetch from Back4App (source of truth)
     if BACK4APP_APP_ID and BACK4APP_REST_KEY:
         try:
             headers = {
@@ -4067,24 +4101,34 @@ def get_feed_history(feed_name):
             if response.status_code == 200:
                 data = response.json()
                 results = data.get("results", [])
+                # Transform and cache full history
+                full_history = []
                 for item in results:
-                    feed_stats = item.get("feed_stats", {})
-                    if feed_name in feed_stats:
-                        stats = feed_stats[feed_name]
-                        feed_history.append({
-                            "id": item.get("id") or item.get("objectId"),
-                            "started_at": item.get("started_at"),
-                            "completed_at": item.get("completed_at"),
-                            "status": item.get("status", "completed"),
-                            "found": stats.get("found", 0),
-                            "saved": stats.get("saved", 0),
-                            "duplicates": stats.get("duplicates", 0),
-                            "errors": stats.get("errors", 0)
-                        })
+                    full_history.append({
+                        "id": item.get("id") or item.get("objectId"),
+                        "started_at": item.get("started_at"),
+                        "completed_at": item.get("completed_at"),
+                        "total_found": item.get("total_found", 0),
+                        "total_saved": item.get("total_saved", 0),
+                        "feeds_processed": item.get("feeds_processed", 0),
+                        "meetings_by_state": item.get("meetings_by_state", {}),
+                        "feed_stats": item.get("feed_stats", {}),
+                        "errors": item.get("errors", []),
+                        "status": item.get("status", "completed")
+                    })
+                # Cache for future requests
+                scrape_history_cache.set('history', full_history)
+                feed_history = extract_feed_history(full_history)
+                return jsonify({"feed_name": feed_name, "history": feed_history, "source": "back4app"})
         except Exception as e:
             print(f"Error fetching feed history from Back4app: {e}")
 
-    return jsonify({"feed_name": feed_name, "history": feed_history})
+    # Fallback to in-memory history if Back4App unavailable
+    if scrape_history:
+        feed_history = extract_feed_history(scrape_history)
+        return jsonify({"feed_name": feed_name, "history": feed_history, "source": "memory_fallback"})
+
+    return jsonify({"feed_name": feed_name, "history": [], "source": "none"})
 
 @app.route('/api/check-unfinished', methods=['GET'])
 def check_unfinished_scrape():
