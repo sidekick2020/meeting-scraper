@@ -444,6 +444,152 @@ export function ParseProvider({ children }) {
     }
   }, [queryLogger]);
 
+  /**
+   * Fetch coverage analysis data directly from Back4app
+   * This replaces the /api/coverage backend call
+   * @returns {Promise<Object>} Coverage analysis data
+   */
+  const fetchCoverageAnalysis = useCallback(async () => {
+    const log = queryLogger.logQuery({
+      operation: 'fetchCoverageAnalysis',
+      className: 'Meetings',
+      params: {},
+      step: 'Starting coverage analysis query'
+    });
+
+    if (!isInitialized) {
+      log.error(new Error('Parse not initialized'), { reason: 'SDK not initialized' });
+      return null;
+    }
+
+    // US State populations (in thousands) - matches backend
+    const US_STATE_POPULATION = {
+      'AL': 5024, 'AK': 733, 'AZ': 7151, 'AR': 3011, 'CA': 39538, 'CO': 5773,
+      'CT': 3606, 'DE': 989, 'FL': 21538, 'GA': 10711, 'HI': 1455, 'ID': 1839,
+      'IL': 12812, 'IN': 6786, 'IA': 3190, 'KS': 2937, 'KY': 4505, 'LA': 4657,
+      'ME': 1362, 'MD': 6177, 'MA': 7029, 'MI': 10077, 'MN': 5706, 'MS': 2961,
+      'MO': 6154, 'MT': 1084, 'NE': 1961, 'NV': 3104, 'NH': 1377, 'NJ': 9288,
+      'NM': 2117, 'NY': 20201, 'NC': 10439, 'ND': 779, 'OH': 11799, 'OK': 3959,
+      'OR': 4237, 'PA': 13002, 'RI': 1097, 'SC': 5118, 'SD': 886, 'TN': 6910,
+      'TX': 29145, 'UT': 3271, 'VT': 643, 'VA': 8631, 'WA': 7614, 'WV': 1793,
+      'WI': 5893, 'WY': 577, 'DC': 689
+    };
+
+    const US_STATE_NAMES = {
+      'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas',
+      'CA': 'California', 'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware',
+      'FL': 'Florida', 'GA': 'Georgia', 'HI': 'Hawaii', 'ID': 'Idaho',
+      'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa', 'KS': 'Kansas',
+      'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
+      'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi',
+      'MO': 'Missouri', 'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada',
+      'NH': 'New Hampshire', 'NJ': 'New Jersey', 'NM': 'New Mexico', 'NY': 'New York',
+      'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio', 'OK': 'Oklahoma',
+      'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
+      'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah',
+      'VT': 'Vermont', 'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia',
+      'WI': 'Wisconsin', 'WY': 'Wyoming', 'DC': 'District of Columbia'
+    };
+
+    try {
+      // Count meetings by state using batch queries
+      const meetingsByState = {};
+      let skip = 0;
+      const batchSize = 1000;
+      let totalMeetings = 0;
+      let batchCount = 0;
+
+      while (true) {
+        batchCount++;
+        log.updateStep(`Fetching batch ${batchCount} (skip=${skip}, limit=${batchSize})`);
+
+        const batchQuery = new Parse.Query('Meetings');
+        batchQuery.select('state');
+        batchQuery.exists('state');
+        batchQuery.limit(batchSize);
+        batchQuery.skip(skip);
+
+        const results = await batchQuery.find();
+        if (results.length === 0) break;
+
+        results.forEach(m => {
+          const state = m.get('state');
+          if (state) {
+            meetingsByState[state] = (meetingsByState[state] || 0) + 1;
+            totalMeetings++;
+          }
+        });
+
+        skip += batchSize;
+        if (results.length < batchSize) break;
+
+        // Safety limit
+        if (skip > 500000) {
+          console.warn('Hit safety limit of 500k meetings');
+          break;
+        }
+      }
+
+      log.updateStep(`Processing ${totalMeetings} meetings across ${Object.keys(meetingsByState).length} states`);
+
+      // Calculate coverage metrics
+      const totalUSPopulation = Object.values(US_STATE_POPULATION).reduce((a, b) => a + b, 0);
+      const coverageData = [];
+
+      for (const [stateCode, population] of Object.entries(US_STATE_POPULATION)) {
+        const meetings = meetingsByState[stateCode] || 0;
+        const coveragePer100k = population > 0 ? (meetings / population * 100) : 0;
+
+        coverageData.push({
+          state: stateCode,
+          stateName: US_STATE_NAMES[stateCode] || stateCode,
+          population: population * 1000,
+          meetings,
+          coveragePer100k: Math.round(coveragePer100k * 100) / 100,
+          hasFeed: false // Will be determined by backend if needed
+        });
+      }
+
+      // Sort by coverage (lowest first)
+      coverageData.sort((a, b) => a.coveragePer100k - b.coveragePer100k);
+
+      // Calculate summary stats
+      const statesWithMeetings = coverageData.filter(s => s.meetings > 0);
+      const statesWithoutMeetings = coverageData.filter(s => s.meetings === 0);
+
+      let avgCoverage = 0;
+      if (statesWithMeetings.length > 0) {
+        avgCoverage = statesWithMeetings.reduce((sum, s) => sum + s.coveragePer100k, 0) / statesWithMeetings.length;
+      }
+
+      // Identify priority states (high population, low coverage)
+      const priorityStates = coverageData.filter(
+        s => s.population > 2000000 && s.coveragePer100k < avgCoverage
+      );
+
+      const result = {
+        summary: {
+          totalMeetings,
+          statesWithMeetings: statesWithMeetings.length,
+          statesWithoutMeetings: statesWithoutMeetings.length,
+          averageCoveragePer100k: Math.round(avgCoverage * 100) / 100,
+          totalUSPopulation: totalUSPopulation * 1000
+        },
+        coverage: coverageData,
+        priorityStates: priorityStates.slice(0, 10),
+        statesWithoutCoverage: statesWithoutMeetings,
+        source: 'parse-direct'
+      };
+
+      log.success({ count: coverageData.length, totalMeetings, data: result });
+      return result;
+    } catch (error) {
+      log.error(error, { operation: 'fetchCoverageAnalysis' });
+      console.error('ParseContext fetchCoverageAnalysis error:', error);
+      return null;
+    }
+  }, [queryLogger]);
+
   // Connection is resolved when we know the final state (success, error, or not configured)
   // This allows components to wait for connection check to complete before making API calls
   const isConnectionReady = connectionStatus === 'connected' ||
@@ -467,8 +613,9 @@ export function ParseProvider({ children }) {
     runCloud,
 
     // High-level data fetching (direct Parse queries, bypasses backend)
-    fetchMeetings,        // Query meetings with filters
-    fetchMeetingsByState, // Get counts per state for map
+    fetchMeetings,          // Query meetings with filters
+    fetchMeetingsByState,   // Get counts per state for map
+    fetchCoverageAnalysis,  // Get coverage analysis by state
 
     // Configuration info (useful for debugging)
     config: {

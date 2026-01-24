@@ -114,23 +114,136 @@ def init_heatmap_service(app_id, rest_key, session=None):
 
 
 def get_job_status():
-    """Get current job status including history."""
+    """Get current job status including history from Back4app."""
     with _job_lock:
         status = dict(indicator_job_state)
-        status["history"] = list(_job_history)
         status["scheduler_enabled"] = _scheduler_running
         status["next_scheduled_run"] = _get_next_scheduled_run()
-        return status
+
+    # Fetch history from Back4app (source of truth)
+    status["history"] = get_job_history()
+    return status
 
 
 def get_job_history():
-    """Get job run history."""
+    """Get job run history from Back4app (source of truth).
+
+    Falls back to in-memory history if Back4app is unavailable.
+    """
+    # Try fetching from Back4app first
+    if _back4app_config["app_id"] and _back4app_config["rest_key"]:
+        history = _fetch_run_history_from_back4app(limit=MAX_JOB_HISTORY)
+        if history:
+            return history
+
+    # Fallback to in-memory history
     with _job_lock:
         return list(_job_history)
 
 
+def _save_run_history_to_back4app(entry):
+    """Save a run history entry to Back4app.
+
+    Args:
+        entry: dict with run statistics
+
+    Returns:
+        objectId of the created record, or None on failure
+    """
+    import requests
+
+    session = _back4app_config["session"] or requests
+    url = "https://parseapi.back4app.com/classes/MapIndicatorRunHistory"
+
+    # Convert to Back4app format
+    record = {
+        "completedAt": {"__type": "Date", "iso": entry["completed_at"] + ("Z" if not entry["completed_at"].endswith("Z") else "")},
+        "success": entry.get("success", False),
+        "mode": entry.get("mode", "full"),
+        "totalMeetings": entry.get("total_meetings", 0),
+        "newMeetings": entry.get("new_meetings", 0),
+        "indicatorsCreated": entry.get("indicators_created", 0),
+        "meetingsUpdated": entry.get("meetings_updated", 0),
+        "durationSeconds": entry.get("duration_seconds", 0),
+        "filterTypes": entry.get("filter_types", 0),
+        "error": entry.get("error"),
+    }
+
+    try:
+        response = session.post(url, headers=_get_headers(), json=record, timeout=15)
+        if response.status_code == 201:
+            data = response.json()
+            _log(f"Saved run history to Back4app: {data.get('objectId')}", "info")
+            return data.get("objectId")
+        else:
+            _log(f"Failed to save run history: HTTP {response.status_code}", "warning")
+    except Exception as e:
+        _log(f"Error saving run history to Back4app: {e}", "warning")
+
+    return None
+
+
+def _fetch_run_history_from_back4app(limit=20):
+    """Fetch run history from Back4app.
+
+    Args:
+        limit: Maximum number of entries to fetch
+
+    Returns:
+        List of run history entries
+    """
+    import requests
+    import urllib.parse
+
+    session = _back4app_config["session"] or requests
+    base_url = "https://parseapi.back4app.com/classes/MapIndicatorRunHistory"
+
+    params = {
+        "limit": limit,
+        "order": "-completedAt",  # Most recent first
+    }
+
+    query_string = urllib.parse.urlencode(params)
+    url = f"{base_url}?{query_string}"
+
+    try:
+        response = session.get(url, headers=_get_headers(), timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get("results", [])
+
+            # Convert Back4app format to our format
+            history = []
+            for r in results:
+                completed_at = r.get("completedAt", {})
+                if isinstance(completed_at, dict):
+                    completed_at = completed_at.get("iso", "")
+                # Remove the Z suffix for consistency with existing format
+                if completed_at.endswith("Z"):
+                    completed_at = completed_at[:-1]
+
+                history.append({
+                    "completed_at": completed_at,
+                    "success": r.get("success", False),
+                    "mode": r.get("mode", "full"),
+                    "total_meetings": r.get("totalMeetings", 0),
+                    "new_meetings": r.get("newMeetings", 0),
+                    "indicators_created": r.get("indicatorsCreated", 0),
+                    "meetings_updated": r.get("meetingsUpdated", 0),
+                    "duration_seconds": r.get("durationSeconds", 0),
+                    "filter_types": r.get("filterTypes", 0),
+                    "error": r.get("error"),
+                })
+
+            return history
+    except Exception as e:
+        _log(f"Error fetching run history from Back4app: {e}", "warning")
+
+    return []
+
+
 def _add_to_history(result):
-    """Add a job result to history."""
+    """Add a job result to history (both in-memory and Back4app)."""
     global _job_history
     entry = {
         "completed_at": datetime.utcnow().isoformat(),
@@ -141,8 +254,14 @@ def _add_to_history(result):
         "indicators_created": result.get("indicators_created", 0),
         "meetings_updated": result.get("meetings_updated", 0),
         "duration_seconds": result.get("duration_seconds", 0),
+        "filter_types": result.get("filter_types", 0),
         "error": result.get("error"),
     }
+
+    # Save to Back4app (source of truth)
+    _save_run_history_to_back4app(entry)
+
+    # Also keep in-memory for quick access
     with _job_lock:
         _job_history.insert(0, entry)
         if len(_job_history) > MAX_JOB_HISTORY:
