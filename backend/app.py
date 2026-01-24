@@ -2270,6 +2270,28 @@ def to_parse_date(date_str):
     except:
         return None
 
+def normalize_to_array(value):
+    """Normalize a value to an array, extracting emails from objects if needed"""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        # Single email string
+        return [value] if '@' in value else []
+    if isinstance(value, dict):
+        # Extract email values from the object
+        emails = []
+        for v in value.values():
+            if isinstance(v, str) and '@' in v:
+                emails.append(v)
+            elif isinstance(v, list):
+                for item in v:
+                    if isinstance(item, str) and '@' in item:
+                        emails.append(item)
+        return emails
+    return []
+
 def normalize_meeting(raw_meeting, source_name, default_state, skip_geocoding=False):
     """Normalize meeting data from various feed formats to our standard format"""
     formatted_address = raw_meeting.get('formatted_address', '') or raw_meeting.get('address', '')
@@ -2467,7 +2489,7 @@ def normalize_meeting(raw_meeting, source_name, default_state, skip_geocoding=Fa
 
         # Additional flags
         "approximate": str(raw_meeting.get('approximate', False)).lower() in ('true', '1', 'yes'),
-        "feedbackEmails": raw_meeting.get('feedback_emails', []),
+        "feedbackEmails": normalize_to_array(raw_meeting.get('feedback_emails', [])),
 
         # Verification & Quality
         "lastVerifiedAt": None,
