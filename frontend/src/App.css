@@ -2449,6 +2449,16 @@ html, body {
   z-index: 1;
 }
 
+/* Subtle neutral styling for map tiles */
+.map-tiles {
+  filter: saturate(0.85) brightness(1.02) contrast(0.95);
+}
+
+/* Light map tiles for preview maps */
+.map-tiles-light {
+  filter: saturate(0.7) brightness(1.04) contrast(0.92);
+}
+
 .meeting-map-empty {
   background: var(--bg-tertiary);
   border: 1px solid var(--border-light);

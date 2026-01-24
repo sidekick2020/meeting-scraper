@@ -11,7 +11,14 @@ function DeploymentBanner() {
   useEffect(() => {
     const checkVersion = async () => {
       try {
-        const response = await fetch(`${BACKEND_URL}/api/version`, { timeout: 5000 });
+        // Use AbortController for proper timeout handling (30s for cold starts)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+        const response = await fetch(`${BACKEND_URL}/api/version`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
 
         if (response.ok) {
           const data = await response.json();

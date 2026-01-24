@@ -103,8 +103,7 @@ export function DevModeProvider({ children }) {
           if (contentType && contentType.includes('application/json')) {
             responseBody = await clonedResponse.json();
           } else {
-            const text = await clonedResponse.text();
-            responseBody = text.length > 1000 ? text.substring(0, 1000) + '...' : text;
+            responseBody = await clonedResponse.text();
           }
         } catch {
           responseBody = '[Could not parse response body]';

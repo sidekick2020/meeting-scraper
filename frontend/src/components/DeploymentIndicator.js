@@ -22,7 +22,8 @@ function DeploymentIndicator() {
     const checkVersion = async () => {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
+        // 30 second timeout to handle Render cold starts
+        const timeout = setTimeout(() => controller.abort(), 30000);
 
         const response = await fetch(`${BACKEND_URL}/api/version`, {
           signal: controller.signal
