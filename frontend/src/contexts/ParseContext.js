@@ -44,6 +44,70 @@ logInit(`REACT_APP_BACK4APP_JS_KEY: ${PARSE_JS_KEY ? 'SET (' + PARSE_JS_KEY.subs
 logInit(`PARSE_SERVER_URL: ${PARSE_SERVER_URL}`);
 
 /**
+ * Test raw HTTP connectivity to Parse server (bypasses Parse SDK)
+ * This helps isolate whether the issue is with the SDK or network/CORS
+ */
+async function testRawHttpConnection() {
+  const testUrl = `${PARSE_SERVER_URL}classes/Meetings?limit=1&keys=objectId`;
+  logInit(`Testing raw HTTP connection to: ${testUrl}`);
+
+  try {
+    const startTime = Date.now();
+    const response = await fetch(testUrl, {
+      method: 'GET',
+      headers: {
+        'X-Parse-Application-Id': PARSE_APP_ID,
+        'X-Parse-Javascript-Key': PARSE_JS_KEY,
+        'Content-Type': 'application/json'
+      }
+    });
+    const elapsed = Date.now() - startTime;
+
+    if (response.ok) {
+      const data = await response.json();
+      logInit(`Raw HTTP test SUCCESS in ${elapsed}ms - status ${response.status}, results: ${data.results?.length || 0}`, 'success');
+      return { success: true, method: 'raw-http', elapsed, status: response.status, resultsCount: data.results?.length || 0 };
+    } else {
+      const errorText = await response.text().catch(() => 'Unable to read response');
+      logInit(`Raw HTTP test FAILED - status ${response.status}: ${errorText}`, 'error');
+      return { success: false, method: 'raw-http', error: `HTTP ${response.status}: ${errorText}`, status: response.status };
+    }
+  } catch (error) {
+    const errorType = classifyError(error);
+    logInit(`Raw HTTP test FAILED (${errorType}): ${error.message}`, 'error');
+    return { success: false, method: 'raw-http', error: error.message, errorType };
+  }
+}
+
+/**
+ * Classify error type to help diagnose connection issues
+ */
+function classifyError(error) {
+  const message = error.message?.toLowerCase() || '';
+  const name = error.name?.toLowerCase() || '';
+
+  if (message.includes('timeout') || name.includes('timeout')) {
+    return 'timeout';
+  }
+  if (message.includes('cors') || message.includes('cross-origin') ||
+      message.includes('access-control') || message.includes('no \'access-control-allow-origin\'')) {
+    return 'cors';
+  }
+  if (message.includes('network') || message.includes('failed to fetch') ||
+      message.includes('networkerror') || name === 'typeerror') {
+    return 'network';
+  }
+  if (message.includes('unauthorized') || message.includes('401') ||
+      message.includes('invalid') || message.includes('key')) {
+    return 'auth';
+  }
+  if (message.includes('not found') || message.includes('404')) {
+    return 'not_found';
+  }
+  return 'unknown';
+}
+
+/**
  * Test the actual connection to Parse server
  * This performs a real query to verify network connectivity and credentials
  */
@@ -52,27 +116,72 @@ async function testParseConnection() {
     return { success: false, error: 'Parse SDK not initialized' };
   }
 
+  // First, try a raw HTTP test to isolate SDK vs network issues
+  logInit('Starting connection diagnostics...');
+  const rawHttpResult = await Promise.race([
+    testRawHttpConnection(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Raw HTTP test timeout (10s)')), 10000))
+  ]).catch(err => ({ success: false, method: 'raw-http', error: err.message, errorType: 'timeout' }));
+
+  // Store raw HTTP result for diagnostics
+  if (typeof window !== 'undefined') {
+    window.__parseRawHttpTest = rawHttpResult;
+  }
+
+  // Now try the Parse SDK query
   try {
-    logInit('Testing Parse connection with a real query...');
+    logInit('Testing Parse SDK query...');
     const testQuery = new Parse.Query('Meetings');
     testQuery.limit(1);
     testQuery.select('objectId');
 
     // Set a reasonable timeout for the connection test
+    const startTime = Date.now();
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('Connection test timeout (10s)')), 10000)
     );
 
     const queryPromise = testQuery.find();
-    await Promise.race([queryPromise, timeoutPromise]);
+    const results = await Promise.race([queryPromise, timeoutPromise]);
+    const elapsed = Date.now() - startTime;
 
-    logInit('Parse connection test SUCCESS', 'success');
-    return { success: true };
+    logInit(`Parse SDK query SUCCESS in ${elapsed}ms - got ${results.length} result(s)`, 'success');
+    return {
+      success: true,
+      method: 'parse-sdk',
+      elapsed,
+      resultsCount: results.length,
+      rawHttpResult
+    };
   } catch (error) {
     const errorMessage = error.message || String(error);
-    logInit(`Parse connection test FAILED: ${errorMessage}`, 'error');
+    const errorType = classifyError(error);
+    logInit(`Parse SDK query FAILED (${errorType}): ${errorMessage}`, 'error');
     lastConnectionError = errorMessage;
-    return { success: false, error: errorMessage };
+
+    // Provide diagnostic hints based on error type and raw HTTP result
+    let diagnosticHint = '';
+    if (rawHttpResult.success && errorType === 'timeout') {
+      diagnosticHint = 'Raw HTTP works but SDK times out - possible SDK configuration issue';
+    } else if (!rawHttpResult.success && rawHttpResult.errorType === 'cors') {
+      diagnosticHint = 'CORS error - check Back4App CORS settings or use backend proxy';
+    } else if (!rawHttpResult.success && rawHttpResult.errorType === 'auth') {
+      diagnosticHint = 'Authentication error - verify JavaScript key is correct and enabled';
+    } else if (!rawHttpResult.success && rawHttpResult.errorType === 'network') {
+      diagnosticHint = 'Network error - check internet connection or firewall/ad blocker';
+    }
+
+    if (diagnosticHint) {
+      logInit(`Diagnostic hint: ${diagnosticHint}`, 'warning');
+    }
+
+    return {
+      success: false,
+      error: errorMessage,
+      errorType,
+      diagnosticHint,
+      rawHttpResult
+    };
   }
 }
 
@@ -732,7 +841,8 @@ export function getFrontendInitLog() {
         serverUrl: PARSE_SERVER_URL,
         appIdPrefix: PARSE_APP_ID ? PARSE_APP_ID.substring(0, 8) + '...' : null,
         jsKeyPrefix: PARSE_JS_KEY ? PARSE_JS_KEY.substring(0, 8) + '...' : null,
-      }
+      },
+      rawHttpTest: typeof window !== 'undefined' ? window.__parseRawHttpTest : null
     }
   };
 }

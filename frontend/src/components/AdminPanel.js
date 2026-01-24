@@ -12,6 +12,7 @@ import CoverageAnalysis from './CoverageAnalysis';
 import DevDocs from './DevDocs';
 import FeedDetailPanel from './FeedDetailPanel';
 import SourcesPage from './SourcesPage';
+import ClusteringProgressSidebar from './ClusteringProgressSidebar';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -23,6 +24,7 @@ function HeatmapJobControls() {
   const [error, setError] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
+  const [showProgressSidebar, setShowProgressSidebar] = useState(false);
   const logsEndRef = useRef(null);
 
   // Fetch job status
@@ -60,6 +62,7 @@ function HeatmapJobControls() {
     setIsLoading(true);
     setError(null);
     setShowLogs(true);  // Auto-show logs when starting job
+    setShowProgressSidebar(true);  // Auto-show progress sidebar when starting job
     try {
       const response = await fetch(`${BACKEND_URL}/api/admin/heatmap-indicators/generate`, {
         method: 'POST',
@@ -234,6 +237,29 @@ function HeatmapJobControls() {
         </div>
       )}
 
+      {/* Show Progress Button - visible when job is running or has logs */}
+      {(jobStatus?.is_running || (jobStatus?.logs && jobStatus.logs.length > 0)) && (
+        <button
+          className="btn-show-progress"
+          onClick={() => setShowProgressSidebar(true)}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3"/>
+            <circle cx="19" cy="6" r="2"/>
+            <circle cx="5" cy="6" r="2"/>
+            <circle cx="19" cy="18" r="2"/>
+            <circle cx="5" cy="18" r="2"/>
+            <path d="M12 9V6M12 15v3M9 12H6M15 12h3"/>
+          </svg>
+          <span>Show Progress</span>
+          {jobStatus?.is_running && (
+            <div className="progress-mini">
+              <div className="progress-mini-fill" style={{ width: `${jobStatus.progress || 0}%` }} />
+            </div>
+          )}
+        </button>
+      )}
+
       {/* Job Logs */}
       {(jobStatus?.is_running || (jobStatus?.logs && jobStatus.logs.length > 0)) && (
         <div className="heatmap-job-logs">
@@ -303,6 +329,13 @@ function HeatmapJobControls() {
           )}
         </div>
       )}
+
+      {/* Clustering Progress Sidebar */}
+      <ClusteringProgressSidebar
+        isOpen={showProgressSidebar}
+        onClose={() => setShowProgressSidebar(false)}
+        jobStatus={jobStatus}
+      />
     </div>
   );
 }

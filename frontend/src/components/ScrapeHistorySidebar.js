@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 
 function ScrapeHistorySidebar({ entry, isOpen, onClose, onViewProgress }) {
+  const [expandedSavedMeetings, setExpandedSavedMeetings] = useState(false);
+  const [expandedSavedItem, setExpandedSavedItem] = useState(null);
+  const [expandedDuplicates, setExpandedDuplicates] = useState(false);
+  const [expandedDuplicateItem, setExpandedDuplicateItem] = useState(null);
   const [expandedFailedSaves, setExpandedFailedSaves] = useState(false);
   const [expandedFailedItem, setExpandedFailedItem] = useState(null);
 
@@ -30,6 +34,14 @@ function ScrapeHistorySidebar({ entry, isOpen, onClose, onViewProgress }) {
     return `${seconds}s`;
   };
 
+  const toggleSavedItem = (itemKey) => {
+    setExpandedSavedItem(expandedSavedItem === itemKey ? null : itemKey);
+  };
+
+  const toggleDuplicateItem = (itemKey) => {
+    setExpandedDuplicateItem(expandedDuplicateItem === itemKey ? null : itemKey);
+  };
+
   const toggleFailedItem = (itemKey) => {
     setExpandedFailedItem(expandedFailedItem === itemKey ? null : itemKey);
   };
@@ -44,6 +56,10 @@ function ScrapeHistorySidebar({ entry, isOpen, onClose, onViewProgress }) {
   };
 
   const handleClose = () => {
+    setExpandedSavedMeetings(false);
+    setExpandedSavedItem(null);
+    setExpandedDuplicates(false);
+    setExpandedDuplicateItem(null);
     setExpandedFailedSaves(false);
     setExpandedFailedItem(null);
     onClose();
@@ -150,6 +166,142 @@ function ScrapeHistorySidebar({ entry, isOpen, onClose, onViewProgress }) {
             </div>
           )}
 
+          {/* Saved Meetings */}
+          {entry.saved_meetings && entry.saved_meetings.length > 0 && (
+            <div className="sidebar-section saved-meetings-section">
+              <div
+                className="sidebar-section-header clickable"
+                onClick={() => setExpandedSavedMeetings(!expandedSavedMeetings)}
+              >
+                <h4 className="saved-label">Saved Successfully ({entry.saved_meetings.length})</h4>
+                <span className="sidebar-toggle-icon">
+                  {expandedSavedMeetings ? '▼' : '▶'}
+                </span>
+              </div>
+
+              {expandedSavedMeetings && (
+                <div className="sidebar-meeting-list">
+                  {entry.saved_meetings.map((saved, idx) => {
+                    const itemKey = `saved-${entry.id}-${idx}`;
+                    const isItemExpanded = expandedSavedItem === itemKey;
+                    return (
+                      <div key={idx} className="sidebar-meeting-item saved">
+                        <div
+                          className="sidebar-meeting-summary"
+                          onClick={() => toggleSavedItem(itemKey)}
+                        >
+                          <span className="meeting-toggle">
+                            {isItemExpanded ? '▼' : '▶'}
+                          </span>
+                          <div className="meeting-info">
+                            <span className="meeting-name">
+                              {saved.name || 'Unknown Meeting'}
+                            </span>
+                            <span className="meeting-meta">
+                              {[saved.city, saved.state].filter(Boolean).join(', ')}
+                              {saved.feed && ` • ${saved.feed}`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {isItemExpanded && (
+                          <div className="sidebar-meeting-details">
+                            <div className="meeting-detail-row">
+                              <span className="label">Day/Time:</span>
+                              <span>{saved.day} {saved.time}</span>
+                            </div>
+                            <div className="meeting-detail-row">
+                              <span className="label">Address:</span>
+                              <span>{saved.address || 'N/A'}</span>
+                            </div>
+                            <div className="meeting-detail-row">
+                              <span className="label">Type:</span>
+                              <span>{saved.meetingType || 'N/A'}</span>
+                            </div>
+                            <div className="meeting-detail-row">
+                              <span className="label">Unique Key:</span>
+                              <span className="unique-key">{saved.uniqueKey || 'N/A'}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Duplicate Meetings */}
+          {entry.duplicate_meetings && entry.duplicate_meetings.length > 0 && (
+            <div className="sidebar-section duplicates-section">
+              <div
+                className="sidebar-section-header clickable"
+                onClick={() => setExpandedDuplicates(!expandedDuplicates)}
+              >
+                <h4 className="duplicates-label">Duplicates Skipped ({entry.duplicate_meetings.length})</h4>
+                <span className="sidebar-toggle-icon">
+                  {expandedDuplicates ? '▼' : '▶'}
+                </span>
+              </div>
+
+              {expandedDuplicates && (
+                <div className="sidebar-meeting-list">
+                  {entry.duplicate_meetings.map((dup, idx) => {
+                    const itemKey = `dup-${entry.id}-${idx}`;
+                    const isItemExpanded = expandedDuplicateItem === itemKey;
+                    return (
+                      <div key={idx} className="sidebar-meeting-item duplicate">
+                        <div
+                          className="sidebar-meeting-summary"
+                          onClick={() => toggleDuplicateItem(itemKey)}
+                        >
+                          <span className="meeting-toggle">
+                            {isItemExpanded ? '▼' : '▶'}
+                          </span>
+                          <div className="meeting-info">
+                            <span className="meeting-name">
+                              {dup.name || 'Unknown Meeting'}
+                            </span>
+                            <span className="meeting-meta">
+                              {[dup.city, dup.state].filter(Boolean).join(', ')}
+                              {dup.feed && ` • ${dup.feed}`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {isItemExpanded && (
+                          <div className="sidebar-meeting-details">
+                            <div className="meeting-detail-row">
+                              <span className="label">Day/Time:</span>
+                              <span>{dup.day} {dup.time}</span>
+                            </div>
+                            <div className="meeting-detail-row">
+                              <span className="label">Address:</span>
+                              <span>{dup.address || 'N/A'}</span>
+                            </div>
+                            <div className="meeting-detail-row">
+                              <span className="label">Type:</span>
+                              <span>{dup.meetingType || 'N/A'}</span>
+                            </div>
+                            <div className="meeting-detail-row">
+                              <span className="label">Unique Key:</span>
+                              <span className="unique-key">{dup.uniqueKey || 'N/A'}</span>
+                            </div>
+                            <div className="meeting-detail-row reason-row">
+                              <span className="label">Reason:</span>
+                              <span className="reason-message">{dup.reason}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Failed Saves */}
           {entry.failed_saves && entry.failed_saves.length > 0 && (
             <div className="sidebar-section failed-saves-section">
@@ -164,24 +316,24 @@ function ScrapeHistorySidebar({ entry, isOpen, onClose, onViewProgress }) {
               </div>
 
               {expandedFailedSaves && (
-                <div className="sidebar-failed-saves-list">
+                <div className="sidebar-meeting-list">
                   {entry.failed_saves.map((failed, idx) => {
                     const itemKey = `${entry.id}-${idx}`;
                     const isItemExpanded = expandedFailedItem === itemKey;
                     return (
-                      <div key={idx} className="sidebar-failed-save-item">
+                      <div key={idx} className="sidebar-meeting-item failed">
                         <div
-                          className="sidebar-failed-save-summary"
+                          className="sidebar-meeting-summary"
                           onClick={() => toggleFailedItem(itemKey)}
                         >
-                          <span className="failed-save-toggle">
+                          <span className="meeting-toggle">
                             {isItemExpanded ? '▼' : '▶'}
                           </span>
-                          <div className="failed-save-info">
-                            <span className="failed-save-name">
+                          <div className="meeting-info">
+                            <span className="meeting-name">
                               {failed.name || 'Unknown Meeting'}
                             </span>
-                            <span className="failed-save-meta">
+                            <span className="meeting-meta">
                               {[failed.city, failed.state].filter(Boolean).join(', ')}
                               {failed.feed && ` • ${failed.feed}`}
                             </span>
@@ -189,20 +341,20 @@ function ScrapeHistorySidebar({ entry, isOpen, onClose, onViewProgress }) {
                         </div>
 
                         {isItemExpanded && (
-                          <div className="sidebar-failed-save-details">
-                            <div className="failed-detail-row">
+                          <div className="sidebar-meeting-details">
+                            <div className="meeting-detail-row">
                               <span className="label">Day/Time:</span>
                               <span>{failed.day} {failed.time}</span>
                             </div>
-                            <div className="failed-detail-row">
+                            <div className="meeting-detail-row">
                               <span className="label">Address:</span>
                               <span>{failed.address || 'N/A'}</span>
                             </div>
-                            <div className="failed-detail-row">
+                            <div className="meeting-detail-row">
                               <span className="label">Type:</span>
                               <span>{failed.meetingType || 'N/A'}</span>
                             </div>
-                            <div className="failed-detail-row error-row">
+                            <div className="meeting-detail-row error-row">
                               <span className="label">Error:</span>
                               <span className="error-message">
                                 {typeof failed.error === 'object'
@@ -211,7 +363,7 @@ function ScrapeHistorySidebar({ entry, isOpen, onClose, onViewProgress }) {
                               </span>
                             </div>
 
-                            <div className="failed-save-actions">
+                            <div className="meeting-actions">
                               <button
                                 className="btn btn-small btn-ghost"
                                 onClick={(e) => {
@@ -228,7 +380,7 @@ function ScrapeHistorySidebar({ entry, isOpen, onClose, onViewProgress }) {
                             </div>
 
                             {failed.full_data && (
-                              <div className="failed-save-raw">
+                              <div className="meeting-raw-data">
                                 <details>
                                   <summary>Raw Meeting Data</summary>
                                   <pre>{JSON.stringify(failed.full_data, null, 2)}</pre>
