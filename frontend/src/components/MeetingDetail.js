@@ -1,31 +1,14 @@
 import React, { useState } from 'react';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
-import L from 'leaflet';
 import SourceDetailPanel from './SourceDetailPanel';
 
-// Custom marker icon for map preview
-const createPreviewMarkerIcon = () => {
-  return L.divIcon({
-    className: 'preview-marker',
-    html: `<div style="
-      background: white;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      border: 3px solid #667eea;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    "><div style="
-      background: #667eea;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-    "></div></div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-  });
+// Generate static map tile URL from coordinates
+// Uses OpenStreetMap tiles at zoom level 15 with Mercator projection
+const getMapTileUrl = (latitude, longitude) => {
+  const zoom = 15;
+  const n = Math.pow(2, zoom);
+  const x = Math.floor((longitude + 180) / 360 * n);
+  const y = Math.floor((1 - Math.log(Math.tan(latitude * Math.PI / 180) + 1 / Math.cos(latitude * Math.PI / 180)) / Math.PI) / 2 * n);
+  return `https://a.tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
 };
 
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -146,29 +129,17 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
         <div className={`detail-sidebar ${meeting ? 'open' : ''}`}>
           {meeting && (
             <>
-              {/* Map Preview Header */}
+              {/* Map Preview Header - Uses static tile image for instant loading and caching */}
               {meeting.latitude && meeting.longitude && (
                 <div className="sidebar-map-preview">
-                  <MapContainer
-                    center={[meeting.latitude, meeting.longitude]}
-                    zoom={15}
-                    scrollWheelZoom={false}
-                    dragging={false}
-                    zoomControl={false}
-                    doubleClickZoom={false}
-                    touchZoom={false}
-                    attributionControl={false}
-                    style={{ height: '100%', width: '100%' }}
-                  >
-                    <TileLayer
-                      url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                      className="map-tiles-light"
-                    />
-                    <Marker
-                      position={[meeting.latitude, meeting.longitude]}
-                      icon={createPreviewMarkerIcon()}
-                    />
-                  </MapContainer>
+                  <img
+                    src={getMapTileUrl(meeting.latitude, meeting.longitude)}
+                    alt={`Map of ${meeting.name || 'meeting location'}`}
+                    className="sidebar-map-image"
+                  />
+                  <div className="sidebar-map-marker">
+                    <div className="sidebar-map-marker-inner" />
+                  </div>
                   <div className="sidebar-map-overlay" />
                 </div>
               )}
