@@ -404,6 +404,18 @@ AA_FEEDS = {
         "url": "https://fairbanksaa.org/wp-admin/admin-ajax.php?action=meetings",
         "state": "AK"
     },
+    "Juneau AA": {
+        "url": "https://aajuneauak.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AK"
+    },
+    "District 9 Alaska (Sitka/Haines/Skagway)": {
+        "url": "https://d9area2ak.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AK"
+    },
+    "Kenai Peninsula AA": {
+        "url": "https://aakenaipeninsula.org/wp-admin/admin-ajax.php?action=meetings",
+        "state": "AK"
+    },
     # === ARIZONA ===
     "Rim Country AA (Payson)": {
         "url": "https://aapayson.com/wp-admin/admin-ajax.php?action=meetings",
@@ -6854,6 +6866,191 @@ def discover_intergroups_validated():
     })
 
 
+@app.route('/api/intergroup-research/discover-deep-stream', methods=['POST'])
+def discover_intergroups_deep_stream():
+    """Stream deep discovery results for a state with real-time updates.
+
+    This enhanced discovery:
+    1. Checks known intergroups from our database
+    2. Tests common domain patterns
+    3. Validates each source by fetching actual meeting data
+    4. Returns sample meetings for preview
+    """
+    data = request.json
+    state = data.get('state', '')
+
+    if not state:
+        return jsonify({
+            'success': False,
+            'error': 'State is required'
+        }), 400
+
+    state_name = US_STATE_NAMES.get(state, state)
+
+    def generate():
+        validated_sources = []
+        all_meetings = []
+        notes = []
+
+        # Start message
+        yield f"data: {json.dumps({'type': 'start', 'state': state, 'stateName': state_name})}\n\n"
+
+        notes.append(f"Starting deep discovery for {state_name}...")
+        yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+        time.sleep(0.3)
+
+        # Step 1: Get known intergroups
+        known = KNOWN_INTERGROUPS.get(state, [])
+        notes.append(f"Found {len(known)} known intergroup(s) in database")
+        yield f"data: {json.dumps({'type': 'note', 'notes': notes, 'phase': 'known'})}\n\n"
+
+        # Step 2: Get feeds from AA_FEEDS for this state
+        state_feeds = [(name, feed) for name, feed in AA_FEEDS.items() if feed.get('state') == state]
+        if state_feeds:
+            notes.append(f"Found {len(state_feeds)} configured feed(s) for {state_name}")
+            yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+
+        # Step 3: Test each configured feed
+        for feed_name, feed_config in state_feeds:
+            url = feed_config['url']
+            notes.append(f"Testing: {feed_name}")
+            yield f"data: {json.dumps({'type': 'note', 'notes': notes, 'testing': {'name': feed_name, 'url': url}})}\n\n"
+
+            try:
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0)',
+                    'Accept': 'application/json'
+                }
+                response = requests.get(url, headers=headers, timeout=15)
+
+                if response.status_code == 200:
+                    try:
+                        json_data = response.json()
+                        if isinstance(json_data, list) and len(json_data) > 0:
+                            meeting_count = len(json_data)
+                            # Get sample meetings (first 5)
+                            sample_meetings = json_data[:5]
+
+                            source_data = {
+                                'name': feed_name,
+                                'url': url,
+                                'type': 'tsml',
+                                'validated': True,
+                                'meetingCount': meeting_count,
+                                'sampleMeetings': sample_meetings
+                            }
+                            validated_sources.append(source_data)
+                            all_meetings.extend(json_data)
+
+                            notes[-1] = f"✓ {feed_name}: Found {meeting_count} meetings"
+                            yield f"data: {json.dumps({'type': 'source_found', 'source': source_data, 'notes': notes})}\n\n"
+                        else:
+                            notes[-1] = f"✗ {feed_name}: No meeting data returned"
+                            yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+                    except json.JSONDecodeError:
+                        notes[-1] = f"✗ {feed_name}: Invalid JSON response"
+                        yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+                else:
+                    notes[-1] = f"✗ {feed_name}: HTTP {response.status_code}"
+                    yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+            except requests.exceptions.Timeout:
+                notes[-1] = f"✗ {feed_name}: Connection timeout"
+                yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+            except Exception as e:
+                notes[-1] = f"✗ {feed_name}: {str(e)[:50]}"
+                yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+
+            time.sleep(0.2)
+
+        # Step 4: Try additional domain patterns not in feeds
+        state_lower = state.lower()
+        state_name_lower = state_name.lower().replace(' ', '')
+
+        additional_patterns = [
+            (f'aa{state_lower}.org', f'{state_name} AA'),
+            (f'{state_lower}aa.org', f'{state_name} AA'),
+            (f'aa{state_name_lower}.org', f'{state_name} AA'),
+            (f'{state_name_lower}aa.org', f'{state_name} AA'),
+        ]
+
+        # Add known intergroup domains not already tested
+        for ig in known:
+            domain = ig['domain']
+            if not any(domain in feed['url'] for _, feed in state_feeds):
+                additional_patterns.append((domain, ig['name']))
+
+        tested_domains = set(feed['url'] for _, feed in state_feeds)
+
+        for domain, name in additional_patterns:
+            url = f'https://{domain}/wp-admin/admin-ajax.php?action=meetings'
+            if url in tested_domains:
+                continue
+            tested_domains.add(url)
+
+            notes.append(f"Trying: {domain}")
+            yield f"data: {json.dumps({'type': 'note', 'notes': notes, 'testing': {'name': name, 'url': url}})}\n\n"
+
+            try:
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (compatible; MeetingScraper/1.0)',
+                    'Accept': 'application/json'
+                }
+                response = requests.get(url, headers=headers, timeout=10)
+
+                if response.status_code == 200:
+                    try:
+                        json_data = response.json()
+                        if isinstance(json_data, list) and len(json_data) > 0:
+                            meeting_count = len(json_data)
+                            sample_meetings = json_data[:5]
+
+                            source_data = {
+                                'name': name,
+                                'url': url,
+                                'domain': domain,
+                                'type': 'tsml',
+                                'validated': True,
+                                'meetingCount': meeting_count,
+                                'sampleMeetings': sample_meetings,
+                                'discovered': True
+                            }
+                            validated_sources.append(source_data)
+                            all_meetings.extend(json_data)
+
+                            notes[-1] = f"✓ DISCOVERED: {name} ({domain}): {meeting_count} meetings"
+                            yield f"data: {json.dumps({'type': 'source_found', 'source': source_data, 'notes': notes, 'discovered': True})}\n\n"
+                        else:
+                            notes[-1] = f"✗ {domain}: No meeting data"
+                            yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+                    except json.JSONDecodeError:
+                        notes[-1] = f"✗ {domain}: Invalid response"
+                        yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+                else:
+                    notes[-1] = f"✗ {domain}: HTTP {response.status_code}"
+                    yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+            except:
+                notes[-1] = f"✗ {domain}: Not reachable"
+                yield f"data: {json.dumps({'type': 'note', 'notes': notes})}\n\n"
+
+            time.sleep(0.2)
+
+        # Completion
+        total_meetings = len(all_meetings)
+        notes.append(f"Discovery complete! Found {len(validated_sources)} source(s) with {total_meetings} total meetings")
+
+        yield f"data: {json.dumps({'type': 'complete', 'success': True, 'notes': notes, 'sources': validated_sources, 'totalMeetings': total_meetings, 'allMeetings': all_meetings[:100]})}\n\n"
+
+    return Response(
+        generate(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
+        }
+    )
+
+
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
     """Get research tasks with optional filtering.
@@ -8451,6 +8648,16 @@ INTERGROUP_URL_PATTERNS = {
 
 # Known California intergroup domains (can be extended per-state)
 KNOWN_INTERGROUPS = {
+    'AK': [
+        {'name': 'Anchorage Area Intergroup', 'domain': 'anchorageaa.org', 'type': 'tsml'},
+        {'name': 'Fairbanks Intergroup', 'domain': 'fairbanksaa.org', 'type': 'tsml'},
+        {'name': 'Juneau Fellowship', 'domain': 'aajuneauak.org', 'type': 'tsml'},
+        {'name': 'Mat-Su Central Office', 'domain': 'alaskamatsuaa.org', 'type': 'tsml'},
+        {'name': 'District 9 (Sitka/Haines)', 'domain': 'd9area2ak.org', 'type': 'tsml'},
+        {'name': 'Kenai Peninsula Intergroup', 'domain': 'aakenaipeninsula.org', 'type': 'unknown'},
+        {'name': 'Sitka Intergroup', 'domain': 'sitkaintergroup.org', 'type': 'unknown'},
+        {'name': 'Alaska Area 02', 'domain': 'area02alaska.org', 'type': 'directory'},
+    ],
     'CA': [
         {'name': 'Los Angeles Central Office', 'domain': 'lacoaa.org', 'type': 'custom'},
         {'name': 'Orange County Intergroup', 'domain': 'oc-aa.org', 'type': 'tsml'},

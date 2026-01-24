@@ -296,10 +296,11 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const listRef = useRef(null);
   const thumbnailRequestsRef = useRef(new Set());
 
-  // Scroll position preservation to prevent scroll reset on re-renders
-  const scrollPositionRef = useRef(0);
+  // Scroll position preservation using meeting ID anchor (prevents scroll reset when thumbnails load)
+  const anchorMeetingIdRef = useRef(null);      // ID of meeting at top of viewport
+  const anchorOffsetRef = useRef(0);            // Offset of anchor meeting from top of list
   const isRestoringScrollRef = useRef(false);
-  const lastMeetingsRef = useRef(meetings);
+  const lastMeetingIdsRef = useRef(new Set());  // Track actual meeting IDs (not object reference)
 
   // Refs for request optimization - prevents duplicate API calls
   const filtersRef = useRef({
@@ -674,15 +675,27 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     };
   }, []);
 
-  // Scroll position preservation - save position on scroll
+  // Scroll position preservation - track which meeting is at the top of viewport
   useEffect(() => {
     const listElement = listRef.current;
     if (!listElement) return;
 
     const handleScroll = () => {
       // Don't save position while we're restoring it
-      if (!isRestoringScrollRef.current) {
-        scrollPositionRef.current = listElement.scrollTop;
+      if (isRestoringScrollRef.current) return;
+
+      // Find the meeting card at the top of the visible area
+      const cards = listElement.querySelectorAll('[data-meeting-id]');
+      const listRect = listElement.getBoundingClientRect();
+
+      for (const card of cards) {
+        const cardRect = card.getBoundingClientRect();
+        // Find the first card whose bottom is below the list top (partially or fully visible)
+        if (cardRect.bottom > listRect.top) {
+          anchorMeetingIdRef.current = card.getAttribute('data-meeting-id');
+          anchorOffsetRef.current = cardRect.top - listRect.top;
+          break;
+        }
       }
     };
 
@@ -691,34 +704,53 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   }, []);
 
   // Restore scroll position after filteredMeetings changes (using useLayoutEffect to run before paint)
-  // Only restore if the underlying meetings data hasn't changed (i.e., just client-side filtering)
+  // Uses meeting ID anchor to handle thumbnail loads without scroll jumping
   useLayoutEffect(() => {
     const listElement = listRef.current;
     if (!listElement) return;
 
-    // Check if meetings data changed (new fetch) vs just filter change
-    const meetingsChanged = lastMeetingsRef.current !== meetings;
-    lastMeetingsRef.current = meetings;
+    // Build set of current meeting IDs to detect actual data changes
+    const currentMeetingIds = new Set(meetings.map(m => m.objectId).filter(Boolean));
+    const previousMeetingIds = lastMeetingIdsRef.current;
 
-    if (meetingsChanged) {
-      // New data fetched - scroll to top
+    // Check if meeting IDs actually changed (new fetch) vs just thumbnail/property updates
+    const hasNewMeetings = currentMeetingIds.size !== previousMeetingIds.size ||
+      [...currentMeetingIds].some(id => !previousMeetingIds.has(id));
+
+    lastMeetingIdsRef.current = currentMeetingIds;
+
+    if (hasNewMeetings) {
+      // Actually new data fetched - scroll to top and reset anchor
       listElement.scrollTop = 0;
-      scrollPositionRef.current = 0;
+      anchorMeetingIdRef.current = null;
+      anchorOffsetRef.current = 0;
       return;
     }
 
-    // Client-side filter change - restore scroll position
-    if (scrollPositionRef.current === 0) return;
+    // Same meetings, possibly with updated thumbnails - restore scroll to anchor meeting
+    if (!anchorMeetingIdRef.current) return;
 
     // Set flag to prevent scroll handler from overwriting during restoration
     isRestoringScrollRef.current = true;
 
-    // Restore scroll position
-    listElement.scrollTop = scrollPositionRef.current;
-
-    // Reset flag after a brief delay to allow scroll to settle
+    // Find the anchor meeting and scroll to keep it in the same position
     requestAnimationFrame(() => {
-      isRestoringScrollRef.current = false;
+      const anchorCard = listElement.querySelector(`[data-meeting-id="${anchorMeetingIdRef.current}"]`);
+      if (anchorCard) {
+        const listRect = listElement.getBoundingClientRect();
+        const cardRect = anchorCard.getBoundingClientRect();
+        const currentOffset = cardRect.top - listRect.top;
+        const scrollAdjustment = currentOffset - anchorOffsetRef.current;
+
+        if (Math.abs(scrollAdjustment) > 1) {
+          listElement.scrollTop += scrollAdjustment;
+        }
+      }
+
+      // Reset flag after restoration
+      requestAnimationFrame(() => {
+        isRestoringScrollRef.current = false;
+      });
     });
   }, [filteredMeetings, meetings]);
 
