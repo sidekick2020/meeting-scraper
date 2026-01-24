@@ -417,6 +417,9 @@ function MapDataLoader({ onDataLoaded, onStateDataLoaded, onZoomChange, onLoadin
   // Refetch when filters change
   useEffect(() => {
     if (filters) {
+      // Update filtersRef BEFORE fetching to avoid race condition
+      // (the separate useEffect updating filtersRef may run after this one)
+      filtersRef.current = filters;
       // Force refresh when filters change
       lastFetchRef.current = null;
       fetchHeatmapData(true);
