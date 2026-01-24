@@ -3167,6 +3167,18 @@ def run_scraper_in_background(start_from_feed=0, selected_feeds=None):
     # Save to scrape history
     save_scrape_history(status="completed", feeds_processed=feeds_completed)
 
+    # Regenerate heatmap indicators after successful scrape
+    if total_saved > 0:
+        add_log("Starting heatmap indicator regeneration...", "info")
+        try:
+            result = run_heatmap_job_background(include_state_filters=True)
+            if result.get("success"):
+                add_log("Heatmap indicator job started in background", "success")
+            else:
+                add_log(f"Failed to start heatmap job: {result.get('error')}", "warning")
+        except Exception as e:
+            add_log(f"Error starting heatmap job: {e}", "warning")
+
 @app.route('/api/start', methods=['POST'])
 def start_scraping():
     """Start the scraping process - runs in background thread for real-time updates"""
@@ -4630,6 +4642,66 @@ def get_meetings_heatmap():
             if cached_heatmap is not None:
                 return jsonify({**cached_heatmap, "cached": True})
 
+        # Try using pre-computed indicators if available
+        # Only use indicators for simple filter combinations
+        use_indicators = request.args.get('use_indicators', 'true') != 'false'
+        can_use_indicators = (
+            use_indicators and
+            zoom < 13 and
+            day_filter is None and
+            city_filter is None and
+            online_filter is None and
+            hybrid_filter is None and
+            format_filter is None
+        )
+
+        if can_use_indicators:
+            # Determine filter type for indicator query
+            indicator_filter = "all"
+            if type_filter and not state_filter:
+                indicator_filter = type_filter
+            elif state_filter and not type_filter:
+                indicator_filter = f"state:{state_filter}"
+
+            # Get zoom tier
+            tier = zoom_to_tier(zoom)
+            if tier is not None:
+                bounds = None
+                if all(v is not None for v in [north, south, east, west]):
+                    bounds = {"north": north, "south": south, "east": east, "west": west}
+
+                indicators = query_indicators(tier, filter_type=indicator_filter, bounds=bounds)
+
+                if indicators:
+                    # Convert indicators to cluster format
+                    cluster_list = [{
+                        'lat': ind.get('latitude'),
+                        'lng': ind.get('longitude'),
+                        'count': ind.get('meetingCount', 0),
+                        'gridKey': ind.get('gridKey'),
+                        'meetingTypes': ind.get('meetingTypes'),
+                        'state': ind.get('state'),
+                        'parentGridKey': ind.get('parentGridKey')
+                    } for ind in indicators]
+
+                    # Sort by count descending
+                    cluster_list.sort(key=lambda x: x['count'], reverse=True)
+
+                    total_meetings = sum(c['count'] for c in cluster_list)
+
+                    result_data = {
+                        "clusters": cluster_list,
+                        "total": total_meetings,
+                        "mode": "indicators",
+                        "tier": tier,
+                        "filter_type": indicator_filter
+                    }
+
+                    # Cache the result
+                    heatmap_cache.set(heatmap_cache_key, result_data)
+
+                    return jsonify(result_data)
+
         # For high zoom levels (13+), return individual meetings
         if zoom >= 13:
             params = {
@@ -4755,6 +4827,148 @@ from thumbnail_service import (
 # Start thumbnail workers if API keys are configured
 if BACK4APP_APP_ID and BACK4APP_REST_KEY:
     start_thumbnail_worker(BACK4APP_APP_ID, BACK4APP_REST_KEY, num_workers=2)
+
+
+# ==================== Heatmap Indicator Service ====================
+from heatmap_indicator_service import (
+    init_heatmap_service,
+    get_job_status as get_heatmap_job_status,
+    run_job_in_background as run_heatmap_job_background,
+    generate_heatmap_indicators,
+    query_indicators,
+    query_child_clusters,
+    query_meetings_by_cluster,
+    zoom_to_tier,
+)
+
+# Initialize heatmap indicator service
+if BACK4APP_APP_ID and BACK4APP_REST_KEY:
+    init_heatmap_service(BACK4APP_APP_ID, BACK4APP_REST_KEY, back4app_session)
+
+
+# ==================== Heatmap Indicator Admin Endpoints ====================
+
+@app.route('/api/admin/heatmap-indicators/generate', methods=['POST'])
+def admin_generate_heatmap_indicators():
+    """Start heatmap indicator generation job.
+
+    POST body (optional):
+        - include_state_filters: bool (default True) - Generate per-state filters
+        - sync: bool (default False) - Run synchronously (blocks until complete)
+    """
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({"success": False, "error": "Back4App not configured"}), 503
+
+    data = request.json or {}
+    include_state_filters = data.get('include_state_filters', True)
+    sync = data.get('sync', False)
+
+    if sync:
+        # Run synchronously (useful for testing or CLI)
+        result = generate_heatmap_indicators(include_state_filters=include_state_filters)
+        return jsonify(result)
+    else:
+        # Run in background
+        result = run_heatmap_job_background(include_state_filters=include_state_filters)
+        return jsonify(result)
+
+
+@app.route('/api/admin/heatmap-indicators/status', methods=['GET'])
+def admin_heatmap_indicator_status():
+    """Get current heatmap indicator job status."""
+    return jsonify(get_heatmap_job_status())
+
+
+@app.route('/api/heatmap-indicators', methods=['GET'])
+def get_heatmap_indicators():
+    """Query pre-computed heatmap indicators.
+
+    Query params:
+        - zoom: int (Leaflet zoom level, used to determine tier)
+        - tier: int (1-5, direct tier selection - overrides zoom)
+        - filter_type: str (default "all") - "all", "AA", "NA", "Al-Anon", "Other", "state:XX"
+        - north, south, east, west: float (bounding box)
+    """
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({"indicators": [], "total": 0})
+
+    # Get tier from zoom or direct tier param
+    zoom = request.args.get('zoom', type=int)
+    tier = request.args.get('tier', type=int)
+
+    if tier is None and zoom is not None:
+        tier = zoom_to_tier(zoom)
+
+    if tier is None:
+        tier = 2  # Default to regional view
+
+    # Bounds
+    bounds = None
+    north = request.args.get('north', type=float)
+    south = request.args.get('south', type=float)
+    east = request.args.get('east', type=float)
+    west = request.args.get('west', type=float)
+    if all(v is not None for v in [north, south, east, west]):
+        bounds = {"north": north, "south": south, "east": east, "west": west}
+
+    filter_type = request.args.get('filter_type', 'all')
+
+    indicators = query_indicators(tier, filter_type=filter_type, bounds=bounds)
+
+    return jsonify({
+        "indicators": indicators,
+        "total": len(indicators),
+        "tier": tier,
+        "filter_type": filter_type
+    })
+
+
+@app.route('/api/heatmap-indicators/<grid_key>/children', methods=['GET'])
+def get_heatmap_indicator_children(grid_key):
+    """Get child clusters for a parent cluster.
+
+    Query params:
+        - filter_type: str (default "all")
+    """
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({"children": [], "total": 0})
+
+    filter_type = request.args.get('filter_type', 'all')
+
+    # URL decode the grid_key (it may contain colons and dots)
+    import urllib.parse
+    decoded_key = urllib.parse.unquote(grid_key)
+
+    children = query_child_clusters(decoded_key, filter_type=filter_type)
+
+    return jsonify({
+        "children": children,
+        "total": len(children),
+        "parent_grid_key": decoded_key,
+        "filter_type": filter_type
+    })
+
+
+@app.route('/api/heatmap-indicators/<grid_key>/meetings', methods=['GET'])
+def get_heatmap_indicator_meetings(grid_key):
+    """Get meetings belonging to a tier 5 cluster.
+
+    This endpoint is used when drilling down to the lowest zoom level.
+    """
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({"meetings": [], "total": 0})
+
+    # URL decode the grid_key
+    import urllib.parse
+    decoded_key = urllib.parse.unquote(grid_key)
+
+    meetings = query_meetings_by_cluster(decoded_key)
+
+    return jsonify({
+        "meetings": meetings,
+        "total": len(meetings),
+        "cluster_key": decoded_key
+    })
 
 
 # ==================== Background Pre-caching ====================
