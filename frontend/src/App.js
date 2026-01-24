@@ -5,10 +5,12 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { DataCacheProvider } from './contexts/DataCacheContext';
 import { ParseProvider, useParse } from './contexts/ParseContext';
+import { DevModeProvider } from './contexts/DevModeContext';
 import MeetingsExplorer from './components/MeetingsExplorer';
 import OnlineMeetings from './components/OnlineMeetings';
 import AdminPanel from './components/AdminPanel';
 import DeploymentIndicator from './components/DeploymentIndicator';
+import DevModeApiIndicator from './components/DevModeApiIndicator';
 import DevDocs from './components/DevDocs';
 import DownloadPage from './components/DownloadPage';
 import NotFound from './components/NotFound';
@@ -205,19 +207,22 @@ function App() {
   return (
     <BrowserRouter>
       <ThemeProvider>
-        <ParseProvider>
-          <AuthProvider>
-            <DataCacheProvider>
-              <Routes>
-                <Route path="/" element={<AppContent />} />
-                <Route path="/online-meetings" element={<OnlineMeetingsPage />} />
-                <Route path="/docs" element={<DocsPage />} />
-                <Route path="/download" element={<DownloadPageWrapper />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </DataCacheProvider>
-          </AuthProvider>
-        </ParseProvider>
+        <DevModeProvider>
+          <ParseProvider>
+            <AuthProvider>
+              <DataCacheProvider>
+                <Routes>
+                  <Route path="/" element={<AppContent />} />
+                  <Route path="/online-meetings" element={<OnlineMeetingsPage />} />
+                  <Route path="/docs" element={<DocsPage />} />
+                  <Route path="/download" element={<DownloadPageWrapper />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+                <DevModeApiIndicator />
+              </DataCacheProvider>
+            </AuthProvider>
+          </ParseProvider>
+        </DevModeProvider>
       </ThemeProvider>
     </BrowserRouter>
   );
