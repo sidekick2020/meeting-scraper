@@ -5458,6 +5458,38 @@ a.sidebar-nav-item {
   font-size: 0.875rem;
 }
 
+.gaps-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.gaps-header-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.spinner-inline {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.btn-ghost .spinner-inline {
+  border-color: rgba(99, 102, 241, 0.3);
+  border-top-color: #6366f1;
+}
+
+.empty-state-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
 /* Coverage Gaps Table */
 .gaps-table-wrapper {
   border: 1px solid var(--border-light);
@@ -5574,6 +5606,49 @@ a.sidebar-nav-item {
 .status-badge.status-partial {
   background: rgba(245, 158, 11, 0.15);
   color: #f59e0b;
+}
+
+.status-badge.status-critical {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.status-badge.status-low {
+  background: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+}
+
+.status-badge.status-below-avg {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.status-badge.status-good {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.gap-score-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.375rem;
+  background: var(--bg-hover);
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.coverage-cell-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.coverage-avg-hint {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  opacity: 0.7;
 }
 
 .gap-actions-cell {

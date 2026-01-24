@@ -180,6 +180,7 @@ log_parse_init("Starting Parse/Back4App initialization...")
 BACK4APP_APP_ID = os.environ.get('BACK4APP_APP_ID')
 BACK4APP_REST_KEY = os.environ.get('BACK4APP_REST_KEY')
 BACK4APP_URL = "https://parseapi.back4app.com/classes/Meetings"
+BACK4APP_COVERAGE_URL = "https://parseapi.back4app.com/classes/CoverageAnalysis"
 
 # Log environment variable status
 log_parse_init(f"BACK4APP_APP_ID from env: {'SET (' + BACK4APP_APP_ID[:8] + '...)' if BACK4APP_APP_ID else 'NOT SET'}")
@@ -7258,6 +7259,256 @@ def delete_task(task_id):
     tasks_storage = [t for t in tasks_storage if t['id'] != task_id]
     return jsonify({'success': True, 'cache_invalidated': True})
 
+# =============================================================================
+# COVERAGE ANALYSIS SERVICE
+# =============================================================================
+# Persists coverage analysis to Back4App for efficient gap discovery.
+# Uses statistical comparison to national average to identify underserved areas.
+
+def _get_coverage_analysis_headers():
+    """Get headers for Back4App coverage analysis requests."""
+    return {
+        "X-Parse-Application-Id": BACK4APP_APP_ID or "",
+        "X-Parse-REST-API-Key": BACK4APP_REST_KEY or "",
+        "Content-Type": "application/json"
+    }
+
+
+def _fetch_coverage_analysis_from_back4app():
+    """Fetch all coverage analysis records from Back4App.
+
+    Returns dict mapping state_code -> analysis record, or None on error.
+    """
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return None
+
+    try:
+        # Fetch all records (should be ~52 states/territories)
+        url = f"{BACK4APP_COVERAGE_URL}?limit=100"
+        response = requests.get(url, headers=_get_coverage_analysis_headers(), timeout=15)
+
+        if response.status_code == 200:
+            results = response.json().get('results', [])
+            return {r['state']: r for r in results if 'state' in r}
+        return None
+    except Exception as e:
+        print(f"Error fetching coverage analysis: {e}")
+        return None
+
+
+def _compute_coverage_analysis():
+    """Compute coverage analysis for all states.
+
+    Uses statistical analysis to identify gaps:
+    - Calculates national average coverage ratio
+    - Identifies states significantly below average
+    - Considers population tiers for context
+
+    Returns list of analysis records.
+    """
+    import statistics
+
+    # Get current meeting counts
+    state_counts = _fetch_all_state_meeting_counts()
+
+    # Get feed information
+    all_feeds = get_all_feeds_cached()
+
+    # Count feeds per state
+    feeds_by_state = {}
+    for feed_name, feed_config in all_feeds.items():
+        state = feed_config.get('state')
+        if state:
+            feeds_by_state[state] = feeds_by_state.get(state, 0) + 1
+
+    # Calculate coverage ratios for all states
+    state_data = []
+    coverage_ratios = []
+
+    for state_code, population_thousands in US_STATE_POPULATION.items():
+        population = population_thousands * 1000
+        meeting_count = state_counts.get(state_code, 0)
+        source_count = feeds_by_state.get(state_code, 0)
+
+        # Coverage ratio = meetings per 100k population
+        coverage_ratio = (meeting_count / population * 100000) if population > 0 else 0
+
+        state_data.append({
+            'state': state_code,
+            'stateName': US_STATE_NAMES.get(state_code, state_code),
+            'population': population,
+            'meetingCount': meeting_count,
+            'sourceCount': source_count,
+            'coverageRatio': round(coverage_ratio, 2),
+            'hasFeed': source_count > 0
+        })
+
+        if meeting_count > 0:  # Only include states with data for statistics
+            coverage_ratios.append(coverage_ratio)
+
+    # Calculate national statistics
+    if coverage_ratios:
+        national_avg = statistics.mean(coverage_ratios)
+        national_median = statistics.median(coverage_ratios)
+        national_stdev = statistics.stdev(coverage_ratios) if len(coverage_ratios) > 1 else 0
+    else:
+        national_avg = 0
+        national_median = 0
+        national_stdev = 0
+
+    # Classify each state
+    analysis_records = []
+    for data in state_data:
+        ratio = data['coverageRatio']
+        meeting_count = data['meetingCount']
+        has_feed = data['hasFeed']
+        population = data['population']
+
+        # Calculate gap score (0-100, higher = bigger gap, more priority)
+        # Factors: coverage ratio vs avg, absolute meeting count, population impact
+        gap_score = 0
+
+        if meeting_count == 0:
+            # No meetings = critical gap
+            gap_score = 100
+            status = 'critical'
+        elif ratio < national_avg * 0.25:
+            # Very low coverage (< 25% of average)
+            gap_score = 85 + min(15, (1 - ratio / (national_avg * 0.25)) * 15)
+            status = 'critical'
+        elif ratio < national_avg * 0.5:
+            # Low coverage (25-50% of average)
+            gap_score = 60 + (1 - ratio / (national_avg * 0.5)) * 25
+            status = 'low'
+        elif ratio < national_avg * 0.75:
+            # Below average (50-75% of average)
+            gap_score = 30 + (1 - ratio / (national_avg * 0.75)) * 30
+            status = 'below_average'
+        elif ratio < national_avg:
+            # Slightly below average
+            gap_score = 10 + (1 - ratio / national_avg) * 20
+            status = 'below_average'
+        else:
+            # Good coverage
+            gap_score = max(0, 10 - (ratio / national_avg - 1) * 10)
+            status = 'good'
+
+        # Boost gap score for high-population states (more people affected)
+        if population > 10000000:  # > 10M
+            gap_score = min(100, gap_score * 1.2)
+        elif population > 5000000:  # > 5M
+            gap_score = min(100, gap_score * 1.1)
+
+        # Boost if no feeds (opportunity to add sources)
+        if not has_feed and gap_score < 100:
+            gap_score = min(100, gap_score + 15)
+
+        # Generate recommendations
+        recommendations = []
+        if not has_feed:
+            recommendations.append(f"No data sources configured. Search for {data['stateName']} intergroup websites.")
+        if ratio < national_avg * 0.5 and has_feed:
+            recommendations.append("Coverage is significantly below national average. Consider adding more regional sources.")
+        if meeting_count == 0:
+            recommendations.append("No meetings found. Check if existing sources are working or add new ones.")
+        if population > 5000000 and data['sourceCount'] < 3:
+            recommendations.append("Large population state with few sources. Multiple regional feeds recommended.")
+
+        analysis_records.append({
+            'state': data['state'],
+            'stateName': data['stateName'],
+            'population': data['population'],
+            'meetingCount': meeting_count,
+            'sourceCount': data['sourceCount'],
+            'coverageRatio': data['coverageRatio'],
+            'nationalAvgRatio': round(national_avg, 2),
+            'nationalMedianRatio': round(national_median, 2),
+            'gapScore': round(gap_score, 1),
+            'status': status,
+            'hasFeed': has_feed,
+            'recommendations': recommendations
+        })
+
+    return analysis_records
+
+
+def _persist_coverage_analysis(analysis_records):
+    """Persist coverage analysis records to Back4App.
+
+    Uses batch operations for efficiency:
+    - Deletes all existing records
+    - Creates new records in batches
+
+    Returns (success_count, error_count) tuple.
+    """
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return (0, len(analysis_records))
+
+    headers = _get_coverage_analysis_headers()
+    success_count = 0
+    error_count = 0
+
+    # First, delete existing records
+    try:
+        # Fetch existing records
+        url = f"{BACK4APP_COVERAGE_URL}?limit=200&keys=objectId"
+        response = requests.get(url, headers=headers, timeout=15)
+
+        if response.status_code == 200:
+            existing = response.json().get('results', [])
+
+            if existing:
+                # Batch delete
+                batch_url = "https://parseapi.back4app.com/batch"
+                delete_requests = [{
+                    "method": "DELETE",
+                    "path": f"/classes/CoverageAnalysis/{r['objectId']}"
+                } for r in existing]
+
+                # Delete in batches of 50
+                for i in range(0, len(delete_requests), 50):
+                    batch = delete_requests[i:i+50]
+                    requests.post(batch_url, headers=headers, json={"requests": batch}, timeout=30)
+    except Exception as e:
+        print(f"Error deleting existing coverage analysis: {e}")
+
+    # Create new records in batches
+    batch_url = "https://parseapi.back4app.com/batch"
+    create_requests = []
+
+    for record in analysis_records:
+        # Add timestamp
+        record_with_timestamp = {
+            **record,
+            'lastUpdated': {'__type': 'Date', 'iso': datetime.utcnow().isoformat() + 'Z'}
+        }
+        create_requests.append({
+            "method": "POST",
+            "path": "/classes/CoverageAnalysis",
+            "body": record_with_timestamp
+        })
+
+    # Send in batches of 50
+    for i in range(0, len(create_requests), 50):
+        batch = create_requests[i:i+50]
+        try:
+            response = requests.post(batch_url, headers=headers, json={"requests": batch}, timeout=30)
+            if response.status_code == 200:
+                results = response.json()
+                for r in results:
+                    if 'success' in r:
+                        success_count += 1
+                    else:
+                        error_count += 1
+            else:
+                error_count += len(batch)
+        except Exception as e:
+            print(f"Error persisting coverage analysis batch: {e}")
+            error_count += len(batch)
+
+    return (success_count, error_count)
+
+
 def _fetch_all_state_meeting_counts():
     """Fetch meeting counts for all states in a single batch query.
 
@@ -7320,29 +7571,55 @@ def _fetch_all_state_meeting_counts():
 
 @app.route('/api/coverage/gaps', methods=['GET'])
 def get_coverage_gaps():
-    """Get states/regions with low meeting coverage (dry spots).
+    """Get states/regions with low meeting coverage from persisted analysis.
 
-    Results are cached for 5 minutes to avoid repeated expensive queries.
+    Reads from Back4App CoverageAnalysis class, sorted by gap score.
+    Falls back to computing on-the-fly if no persisted data exists.
     """
-    # Check cache first
+    # Check memory cache first (5 min TTL)
     cached_result = coverage_gaps_cache.get('gaps')
     if cached_result is not None:
         return jsonify(cached_result)
 
-    # Get existing feeds to identify covered states (cached)
+    # Try to fetch from Back4App
+    persisted_analysis = _fetch_coverage_analysis_from_back4app()
+
+    if persisted_analysis:
+        # Convert to gaps list - include states that are below average or have no feed
+        gaps = []
+        for state_code, record in persisted_analysis.items():
+            # Include if status is not 'good' OR has no feed (opportunity)
+            if record.get('status') != 'good' or not record.get('hasFeed'):
+                gaps.append({
+                    'state': record.get('state'),
+                    'stateName': record.get('stateName'),
+                    'population': record.get('population'),
+                    'meetingCount': record.get('meetingCount', 0),
+                    'sourceCount': record.get('sourceCount', 0),
+                    'coverageRatio': record.get('coverageRatio', 0),
+                    'nationalAvgRatio': record.get('nationalAvgRatio', 0),
+                    'gapScore': record.get('gapScore', 0),
+                    'status': record.get('status', 'unknown'),
+                    'hasFeed': record.get('hasFeed', False),
+                    'recommendations': record.get('recommendations', []),
+                    'lastUpdated': record.get('lastUpdated', {}).get('iso') if isinstance(record.get('lastUpdated'), dict) else record.get('lastUpdated')
+                })
+
+        # Sort by gap score (highest first = most urgent)
+        gaps.sort(key=lambda x: x.get('gapScore', 0), reverse=True)
+
+        result = {'gaps': gaps, 'source': 'persisted'}
+        coverage_gaps_cache.set('gaps', result)
+        return jsonify(result)
+
+    # Fallback: compute on-the-fly (legacy behavior)
     all_feeds = get_all_feeds_cached()
     covered_states = set(feed['state'] for feed in all_feeds.values())
-
-    # Batch fetch all state meeting counts in ONE query instead of N+1
     state_counts = _fetch_all_state_meeting_counts()
 
     gaps = []
     for state_code, population in US_STATE_POPULATION.items():
         meetings_count = state_counts.get(state_code, 0)
-
-        # Consider it a gap if:
-        # - No meetings at all, OR
-        # - Very low coverage (less than 1 meeting per 100k population)
         coverage_ratio = (meetings_count / population * 100) if population > 0 else 0
 
         if meetings_count == 0 or coverage_ratio < 1:
@@ -7352,18 +7629,83 @@ def get_coverage_gaps():
                 'population': population * 1000,
                 'meetingCount': meetings_count,
                 'coverageRatio': round(coverage_ratio, 2),
-                'hasFeed': state_code in covered_states
+                'hasFeed': state_code in covered_states,
+                'status': 'critical' if meetings_count == 0 else 'low',
+                'gapScore': 100 if meetings_count == 0 else 50
             })
 
-    # Sort by population (highest first) to prioritize high-impact gaps
     gaps.sort(key=lambda x: x['population'], reverse=True)
-
-    result = {'gaps': gaps[:20]}
-
-    # Cache the result for 5 minutes
+    result = {'gaps': gaps[:20], 'source': 'computed'}
     coverage_gaps_cache.set('gaps', result)
-
     return jsonify(result)
+
+
+@app.route('/api/coverage/refresh', methods=['POST'])
+def refresh_coverage_analysis():
+    """Recompute and persist coverage analysis to Back4App.
+
+    This endpoint computes fresh coverage statistics for all states,
+    compares to national averages, and persists the results.
+    """
+    try:
+        # Compute fresh analysis
+        analysis_records = _compute_coverage_analysis()
+
+        # Persist to Back4App
+        success_count, error_count = _persist_coverage_analysis(analysis_records)
+
+        # Invalidate cache
+        coverage_gaps_cache.delete('gaps')
+
+        # Count gaps by status
+        status_counts = {}
+        for record in analysis_records:
+            status = record.get('status', 'unknown')
+            status_counts[status] = status_counts.get(status, 0) + 1
+
+        return jsonify({
+            'success': True,
+            'totalStates': len(analysis_records),
+            'persisted': success_count,
+            'errors': error_count,
+            'statusCounts': status_counts,
+            'message': f'Coverage analysis refreshed. {success_count} records persisted.'
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/coverage/analysis', methods=['GET'])
+def get_full_coverage_analysis():
+    """Get full coverage analysis for all states (not just gaps).
+
+    Returns all states with their coverage metrics, sorted by gap score.
+    """
+    persisted = _fetch_coverage_analysis_from_back4app()
+
+    if persisted:
+        # Return all states sorted by gap score
+        all_states = list(persisted.values())
+        all_states.sort(key=lambda x: x.get('gapScore', 0), reverse=True)
+        return jsonify({
+            'analysis': all_states,
+            'totalStates': len(all_states),
+            'source': 'persisted'
+        })
+
+    # Fallback: compute fresh
+    analysis = _compute_coverage_analysis()
+    analysis.sort(key=lambda x: x.get('gapScore', 0), reverse=True)
+    return jsonify({
+        'analysis': analysis,
+        'totalStates': len(analysis),
+        'source': 'computed'
+    })
+
 
 @app.route('/api/tasks/research', methods=['POST'])
 def research_intergroup():
