@@ -819,16 +819,27 @@ function AdminPanel({ onBackToPublic }) {
     }
   }, []);
 
+  // Keep fetchScrapingState ref updated for use in polling
+  const fetchScrapingStateRef = useRef(fetchScrapingState);
   useEffect(() => {
+    fetchScrapingStateRef.current = fetchScrapingState;
+  }, [fetchScrapingState]);
+
+  // Initial setup effect - runs once on mount
+  // Uses refs to avoid re-running when callbacks change
+  const initialSetupDoneRef = useRef(false);
+  useEffect(() => {
+    if (initialSetupDoneRef.current) return;
+    initialSetupDoneRef.current = true;
+
     fetchScrapingState();
     checkUnfinishedScrape();
     // Only fetch feeds if not cached
     if (!cachedFeeds?.data || cachedFeeds.data.length === 0) {
       fetchFeeds();
     }
-    pollIntervalRef.current = setInterval(fetchScrapingState, POLL_INTERVAL_IDLE);
+
     return () => {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
       // Abort any pending status request on unmount
       if (statusAbortControllerRef.current) {
         statusAbortControllerRef.current.abort();
@@ -836,14 +847,18 @@ function AdminPanel({ onBackToPublic }) {
     };
   }, [fetchScrapingState, checkUnfinishedScrape, fetchFeeds, cachedFeeds]);
 
+  // Polling effect - adjusts interval based on scraper running state
+  // CRITICAL: Use ref for fetchScrapingState to avoid recreating interval on callback change
   useEffect(() => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     const interval = scrapingState.is_running ? POLL_INTERVAL_ACTIVE : POLL_INTERVAL_IDLE;
-    pollIntervalRef.current = setInterval(fetchScrapingState, interval);
+    pollIntervalRef.current = setInterval(() => {
+      fetchScrapingStateRef.current?.();
+    }, interval);
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [scrapingState.is_running, fetchScrapingState]);
+  }, [scrapingState.is_running]); // Removed fetchScrapingState - use ref instead
 
   // Fetch available states on mount (skip if cached)
   useEffect(() => {

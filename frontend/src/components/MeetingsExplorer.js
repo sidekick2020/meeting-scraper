@@ -612,13 +612,18 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   }, [fetchMeetings]);
 
   // Fetch meetings when bounds change (map pan/zoom)
+  // CRITICAL: Use ref to avoid dependency on fetchMeetings callback reference
+  // Including fetchMeetings in deps causes infinite loops when filters change:
+  // filter change -> callback recreated -> effect re-runs -> duplicate API calls
   useEffect(() => {
     if (mapBounds) {
-      fetchMeetings(mapBounds);
+      fetchMeetingsRef.current?.(mapBounds);
     }
-  }, [mapBounds, fetchMeetings]);
+  }, [mapBounds]); // Removed fetchMeetings - use ref instead
 
   // Debounced fetch when filters change - prevents rapid API calls during filter updates
+  // CRITICAL: Use ref to avoid dependency on fetchMeetings callback reference
+  // Including fetchMeetings in deps causes cascade of duplicate API calls when filters change
   useEffect(() => {
     // Only trigger debounced fetch if we have bounds (map is initialized)
     if (!mapBounds) return;
@@ -632,8 +637,9 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     lastFetchKeyRef.current = null;
 
     // Debounce the fetch - 300ms matches MeetingMap.js debounce timing
+    // Use ref to call the function to avoid dependency issues
     filterFetchTimeoutRef.current = setTimeout(() => {
-      fetchMeetings(mapBounds);
+      fetchMeetingsRef.current?.(mapBounds);
     }, 300);
 
     return () => {
@@ -641,7 +647,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         clearTimeout(filterFetchTimeoutRef.current);
       }
     };
-  }, [selectedStates, selectedDays, selectedTypes, selectedCity, showOnlineOnly, showHybridOnly, showTodayOnly, selectedFormat, mapBounds, fetchMeetings]);
+  }, [selectedStates, selectedDays, selectedTypes, selectedCity, showOnlineOnly, showHybridOnly, showTodayOnly, selectedFormat, mapBounds]); // Removed fetchMeetings - use ref instead
 
   // Cleanup on unmount - abort pending requests and clear timeouts
   useEffect(() => {
