@@ -12436,6 +12436,16 @@ a.sidebar-nav-item {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  animation: fadeInMap 0.3s ease-in-out;
+}
+
+@keyframes fadeInMap {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .meeting-card-icon {
@@ -13302,6 +13312,15 @@ a.sidebar-nav-item {
 [data-theme="light"] .stat-card {
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+/* Meeting card image placeholder - theme-aware background while image loads */
+[data-theme="light"] .meeting-card-image {
+  background: #e8ecf0;
+}
+
+[data-theme="dark"] .meeting-card-image {
+  background: #12121e;
 }
 
 /* Light Mode: Tables */

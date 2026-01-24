@@ -301,6 +301,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const anchorOffsetRef = useRef(0);            // Offset of anchor meeting from top of list
   const isRestoringScrollRef = useRef(false);
   const lastMeetingIdsRef = useRef(new Set());  // Track actual meeting IDs (not object reference)
+  const scrollRafRef = useRef(null);            // RAF handle for throttled scroll handler
 
   // Refs for request optimization - prevents duplicate API calls
   const filtersRef = useRef({
@@ -676,11 +677,12 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   }, []);
 
   // Scroll position preservation - track which meeting is at the top of viewport
+  // Uses RAF throttling to prevent performance issues during fast scrolling
   useEffect(() => {
     const listElement = listRef.current;
     if (!listElement) return;
 
-    const handleScroll = () => {
+    const updateAnchor = () => {
       // Don't save position while we're restoring it
       if (isRestoringScrollRef.current) return;
 
@@ -697,10 +699,22 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
           break;
         }
       }
+      scrollRafRef.current = null;
+    };
+
+    const handleScroll = () => {
+      // Throttle using requestAnimationFrame for smooth scrolling
+      if (scrollRafRef.current) return;
+      scrollRafRef.current = requestAnimationFrame(updateAnchor);
     };
 
     listElement.addEventListener('scroll', handleScroll, { passive: true });
-    return () => listElement.removeEventListener('scroll', handleScroll);
+    return () => {
+      listElement.removeEventListener('scroll', handleScroll);
+      if (scrollRafRef.current) {
+        cancelAnimationFrame(scrollRafRef.current);
+      }
+    };
   }, []);
 
   // Restore scroll position after filteredMeetings changes (using useLayoutEffect to run before paint)
