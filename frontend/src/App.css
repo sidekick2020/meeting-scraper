@@ -21311,17 +21311,62 @@ a.sidebar-nav-item {
   margin-bottom: 0;
 }
 
+.api-log-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 4px;
+  user-select: none;
+}
+
+.api-log-section-header:hover {
+  opacity: 0.8;
+}
+
+.api-log-section-toggle {
+  font-size: 9px;
+  color: var(--text-muted, #666);
+  width: 12px;
+  text-align: center;
+}
+
 .api-log-section-title {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted, #666);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 6px;
+  flex: 1;
 }
 
 .api-log-section-title.error {
   color: #ef4444;
+}
+
+.api-log-section-copy {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text-muted, #888);
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.api-log-section-copy:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+.api-log-section-copy.copied {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: #22c55e;
+  color: #22c55e;
 }
 
 .api-log-pre {
@@ -21399,6 +21444,27 @@ a.sidebar-nav-item {
 
 [data-theme="light"] .api-log-section-title {
   color: #6b7280;
+}
+
+[data-theme="light"] .api-log-section-toggle {
+  color: #9ca3af;
+}
+
+[data-theme="light"] .api-log-section-copy {
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #6b7280;
+}
+
+[data-theme="light"] .api-log-section-copy:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.25);
+  color: #374151;
+}
+
+[data-theme="light"] .api-log-section-copy.copied {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: #22c55e;
+  color: #16a34a;
 }
 
 [data-theme="light"] .api-log-pre {
