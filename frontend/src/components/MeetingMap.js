@@ -756,21 +756,21 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
         )}
 
         {/* Show cluster markers at medium zoom levels */}
-        {showClusters && currentZoom < DETAIL_ZOOM_THRESHOLD && effectiveMapData.clusters.map((cluster, index) => (
+        {showClusters && currentZoom < DETAIL_ZOOM_THRESHOLD && effectiveMapData.clusters.map((cluster) => (
           <ClusterMarker
-            key={`cluster-${index}`}
+            key={`cluster-${cluster.lat}-${cluster.lng}`}
             cluster={cluster}
           />
         ))}
 
         {/* Show individual meeting markers at higher zoom levels */}
-        {showIndividualMeetings && validMeetings.map((meeting, index) => {
+        {showIndividualMeetings && validMeetings.map((meeting) => {
           const isHovered = hoveredMeeting?.objectId === meeting.objectId;
           const color = meeting.isOnline || meeting.isHybrid ? '#78716c' : '#475569';
           const icon = isHovered ? createHighlightedIcon(color) : createCustomIcon(color);
           return (
           <Marker
-            key={meeting.objectId || index}
+            key={meeting.objectId || `${meeting.latitude}-${meeting.longitude}-${meeting.name}-${meeting.day}-${meeting.time}`}
             position={[meeting.latitude, meeting.longitude]}
             icon={icon}
             zIndexOffset={isHovered ? 1000 : 0}
