@@ -8,6 +8,9 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'
 const swiftModelContent = `import ParseSwift
 
 struct Meeting: ParseObject {
+    // Map to the "Meetings" class in Back4App (plural)
+    static var className: String { "Meetings" }
+
     // Required by ParseObject
     var objectId: String?
     var createdAt: Date?
@@ -1342,6 +1345,9 @@ struct MeetingFinderApp: App {
       <pre><code>{`import ParseSwift
 
 struct Meeting: ParseObject {
+    // Map to the "Meetings" class in Back4App (plural)
+    static var className: String { "Meetings" }
+
     // Required by ParseObject
     var objectId: String?
     var createdAt: Date?
