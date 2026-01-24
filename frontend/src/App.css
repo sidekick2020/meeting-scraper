@@ -12436,6 +12436,16 @@ a.sidebar-nav-item {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  animation: fadeInMap 0.3s ease-in-out;
+}
+
+@keyframes fadeInMap {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .meeting-card-icon {
@@ -12770,6 +12780,12 @@ a.sidebar-nav-item {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.sidebar-map-image.loaded {
+  opacity: 1;
 }
 
 /* Centered marker overlay for static map */
@@ -13298,6 +13314,15 @@ a.sidebar-nav-item {
   border: 1px solid rgba(0, 0, 0, 0.12);
 }
 
+/* Meeting card image placeholder - theme-aware background while image loads */
+[data-theme="light"] .meeting-card-image {
+  background: #e8ecf0;
+}
+
+[data-theme="dark"] .meeting-card-image {
+  background: #12121e;
+}
+
 /* Light Mode: Tables */
 [data-theme="light"] .directory-table {
   background: #ffffff;
@@ -13399,6 +13424,15 @@ a.sidebar-nav-item {
 
 [data-theme="light"] .sidebar-map-overlay {
   background: linear-gradient(to bottom, transparent, #f8fafc);
+}
+
+/* Map preview placeholder - theme-aware background while image loads */
+[data-theme="light"] .sidebar-map-preview {
+  background: #e8ecf0;
+}
+
+[data-theme="dark"] .sidebar-map-preview {
+  background: #12121e;
 }
 
 [data-theme="light"] .sidebar-detail-header h2 {
