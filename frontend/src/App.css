@@ -3570,6 +3570,53 @@ html, body {
   background: white;
 }
 
+/* Leaflet Layer Control Styles */
+.leaflet-control-layers {
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border: none;
+  padding: 0;
+}
+
+.leaflet-control-layers-toggle {
+  background-size: 20px 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: 0.5rem;
+}
+
+.leaflet-control-layers-expanded {
+  padding: 0.75rem 1rem;
+  min-width: 120px;
+}
+
+.leaflet-control-layers-base label,
+.leaflet-control-layers-overlays label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.leaflet-control-layers-base label:hover,
+.leaflet-control-layers-overlays label:hover {
+  color: #1f2937;
+}
+
+.leaflet-control-layers-selector {
+  margin: 0;
+  cursor: pointer;
+}
+
+.leaflet-control-layers-separator {
+  border-color: #e5e7eb;
+  margin: 0.5rem 0;
+}
+
 /* ==================== */
 /* Public Explorer Page */
 /* ==================== */

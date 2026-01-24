@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useDataCache } from '../contexts/DataCacheContext';
@@ -568,8 +568,11 @@ function StateMarker({ stateData, onStateClick }) {
   const map = useMap();
 
   const handleClick = useCallback(() => {
-    // Zoom in to this state
-    map.setView([stateData.lat, stateData.lng], 7);
+    // Zoom in to this state with smooth animation
+    map.flyTo([stateData.lat, stateData.lng], 7, {
+      duration: 0.6,
+      easeLinearity: 0.25
+    });
     // Notify parent to load meetings for this state
     if (onStateClick) {
       onStateClick(stateData);
@@ -607,9 +610,26 @@ function ClusterMarker({ cluster, onClusterClick }) {
   const map = useMap();
 
   const handleClick = useCallback(() => {
-    // Zoom in to this cluster location
-    const targetZoom = Math.min(map.getZoom() + 3, 15);
-    map.setView([cluster.lat, cluster.lng], targetZoom);
+    // Calculate smart zoom level based on cluster size
+    // Larger clusters need more zoom steps to break into sub-clusters
+    const currentZoom = map.getZoom();
+    let zoomIncrement = 3; // Default zoom increment
+
+    // Adjust zoom based on cluster count - larger clusters may need gradual zoom
+    if (cluster.count > 500) {
+      zoomIncrement = 2; // Zoom less for very large clusters to show sub-clusters
+    } else if (cluster.count < 20) {
+      zoomIncrement = 4; // Zoom more for small clusters to show individual meetings faster
+    }
+
+    const targetZoom = Math.min(currentZoom + zoomIncrement, 16);
+
+    // Use flyTo for smoother animation when expanding clusters
+    map.flyTo([cluster.lat, cluster.lng], targetZoom, {
+      duration: 0.5,
+      easeLinearity: 0.25
+    });
+
     if (onClusterClick) onClusterClick(cluster);
   }, [map, cluster, onClusterClick]);
 
@@ -665,7 +685,10 @@ function HeatmapClickHandler({ isHeatmapVisible }) {
       const currentZoom = map.getZoom();
       // Zoom in by 3 levels, but cap at zoom 15
       const targetZoom = Math.min(currentZoom + 3, 15);
-      map.setView([e.latlng.lat, e.latlng.lng], targetZoom, { animate: true });
+      map.flyTo([e.latlng.lat, e.latlng.lng], targetZoom, {
+        duration: 0.5,
+        easeLinearity: 0.25
+      });
     };
 
     map.on('click', handleClick);
@@ -884,11 +907,37 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
         className="meeting-map"
         scrollWheelZoom={true}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          className="map-tiles"
-        />
+        <LayersControl position="topright">
+          <LayersControl.BaseLayer checked name="Street">
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+              className="map-tiles"
+            />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="Terrain">
+            <TileLayer
+              attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>'
+              url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+              className="map-tiles"
+              maxZoom={17}
+            />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="Satellite">
+            <TileLayer
+              attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              className="map-tiles"
+            />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="Light">
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              className="map-tiles"
+            />
+          </LayersControl.BaseLayer>
+        </LayersControl>
 
         <MapDataLoader
           onDataLoaded={handleDataLoaded}
