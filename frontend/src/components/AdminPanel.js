@@ -145,6 +145,8 @@ function AdminPanel({ onBackToPublic }) {
 
   const isRunningRef = useRef(false);
   const pollIntervalRef = useRef(null);
+  const statusFetchInProgressRef = useRef(false);
+  const statusAbortControllerRef = useRef(null);
 
   // Theme detection and toggle
   const [currentTheme, setCurrentTheme] = useState(
@@ -322,8 +324,23 @@ function AdminPanel({ onBackToPublic }) {
 
   // Poll scraping state from backend (for scraper progress updates only)
   const fetchScrapingState = useCallback(async () => {
+    // Skip if a request is already in progress to prevent pile-up
+    if (statusFetchInProgressRef.current) {
+      return;
+    }
+
+    statusFetchInProgressRef.current = true;
+
+    // Cancel any previous request that might still be pending
+    if (statusAbortControllerRef.current) {
+      statusAbortControllerRef.current.abort();
+    }
+    statusAbortControllerRef.current = new AbortController();
+
     try {
-      const response = await fetch(`${BACKEND_URL}/api/status`);
+      const response = await fetch(`${BACKEND_URL}/api/status`, {
+        signal: statusAbortControllerRef.current.signal
+      });
       if (response.ok) {
         const data = await response.json();
 
@@ -360,7 +377,10 @@ function AdminPanel({ onBackToPublic }) {
         isRunningRef.current = data.is_running;
       }
     } catch (error) {
-      // Silently ignore - scraper status is optional, Parse connection is primary
+      // Silently ignore aborted requests and other errors
+      // Scraper status is optional, Parse connection is primary
+    } finally {
+      statusFetchInProgressRef.current = false;
     }
   }, []);
 
@@ -374,6 +394,10 @@ function AdminPanel({ onBackToPublic }) {
     pollIntervalRef.current = setInterval(fetchScrapingState, POLL_INTERVAL_IDLE);
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      // Abort any pending status request on unmount
+      if (statusAbortControllerRef.current) {
+        statusAbortControllerRef.current.abort();
+      }
     };
   }, [fetchScrapingState, checkUnfinishedScrape, fetchFeeds, cachedFeeds]);
 
