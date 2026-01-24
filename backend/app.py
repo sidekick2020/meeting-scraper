@@ -2534,6 +2534,34 @@ def check_duplicate(unique_key):
     except:
         return False
 
+def fetch_recent_meetings_from_db(limit=20):
+    """Fetch the most recently created meetings from Back4App.
+
+    Used to populate recent_meetings when resuming a scrape so the UI
+    shows recently saved meetings instead of an empty list.
+    """
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return []
+
+    try:
+        import urllib.parse
+        params = {
+            'limit': limit,
+            'order': '-createdAt',
+            'keys': 'name,city,state,meetingType,day,time,objectId,createdAt'
+        }
+        query_string = urllib.parse.urlencode(params)
+        url = f"{BACK4APP_URL}?{query_string}"
+
+        response = back4app_session.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("results", [])
+        return []
+    except Exception as e:
+        print(f"Error fetching recent meetings: {e}")
+        return []
+
 def save_to_back4app(meeting_data, skip_duplicate_check=False):
     """Save a meeting to back4app, optionally checking for duplicates"""
     if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
@@ -3313,7 +3341,8 @@ def start_scraping():
     scraping_state["errors"] = []
     scraping_state["meetings_by_state"] = data.get('resume_meetings_by_state', {})
     scraping_state["meetings_by_type"] = {"AA": 0, "NA": 0, "Al-Anon": 0, "Other": 0}
-    scraping_state["recent_meetings"] = []
+    # When resuming, fetch recent meetings from DB so the UI isn't empty
+    scraping_state["recent_meetings"] = fetch_recent_meetings_from_db(20) if resume_scrape_id else []
     scraping_state["progress_message"] = "Starting..."
     scraping_state["current_feed_index"] = resume_feeds_processed
     scraping_state["current_feed_progress"] = 0
