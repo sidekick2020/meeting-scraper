@@ -23502,6 +23502,40 @@ a.sidebar-nav-item {
   max-height: 70vh;
 }
 
+/* Draggable API logs panel */
+.dev-mode-indicator.custom-position {
+  animation: none;
+}
+
+.dev-mode-indicator.dragging {
+  cursor: grabbing;
+  user-select: none;
+  opacity: 0.95;
+}
+
+.dev-mode-indicator.dragging * {
+  cursor: grabbing;
+}
+
+.dev-mode-drag-handle {
+  cursor: grab;
+  padding: 0 4px;
+  margin-right: 4px;
+  opacity: 0.6;
+  font-size: 14px;
+  letter-spacing: 2px;
+  transition: opacity 0.15s ease;
+}
+
+.dev-mode-drag-handle:hover {
+  opacity: 1;
+}
+
+.dev-mode-indicator.dragging .dev-mode-drag-handle {
+  cursor: grabbing;
+  opacity: 1;
+}
+
 .dev-mode-header {
   display: flex;
   align-items: center;
