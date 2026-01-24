@@ -120,6 +120,7 @@ coverage_analysis_cache = CacheManager('coverage_analysis', ttl_seconds=900, max
 statistics_cache = CacheManager('statistics', ttl_seconds=180, max_entries=10)  # 3 min TTL for statistics
 sources_cache = CacheManager('sources', ttl_seconds=300, max_entries=20)  # 5 min TTL for sources
 scrape_history_cache = CacheManager('scrape_history', ttl_seconds=120, max_entries=10)  # 2 min TTL for scrape history
+ip_location_cache = CacheManager('ip_location', ttl_seconds=3600, max_entries=500)  # 1 hour TTL for IP locations
 
 
 def cache_first_with_fallback(cache_manager, cache_key, fetch_function, fallback_data=None):
@@ -10328,6 +10329,116 @@ if __name__ == '__main__':
         'suggestions': suggestions,
         'newContent': new_script
     })
+
+
+# =============================================================================
+# IP GEOLOCATION ENDPOINT
+# =============================================================================
+
+@app.route('/api/location-from-ip', methods=['GET'])
+def get_location_from_ip():
+    """Get user's location from their IP address.
+
+    Uses ip-api.com (free for non-commercial use) to determine location.
+    Results are cached for 1 hour to reduce API calls.
+
+    Returns:
+        JSON with city, region (state), country, lat, lon, and formatted location string
+    """
+    # Get the user's real IP address
+    # Check X-Forwarded-For header first (for proxies/load balancers)
+    forwarded_for = request.headers.get('X-Forwarded-For')
+    if forwarded_for:
+        # X-Forwarded-For can contain multiple IPs, take the first (client IP)
+        user_ip = forwarded_for.split(',')[0].strip()
+    else:
+        user_ip = request.remote_addr
+
+    # Don't geolocate local/private IPs
+    if user_ip in ('127.0.0.1', 'localhost', '::1') or user_ip.startswith('192.168.') or user_ip.startswith('10.'):
+        return jsonify({
+            'success': False,
+            'error': 'Cannot geolocate local IP address',
+            'ip': user_ip
+        })
+
+    # Check cache first
+    cached = ip_location_cache.get(user_ip)
+    if cached is not None:
+        return jsonify({
+            'success': True,
+            'source': 'cache',
+            **cached
+        })
+
+    try:
+        # Call ip-api.com (free tier, 45 requests/minute)
+        # Using http as their free tier doesn't support https
+        response = requests.get(
+            f'http://ip-api.com/json/{user_ip}?fields=status,message,country,countryCode,region,regionName,city,lat,lon',
+            timeout=5
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+
+            if data.get('status') == 'success':
+                location_data = {
+                    'city': data.get('city', ''),
+                    'region': data.get('regionName', ''),
+                    'regionCode': data.get('region', ''),
+                    'country': data.get('country', ''),
+                    'countryCode': data.get('countryCode', ''),
+                    'lat': data.get('lat'),
+                    'lon': data.get('lon'),
+                    'ip': user_ip
+                }
+
+                # Build formatted location string
+                city = location_data['city']
+                region = location_data['region']
+                if city and region:
+                    location_data['formatted'] = f"{city}, {region}"
+                elif city:
+                    location_data['formatted'] = city
+                elif region:
+                    location_data['formatted'] = region
+                else:
+                    location_data['formatted'] = ''
+
+                # Cache the result
+                ip_location_cache.set(user_ip, location_data)
+
+                return jsonify({
+                    'success': True,
+                    'source': 'ip-api',
+                    **location_data
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': data.get('message', 'Unknown error from ip-api'),
+                    'ip': user_ip
+                })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'ip-api returned status {response.status_code}',
+                'ip': user_ip
+            })
+
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'success': False,
+            'error': 'IP geolocation request timed out',
+            'ip': user_ip
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'ip': user_ip
+        })
 
 
 if __name__ == '__main__':

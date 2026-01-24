@@ -315,6 +315,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
 
   const listRef = useRef(null);
   const thumbnailRequestsRef = useRef(new Set());
+  const ipLocationAttemptedRef = useRef(false);
 
   // Stable meeting IDs string - only changes when actual meeting list changes (not thumbnails)
   // This prevents scroll restoration from triggering on thumbnail updates
@@ -764,6 +765,54 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
       }
     };
   }, []);
+
+  // Prefill location from user's IP address on first load
+  // Only runs if there's no cached search query (user hasn't searched before)
+  useEffect(() => {
+    // Only attempt once per session
+    if (ipLocationAttemptedRef.current) return;
+    ipLocationAttemptedRef.current = true;
+
+    // Don't prefill if user already has a search query (from cache)
+    if (cachedFilterState?.data?.searchQuery) return;
+
+    // Don't prefill if user already has filters applied
+    if (cachedFilterState?.data?.selectedStates?.length > 0) return;
+    if (cachedFilterState?.data?.selectedCity) return;
+
+    const fetchIPLocation = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/location-from-ip`);
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (!data.success) return;
+
+        // Only prefill for US locations (this is a US meeting finder)
+        if (data.countryCode !== 'US') return;
+
+        // Set the search query to the formatted location
+        if (data.formatted) {
+          setSearchQuery(data.formatted);
+        }
+
+        // Pan the map to the user's location
+        if (data.lat && data.lon) {
+          isProgrammaticPanRef.current = true;
+          setTargetLocation({
+            lat: data.lat,
+            lng: data.lon,
+            zoom: 10 // City-level zoom
+          });
+        }
+      } catch (error) {
+        // Silently fail - IP location is a nice-to-have, not critical
+        console.debug('IP location prefill failed:', error);
+      }
+    };
+
+    fetchIPLocation();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll position preservation - track which meeting is at the top of viewport
   // Uses RAF throttling to prevent performance issues during fast scrolling
