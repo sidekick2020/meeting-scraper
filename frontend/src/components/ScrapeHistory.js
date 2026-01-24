@@ -7,7 +7,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'
 const HISTORY_CACHE_KEY = 'scrapeHistory:data';
 const HISTORY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-function ScrapeHistory() {
+function ScrapeHistory({ onViewProgress }) {
   const { getCache, setCache } = useDataCache();
   const cachedHistory = getCache(HISTORY_CACHE_KEY);
 
@@ -182,6 +182,17 @@ function ScrapeHistory() {
                   <span className="history-stat">
                     <strong>{entry.feeds_processed}</strong> feeds
                   </span>
+                  {entry.status === 'in_progress' && onViewProgress && (
+                    <button
+                      className="btn btn-small btn-primary view-progress-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onViewProgress();
+                      }}
+                    >
+                      View Progress
+                    </button>
+                  )}
                   <span className="history-expand-icon">
                     {expandedId === entry.id ? '−' : '+'}
                   </span>
