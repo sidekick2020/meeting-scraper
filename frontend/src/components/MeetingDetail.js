@@ -162,6 +162,7 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                   >
                     <TileLayer
                       url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                      className="map-tiles-light"
                     />
                     <Marker
                       position={[meeting.latitude, meeting.longitude]}
