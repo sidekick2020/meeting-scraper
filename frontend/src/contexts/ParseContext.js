@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import Parse from 'parse';
 import { useParseQueryLogger } from './ParseQueryLoggerContext';
 
@@ -22,6 +22,8 @@ const PARSE_SERVER_URL = process.env.REACT_APP_PARSE_SERVER_URL || 'https://pars
 let isInitialized = false;
 let initializationError = null;
 let initialConnectionStatus = 'not_configured';
+let connectionTestPromise = null;
+let lastConnectionError = null;
 
 // Initialization log for diagnostics
 const frontendInitLog = [];
@@ -40,6 +42,39 @@ logInit('Starting frontend Parse SDK initialization...');
 logInit(`REACT_APP_BACK4APP_APP_ID: ${PARSE_APP_ID ? 'SET (' + PARSE_APP_ID.substring(0, 8) + '...)' : 'NOT SET'}`);
 logInit(`REACT_APP_BACK4APP_JS_KEY: ${PARSE_JS_KEY ? 'SET (' + PARSE_JS_KEY.substring(0, 8) + '...)' : 'NOT SET'}`);
 logInit(`PARSE_SERVER_URL: ${PARSE_SERVER_URL}`);
+
+/**
+ * Test the actual connection to Parse server
+ * This performs a real query to verify network connectivity and credentials
+ */
+async function testParseConnection() {
+  if (!isInitialized) {
+    return { success: false, error: 'Parse SDK not initialized' };
+  }
+
+  try {
+    logInit('Testing Parse connection with a real query...');
+    const testQuery = new Parse.Query('Meetings');
+    testQuery.limit(1);
+    testQuery.select('objectId');
+
+    // Set a reasonable timeout for the connection test
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Connection test timeout (10s)')), 10000)
+    );
+
+    const queryPromise = testQuery.find();
+    await Promise.race([queryPromise, timeoutPromise]);
+
+    logInit('Parse connection test SUCCESS', 'success');
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error.message || String(error);
+    logInit(`Parse connection test FAILED: ${errorMessage}`, 'error');
+    lastConnectionError = errorMessage;
+    return { success: false, error: errorMessage };
+  }
+}
 
 function initializeParse() {
   if (isInitialized) return true;
@@ -61,8 +96,23 @@ function initializeParse() {
     Parse.enableLocalDatastore();
 
     isInitialized = true;
-    initialConnectionStatus = 'connected';
-    logInit('Parse SDK initialized successfully', 'success');
+    // Set status to 'testing' until we verify the connection actually works
+    initialConnectionStatus = 'testing';
+    logInit('Parse SDK initialized, testing connection...', 'info');
+
+    // Start the connection test (async, updates status when complete)
+    connectionTestPromise = testParseConnection().then(result => {
+      if (result.success) {
+        initialConnectionStatus = 'connected';
+        logInit('Connection verified - status set to connected', 'success');
+      } else {
+        initialConnectionStatus = 'error';
+        initializationError = new Error(result.error);
+        logInit(`Connection failed - status set to error: ${result.error}`, 'error');
+      }
+      return result;
+    });
+
     return true;
   } catch (error) {
     logInit(`Failed to initialize Parse SDK: ${error.message}`, 'error');
@@ -75,7 +125,7 @@ function initializeParse() {
 // Initialize immediately when this module is imported
 // This ensures Parse is ready before any React component mounts
 initializeParse();
-logInit(`Initialization complete. Status: ${initialConnectionStatus}`);
+logInit(`Initialization started. Initial status: ${initialConnectionStatus}`);
 
 /**
  * ParseProvider - Provides Parse SDK access to React components
@@ -90,12 +140,25 @@ logInit(`Initialization complete. Status: ${initialConnectionStatus}`);
  */
 export function ParseProvider({ children }) {
   const [isReady] = useState(isInitialized);
-  const [error] = useState(initializationError);
-  // Connection status is determined synchronously at initialization - no async test needed
-  const [connectionStatus] = useState(initialConnectionStatus);
+  const [error, setError] = useState(initializationError);
+  // Connection status starts with the initial value but updates when async test completes
+  const [connectionStatus, setConnectionStatus] = useState(initialConnectionStatus);
 
   // Get the query logger (will return no-op functions if provider not available)
   const queryLogger = useParseQueryLogger();
+
+  // Monitor the connection test promise and update state when it completes
+  useEffect(() => {
+    if (connectionTestPromise) {
+      connectionTestPromise.then(result => {
+        // Update React state to match the module-level state
+        setConnectionStatus(initialConnectionStatus);
+        if (initializationError) {
+          setError(initializationError);
+        }
+      });
+    }
+  }, []);
 
   /**
    * Helper to create a new Parse.Query with proper typing
@@ -474,6 +537,38 @@ export function getParseInstance() {
 }
 
 /**
+ * Wait for the initial connection test to complete
+ * Returns the connection test promise if one is in progress, or null if not
+ */
+export function waitForConnectionTest() {
+  return connectionTestPromise;
+}
+
+/**
+ * Retry the Parse connection test
+ * Useful for recovery after network issues
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function retryConnection() {
+  if (!isInitialized) {
+    return { success: false, error: 'Parse SDK not initialized' };
+  }
+
+  logInit('Retrying Parse connection test...');
+  const result = await testParseConnection();
+
+  if (result.success) {
+    initialConnectionStatus = 'connected';
+    lastConnectionError = null;
+  } else {
+    initialConnectionStatus = 'error';
+    lastConnectionError = result.error;
+  }
+
+  return result;
+}
+
+/**
  * Get frontend initialization log for diagnostics
  */
 export function getFrontendInitLog() {
@@ -483,6 +578,7 @@ export function getFrontendInitLog() {
       isInitialized,
       connectionStatus: initialConnectionStatus,
       error: initializationError?.message || null,
+      lastConnectionError: lastConnectionError,
       config: {
         hasAppId: !!PARSE_APP_ID,
         hasJsKey: !!PARSE_JS_KEY,
