@@ -1,0 +1,1 @@
+**Fix map/list meeting count desync**: Fixed a bug where the meetings list showed different results than the map when a single day filter was selected. The map was not receiving the day filter due to incorrect type handling (numeric indices were being looked up in a string array).
