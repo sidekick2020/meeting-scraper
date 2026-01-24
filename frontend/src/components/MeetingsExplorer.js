@@ -5,6 +5,7 @@ import ParseDiagnostics from './ParseDiagnostics';
 import { SidebarToggleButton } from './PublicSidebar';
 import { useDataCache } from '../contexts/DataCacheContext';
 import { useParse } from '../contexts/ParseContext';
+import { fetchThumbnailsThrottled } from '../utils/networkSpeed';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -311,24 +312,10 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const lastFetchKeyRef = useRef(null);
   const fetchMeetingsRef = useRef(null);
 
-  // Fetch thumbnail for a single meeting
-  const fetchThumbnail = useCallback(async (meetingId) => {
-    if (thumbnailRequestsRef.current.has(meetingId)) return null;
-    thumbnailRequestsRef.current.add(meetingId);
+  // Abort controller for thumbnail requests
+  const thumbnailAbortRef = useRef(null);
 
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/thumbnail/${meetingId}`);
-      if (response.ok) {
-        const data = await response.json();
-        return { meetingId, thumbnailUrl: data.thumbnailUrl };
-      }
-    } catch (error) {
-      console.error(`Error fetching thumbnail for ${meetingId}:`, error);
-    }
-    return null;
-  }, []);
-
-  // Request thumbnails for meetings without them (batch of 20)
+  // Request thumbnails for meetings without them (throttled to prevent connection exhaustion)
   const requestMissingThumbnails = useCallback(async (meetingsList) => {
     const meetingsWithoutThumbnails = meetingsList
       .filter(m => !m.thumbnailUrl && m.objectId && !thumbnailRequestsRef.current.has(m.objectId))
@@ -336,22 +323,43 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
 
     if (meetingsWithoutThumbnails.length === 0) return;
 
-    const thumbnailPromises = meetingsWithoutThumbnails.map(m => fetchThumbnail(m.objectId));
-    const results = await Promise.all(thumbnailPromises);
+    // Mark all as in-flight to prevent duplicate requests
+    meetingsWithoutThumbnails.forEach(m => thumbnailRequestsRef.current.add(m.objectId));
 
-    const thumbnailMap = {};
-    results.forEach(result => {
-      if (result?.thumbnailUrl) {
-        thumbnailMap[result.meetingId] = result.thumbnailUrl;
-      }
-    });
-
-    if (Object.keys(thumbnailMap).length > 0) {
-      setMeetings(prev => prev.map(m =>
-        thumbnailMap[m.objectId] ? { ...m, thumbnailUrl: thumbnailMap[m.objectId] } : m
-      ));
+    // Cancel any previous thumbnail fetch
+    if (thumbnailAbortRef.current) {
+      thumbnailAbortRef.current.abort();
     }
-  }, [fetchThumbnail]);
+    thumbnailAbortRef.current = new AbortController();
+
+    const meetingIds = meetingsWithoutThumbnails.map(m => m.objectId);
+
+    try {
+      // Use throttled fetcher that respects browser connection limits
+      const results = await fetchThumbnailsThrottled(meetingIds, BACKEND_URL, {
+        signal: thumbnailAbortRef.current.signal,
+        timeout: 10000,
+        onResult: (meetingId, thumbnailUrl) => {
+          // Update state incrementally as each thumbnail loads
+          setMeetings(prev => prev.map(m =>
+            m.objectId === meetingId ? { ...m, thumbnailUrl } : m
+          ));
+        }
+      });
+
+      // Final batch update for any remaining
+      if (results.size > 0) {
+        setMeetings(prev => prev.map(m => {
+          const thumbnailUrl = results.get(m.objectId);
+          return thumbnailUrl ? { ...m, thumbnailUrl } : m;
+        }));
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.error('Error fetching thumbnails:', error);
+      }
+    }
+  }, []);
 
   // Keep filtersRef updated - allows fetchMeetings to have stable reference
   useEffect(() => {

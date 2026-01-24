@@ -439,6 +439,160 @@ export function clearInFlightRequests() {
   inFlightRequests.clear();
 }
 
+// =============================================================================
+// THROTTLED REQUEST QUEUE
+// =============================================================================
+
+/**
+ * Creates a throttled request queue that limits concurrent requests
+ * Prevents overwhelming browser connection limits (typically 6 per host)
+ *
+ * @param {number} maxConcurrent - Maximum concurrent requests (default: 3)
+ * @returns {Object} - Queue controller with add() and clear() methods
+ */
+export function createThrottledQueue(maxConcurrent = 3) {
+  const queue = [];
+  let activeCount = 0;
+  let isCleared = false;
+
+  const processNext = async () => {
+    if (isCleared || activeCount >= maxConcurrent || queue.length === 0) {
+      return;
+    }
+
+    const { fn, resolve, reject } = queue.shift();
+    activeCount++;
+
+    try {
+      const result = await fn();
+      resolve(result);
+    } catch (error) {
+      reject(error);
+    } finally {
+      activeCount--;
+      processNext();
+    }
+  };
+
+  return {
+    /**
+     * Adds a request to the queue
+     * @param {Function} fn - Async function to execute
+     * @returns {Promise} - Resolves when the request completes
+     */
+    add(fn) {
+      if (isCleared) {
+        return Promise.reject(new DOMException('Queue cleared', 'AbortError'));
+      }
+
+      return new Promise((resolve, reject) => {
+        queue.push({ fn, resolve, reject });
+        processNext();
+      });
+    },
+
+    /**
+     * Clears all pending requests in the queue
+     */
+    clear() {
+      isCleared = true;
+      while (queue.length > 0) {
+        const { reject } = queue.shift();
+        reject(new DOMException('Queue cleared', 'AbortError'));
+      }
+    },
+
+    /**
+     * Resets the queue for reuse
+     */
+    reset() {
+      isCleared = false;
+    },
+
+    /**
+     * Returns current queue stats
+     */
+    getStats() {
+      return {
+        pending: queue.length,
+        active: activeCount,
+        maxConcurrent,
+      };
+    },
+  };
+}
+
+/**
+ * Fetches thumbnails with proper throttling based on network speed
+ * Limits concurrent requests to prevent browser connection pool exhaustion
+ *
+ * @param {Array<string>} meetingIds - Array of meeting IDs to fetch thumbnails for
+ * @param {string} backendUrl - Backend URL
+ * @param {Object} options - Options
+ * @param {AbortSignal} options.signal - Abort signal
+ * @param {Function} options.onResult - Callback for each result (meetingId, thumbnailUrl)
+ * @param {number} options.timeout - Request timeout in ms (default: 10000)
+ * @returns {Promise<Map<string, string>>} - Map of meetingId to thumbnailUrl
+ */
+export async function fetchThumbnailsThrottled(meetingIds, backendUrl, options = {}) {
+  const { signal, onResult, timeout = 10000 } = options;
+
+  // Get network-based concurrency limit (1-4 based on speed)
+  const speed = await measureNetworkSpeed();
+  const maxConcurrent = calculateParallelRequests(speed);
+
+  const queue = createThrottledQueue(maxConcurrent);
+  const results = new Map();
+  const errors = [];
+
+  // Handle abort signal
+  if (signal) {
+    signal.addEventListener('abort', () => queue.clear());
+  }
+
+  // Create fetch promises for all thumbnails
+  const promises = meetingIds.map(meetingId =>
+    queue.add(async () => {
+      if (signal?.aborted) {
+        throw new DOMException('Request cancelled', 'AbortError');
+      }
+
+      try {
+        const response = await fetchWithTimeout(
+          `${backendUrl}/api/thumbnail/${meetingId}`,
+          { signal },
+          timeout
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.thumbnailUrl) {
+            results.set(meetingId, data.thumbnailUrl);
+            if (onResult) {
+              onResult(meetingId, data.thumbnailUrl);
+            }
+          }
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          errors.push({ meetingId, error: error.message });
+        }
+        throw error;
+      }
+    }).catch(error => {
+      // Silently handle individual failures - don't break the whole batch
+      if (error.name !== 'AbortError') {
+        console.warn(`Thumbnail fetch failed for ${meetingId}:`, error.message);
+      }
+    })
+  );
+
+  // Wait for all to complete (or fail)
+  await Promise.allSettled(promises);
+
+  return results;
+}
+
 const networkSpeedUtils = {
   measureNetworkSpeed,
   calculateBatchSize,
@@ -455,6 +609,8 @@ const networkSpeedUtils = {
   fetchWithDeduplication,
   calculateThumbnailBatchSize,
   clearInFlightRequests,
+  createThrottledQueue,
+  fetchThumbnailsThrottled,
   BATCH_CONFIG,
   DEFAULT_FETCH_TIMEOUT,
 };
