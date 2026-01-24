@@ -173,3 +173,46 @@ git push origin mac-v1.25.0
 
 **View build progress:** https://github.com/sidekick2020/meeting-scraper/actions/workflows/build-desktop.yml
 ```
+
+## Render.com SPA Routing
+
+The frontend is deployed as a static site on Render.com. For SPA routing to work correctly (so direct URL access like `/meeting/abc123` doesn't return 404), we use multiple fallback mechanisms:
+
+### How It Works
+
+1. **`build/200.html`** - Render's native SPA fallback. When this file exists, Render serves it for any path that doesn't match an existing file, with a 200 status code. This is the most reliable method.
+
+2. **`_redirects` file** - Netlify-style redirects (also supported by Render), located in `frontend/public/_redirects`.
+
+3. **`render.yaml` routes** - Explicit rewrite rules in the render.yaml file.
+
+4. **Directory fallbacks** - The postbuild script creates `index.html` copies in route directories (e.g., `build/meeting/index.html`).
+
+### When Adding New Routes
+
+**IMPORTANT**: When adding a new frontend route (in `App.js`), you must also update SPA routing:
+
+1. **Update `frontend/package.json` postbuild script** - Add the new route directory:
+   ```json
+   "postbuild": "mkdir -p build/docs build/download build/meeting build/NEW_ROUTE && cp build/index.html build/docs/index.html ... && cp build/index.html build/NEW_ROUTE/index.html && cp build/index.html build/200.html"
+   ```
+
+2. **Update `frontend/public/_redirects`** - Add explicit rewrite rules:
+   ```
+   /new-route        /index.html   200
+   /new-route/*      /index.html   200
+   ```
+
+3. **Update `render.yaml`** - Add route entries:
+   ```yaml
+   - type: rewrite
+     source: /new-route
+     destination: /index.html
+   - type: rewrite
+     source: /new-route/*
+     destination: /index.html
+   ```
+
+### Why This Matters
+
+Without these configurations, direct URL access to routes (e.g., refreshing the page or sharing a link) will return a 404 error because Render looks for a static file at that path. The `200.html` fallback is the most reliable solution, but we maintain all three methods for redundancy.
