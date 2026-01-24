@@ -903,6 +903,11 @@ function MeetingMap({ onSelectMeeting, onStateClick, showHeatmap = true, targetL
       <div className="map-header">
         <h3>Meeting Locations</h3>
         <span className="map-stats">
+          {(isLoading || isRefreshing) && (
+            <span className="map-updating-indicator" title="Updating map data">
+              <span className="loading-spinner-mini"></span>
+            </span>
+          )}
           {showIndividualMeetings ? (
             `${validMeetings.length} meetings in view`
           ) : showStateLevel ? (
