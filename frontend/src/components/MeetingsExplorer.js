@@ -1792,14 +1792,14 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                 <button className="btn btn-secondary" onClick={() => setShowDiagnostics(true)}>
                   View Diagnostics
                 </button>
-                {errorDetails && (
+                {process.env.NODE_ENV === 'development' && errorDetails && (
                   <button className="btn btn-secondary" onClick={() => setShowErrorLogs(!showErrorLogs)}>
                     {showErrorLogs ? 'Hide' : 'Show'} Error Logs
                   </button>
                 )}
               </div>
-              {/* Copyable Error Logs Section */}
-              {showErrorLogs && errorDetails && (
+              {/* Copyable Error Logs Section (development mode only) */}
+              {process.env.NODE_ENV === 'development' && showErrorLogs && errorDetails && (
                 <div className="error-logs-section" style={{ marginTop: '16px', textAlign: 'left', width: '100%' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)' }}>Debug Logs</span>
@@ -1860,8 +1860,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
                   View Diagnostics
                 </button>
               </div>
-              {/* Show debug info if available (for troubleshooting config issues) */}
-              {errorDetails?.type === 'empty_results_debug_info' && (
+              {/* Show debug info if available (development mode only) */}
+              {process.env.NODE_ENV === 'development' && errorDetails?.type === 'empty_results_debug_info' && (
                 <div style={{ marginTop: '16px', textAlign: 'left', width: '100%' }}>
                   <details style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                     <summary style={{ cursor: 'pointer', marginBottom: '8px' }}>Debug Info (for troubleshooting)</summary>
