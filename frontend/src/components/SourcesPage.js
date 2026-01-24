@@ -417,8 +417,8 @@ function AddSourcePanel({ isOpen, onClose, initialState, prefillData, onComplete
     setCurrentStep('test');
   };
 
-  // Use a draft
-  const useDraft = (draft) => {
+  // Apply a draft
+  const applyDraft = (draft) => {
     setSourceName(draft.name);
     setSourceUrl(draft.url);
     setFeedType(draft.feedType || 'auto');
@@ -691,7 +691,7 @@ function AddSourcePanel({ isOpen, onClose, initialState, prefillData, onComplete
                         <div className="draft-loading"><span className="spinner"></span>Loading...</div>
                       ) : (
                         drafts.map(draft => (
-                          <div key={draft.id} className="draft-item" onClick={() => useDraft(draft)}>
+                          <div key={draft.id} className="draft-item" onClick={() => applyDraft(draft)}>
                             <div className="draft-header">
                               <span className="draft-name">{draft.name}</span>
                               <span className={`draft-type ${draft.feedType}`}>{draft.feedType}</span>
