@@ -49,6 +49,14 @@ After completing significant code changes, Claude should **always**:
 
 Provide all commands without comments for easy copy-paste.
 
+## Commit and Push Policy
+
+**When a PR already exists for the current branch**, Claude should automatically commit and push any new changes without asking. This keeps the PR up to date with the latest work.
+
+- If changes are requested or additional work is done on an existing PR branch, commit and push immediately
+- Do not ask for permission to push when a PR is already open
+- Use clear, descriptive commit messages for each logical change
+
 ## Release Versioning Workflow
 
 When making changes that warrant a new version release, follow this process:
