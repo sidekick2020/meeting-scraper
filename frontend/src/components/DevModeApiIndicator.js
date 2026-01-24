@@ -41,6 +41,13 @@ function DevModeApiIndicator() {
   const [selectedLog, setSelectedLog] = useState(null);
   const [copyFeedback, setCopyFeedback] = useState(null);
   const panelRef = useRef(null);
+  const containerRef = useRef(null);
+
+  // Drag state
+  const [position, setPosition] = useState({ x: null, y: null });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const positionStartRef = useRef({ x: 0, y: 0 });
 
   // Filter state - status filters are all false by default (meaning show all/ignore filter)
   const [statusFilters, setStatusFilters] = useState({
@@ -50,6 +57,68 @@ function DevModeApiIndicator() {
   });
   const [methodFilter, setMethodFilter] = useState(''); // empty = show all
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Handle drag start
+  const handleDragStart = (e) => {
+    // Only start drag if clicking on the drag handle area
+    if (e.target.closest('.dev-mode-drag-handle')) {
+      e.preventDefault();
+      setIsDragging(true);
+      dragStartRef.current = { x: e.clientX, y: e.clientY };
+
+      // Get current position
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        positionStartRef.current = { x: rect.left, y: rect.top };
+        // Initialize position if not set
+        if (position.x === null) {
+          setPosition({ x: rect.left, y: rect.top });
+        }
+      }
+    }
+  };
+
+  // Handle drag move
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e) => {
+      const deltaX = e.clientX - dragStartRef.current.x;
+      const deltaY = e.clientY - dragStartRef.current.y;
+
+      let newX = positionStartRef.current.x + deltaX;
+      let newY = positionStartRef.current.y + deltaY;
+
+      // Constrain to viewport
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const maxX = window.innerWidth - rect.width;
+        const maxY = window.innerHeight - rect.height;
+
+        newX = Math.max(0, Math.min(newX, maxX));
+        newY = Math.max(0, Math.min(newY, maxY));
+      }
+
+      setPosition({ x: newX, y: newY });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  // Reset position function
+  const resetPosition = () => {
+    setPosition({ x: null, y: null });
+  };
 
   // Don't render if not in development mode
   if (!development) {
@@ -262,13 +331,32 @@ function DevModeApiIndicator() {
   // Check if any filter is active
   const hasActiveFilters = hasActiveStatusFilter || methodFilter || searchQuery;
 
+  // Custom positioning style when dragged
+  const positionStyle = position.x !== null ? {
+    left: `${position.x}px`,
+    top: `${position.y}px`,
+    right: 'auto',
+    bottom: 'auto'
+  } : {};
+
   return (
-    <div className={`dev-mode-indicator ${isExpanded ? 'expanded' : ''}`}>
+    <div
+      ref={containerRef}
+      className={`dev-mode-indicator ${isExpanded ? 'expanded' : ''} ${isDragging ? 'dragging' : ''} ${position.x !== null ? 'custom-position' : ''}`}
+      style={positionStyle}
+    >
       {/* Header - always visible */}
       <div
         className="dev-mode-header"
-        onClick={() => setIsExpanded(!isExpanded)}
+        onMouseDown={handleDragStart}
+        onClick={(e) => {
+          // Don't toggle if we were dragging
+          if (!e.target.closest('.dev-mode-drag-handle')) {
+            setIsExpanded(!isExpanded);
+          }
+        }}
       >
+        <span className="dev-mode-drag-handle" title="Drag to move">⋮⋮</span>
         <span className="dev-mode-badge">DEV</span>
         <span className="dev-mode-title">API Logs</span>
         <span className="dev-mode-count">
@@ -305,6 +393,15 @@ function DevModeApiIndicator() {
             >
               Clear
             </button>
+            {position.x !== null && (
+              <button
+                className="dev-mode-btn"
+                onClick={resetPosition}
+                title="Reset to default position"
+              >
+                Reset Position
+              </button>
+            )}
           </div>
 
           {/* Filters */}
