@@ -18,6 +18,23 @@ export const development = isDevelopmentMode();
 
 // Max number of logs to keep
 const MAX_LOGS = 100;
+const MAX_RESPONSE_SIZE = 10 * 1024; // 10KB max for stored response bodies
+const REDUCED_MAX_LOGS = 50; // Reduced limit when memory is constrained
+
+// Truncate large responses to save memory
+function truncateResponse(response) {
+  if (response === null || response === undefined) return response;
+
+  try {
+    const str = typeof response === 'string' ? response : JSON.stringify(response);
+    if (str.length > MAX_RESPONSE_SIZE) {
+      return `[Truncated: ${str.length} bytes] ${str.substring(0, MAX_RESPONSE_SIZE)}...`;
+    }
+    return response;
+  } catch {
+    return '[Response too large to store]';
+  }
+}
 
 export function DevModeProvider({ children }) {
   const [logs, setLogs] = useState([]);
@@ -53,6 +70,50 @@ export function DevModeProvider({ children }) {
   // Clear all logs
   const clearLogs = useCallback(() => {
     setLogs([]);
+  }, []);
+
+  // Get log stats for monitoring
+  const getLogStats = useCallback(() => {
+    let totalSize = 0;
+    logs.forEach(log => {
+      try {
+        totalSize += JSON.stringify(log).length;
+      } catch {
+        totalSize += 500; // Default estimate
+      }
+    });
+    return {
+      count: logs.length,
+      maxLogs: MAX_LOGS,
+      estimatedSizeBytes: totalSize
+    };
+  }, [logs]);
+
+  // Memory cleanup handler (can be called by MemoryMonitor)
+  const performCleanup = useCallback(({ level } = {}) => {
+    if (level === 'critical') {
+      // Emergency: clear all logs
+      setLogs([]);
+      console.log('[DevMode] Emergency cleanup: cleared all logs');
+      return;
+    }
+
+    if (level === 'warning' || level === 'forced') {
+      // Reduce logs to half
+      setLogs(prev => {
+        const reduced = prev.slice(0, REDUCED_MAX_LOGS);
+        // Also strip response bodies to save memory
+        return reduced.map(log => ({
+          ...log,
+          response: log.response ? '[Cleared for memory]' : null
+        }));
+      });
+      console.log('[DevMode] Warning cleanup: reduced logs and cleared responses');
+      return;
+    }
+
+    // Routine: just ensure we're within limits
+    setLogs(prev => prev.slice(0, MAX_LOGS));
   }, []);
 
   // Intercept fetch calls when in development mode
@@ -114,7 +175,7 @@ export function DevModeProvider({ children }) {
           statusCode: response.status,
           statusText: response.statusText,
           duration,
-          response: responseBody,
+          response: truncateResponse(responseBody),
           responseHeaders: Object.fromEntries(response.headers.entries())
         });
 
@@ -146,7 +207,9 @@ export function DevModeProvider({ children }) {
     addLog,
     updateLog,
     clearLogs,
-    setIsEnabled
+    setIsEnabled,
+    getLogStats,
+    performCleanup
   };
 
   return (

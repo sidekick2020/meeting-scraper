@@ -6,6 +6,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { DataCacheProvider } from './contexts/DataCacheContext';
 import { ParseProvider, useParse } from './contexts/ParseContext';
 import { DevModeProvider } from './contexts/DevModeContext';
+import { MemoryMonitorProvider } from './contexts/MemoryMonitorContext';
 import MeetingsExplorer from './components/MeetingsExplorer';
 import OnlineMeetings from './components/OnlineMeetings';
 import AdminPanel from './components/AdminPanel';
@@ -16,6 +17,7 @@ import DownloadPage from './components/DownloadPage';
 import NotFound from './components/NotFound';
 import LoadingOverlay from './components/LoadingOverlay';
 import PublicSidebar, { SidebarToggleButton } from './components/PublicSidebar';
+import MemoryCleanupIntegration from './components/MemoryCleanupIntegration';
 
 function SignInModal({ onClose }) {
   const { signIn, authError, clearError, allowedDomains } = useAuth();
@@ -207,22 +209,25 @@ function App() {
   return (
     <BrowserRouter>
       <ThemeProvider>
-        <DevModeProvider>
-          <ParseProvider>
-            <AuthProvider>
-              <DataCacheProvider>
-                <Routes>
-                  <Route path="/" element={<AppContent />} />
-                  <Route path="/online-meetings" element={<OnlineMeetingsPage />} />
-                  <Route path="/docs" element={<DocsPage />} />
-                  <Route path="/download" element={<DownloadPageWrapper />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-                <DevModeApiIndicator />
-              </DataCacheProvider>
-            </AuthProvider>
-          </ParseProvider>
-        </DevModeProvider>
+        <MemoryMonitorProvider>
+          <DevModeProvider>
+            <ParseProvider>
+              <AuthProvider>
+                <DataCacheProvider>
+                  <MemoryCleanupIntegration />
+                  <Routes>
+                    <Route path="/" element={<AppContent />} />
+                    <Route path="/online-meetings" element={<OnlineMeetingsPage />} />
+                    <Route path="/docs" element={<DocsPage />} />
+                    <Route path="/download" element={<DownloadPageWrapper />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                  <DevModeApiIndicator />
+                </DataCacheProvider>
+              </AuthProvider>
+            </ParseProvider>
+          </DevModeProvider>
+        </MemoryMonitorProvider>
       </ThemeProvider>
     </BrowserRouter>
   );
