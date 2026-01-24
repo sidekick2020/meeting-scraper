@@ -22,6 +22,8 @@ function Dashboard({ scrapingState }) {
     is_running,
     total_found,
     total_saved,
+    total_duplicates = 0,
+    total_errors = 0,
     current_source,
     progress_message,
     current_feed_index,
@@ -65,6 +67,24 @@ function Dashboard({ scrapingState }) {
           <span className="stat-value">{total_saved.toLocaleString()}</span>
           <span className="stat-label">saved</span>
         </div>
+        {total_duplicates > 0 && (
+          <>
+            <div className="stat-divider" />
+            <div className="stat-item stat-duplicates">
+              <span className="stat-value">{total_duplicates.toLocaleString()}</span>
+              <span className="stat-label">duplicates</span>
+            </div>
+          </>
+        )}
+        {total_errors > 0 && (
+          <>
+            <div className="stat-divider" />
+            <div className="stat-item stat-errors">
+              <span className="stat-value">{total_errors.toLocaleString()}</span>
+              <span className="stat-label">errors</span>
+            </div>
+          </>
+        )}
         {is_running && (
           <>
             <div className="stat-divider" />

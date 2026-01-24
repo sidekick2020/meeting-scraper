@@ -973,6 +973,8 @@ html, body {
 
 .stat-found .stat-value { color: #3b82f6; }
 .stat-saved .stat-value { color: #22c55e; }
+.stat-duplicates .stat-value { color: #94a3b8; }
+.stat-errors .stat-value { color: #ef4444; }
 .stat-feeds .stat-value { color: #a855f7; }
 .stat-time .stat-value { color: #f59e0b; }
 
