@@ -1665,6 +1665,10 @@ function AdminPanel({ onBackToPublic }) {
                   <span className="stat-value">{scrapingState.total_saved}</span>
                   <span className="stat-label">saved</span>
                 </div>
+                <div className="stat-item">
+                  <span className="stat-value">{scrapingState.total_duplicates || 0}</span>
+                  <span className="stat-label">duplicates</span>
+                </div>
               </div>
               <p className="scrape-choice-question">What would you like to do?</p>
               <div className="scrape-choice-buttons">
@@ -1692,7 +1696,11 @@ function AdminPanel({ onBackToPublic }) {
                 </div>
                 <div className="stat-item">
                   <span className="stat-value">{unfinishedScrape.total_saved}</span>
-                  <span className="stat-label">meetings saved</span>
+                  <span className="stat-label">saved</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-value">{unfinishedScrape.total_duplicates || 0}</span>
+                  <span className="stat-label">duplicates</span>
                 </div>
               </div>
               <p className="scrape-choice-question">What would you like to do?</p>
