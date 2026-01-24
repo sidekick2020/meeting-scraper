@@ -116,6 +116,45 @@ meetings_count_cache = CacheManager('meetings_count', ttl_seconds=120, max_entri
 meetings_data_cache = CacheManager('meetings_data', ttl_seconds=180, max_entries=100)  # 3 min TTL for meeting query results
 heatmap_cache = CacheManager('heatmap', ttl_seconds=300, max_entries=50)  # 5 min TTL for heatmap data
 state_counts_cache = CacheManager('state_counts', ttl_seconds=600, max_entries=20)  # 10 min TTL for state counts
+coverage_analysis_cache = CacheManager('coverage_analysis', ttl_seconds=300, max_entries=5)  # 5 min TTL for full coverage data
+statistics_cache = CacheManager('statistics', ttl_seconds=180, max_entries=10)  # 3 min TTL for statistics
+sources_cache = CacheManager('sources', ttl_seconds=300, max_entries=20)  # 5 min TTL for sources
+
+
+def cache_first_with_fallback(cache_manager, cache_key, fetch_function, fallback_data=None):
+    """
+    Implement cache-first pattern with Back4app fallback.
+
+    1. Try to get data from cache first
+    2. If cache miss, fetch from Back4app
+    3. If Back4app fails, return fallback_data (could be stale cache or default)
+
+    Args:
+        cache_manager: The CacheManager instance to use
+        cache_key: Key to store/retrieve data
+        fetch_function: Function that fetches fresh data (should return data or raise exception)
+        fallback_data: Data to return if both cache and fetch fail
+
+    Returns:
+        tuple: (data, source) where source is 'cache', 'back4app', or 'fallback'
+    """
+    # Try cache first
+    cached_data = cache_manager.get(cache_key)
+    if cached_data is not None:
+        return cached_data, 'cache'
+
+    # Cache miss - try to fetch from Back4app
+    try:
+        fresh_data = fetch_function()
+        # Cache the fresh data
+        cache_manager.set(cache_key, fresh_data)
+        return fresh_data, 'back4app'
+    except Exception as e:
+        print(f"[CACHE-FALLBACK] Back4app fetch failed for {cache_key}: {str(e)}")
+        # If fetch fails, return fallback
+        if fallback_data is not None:
+            return fallback_data, 'fallback'
+        raise  # Re-raise if no fallback provided
 
 # =============================================================================
 # PARSE/BACK4APP INITIALIZATION WITH LOGGING
@@ -4082,100 +4121,129 @@ def check_unfinished_scrape():
         print(f"Error checking for unfinished scrapes: {e}")
         return jsonify({"hasUnfinished": False, "error": str(e)})
 
-@app.route('/api/coverage', methods=['GET'])
-def get_coverage():
-    """Get coverage analysis - meetings per capita by state"""
-    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
-        return jsonify({"error": "Back4app not configured"}), 400
+def _fetch_coverage_from_back4app():
+    """Fetch coverage data from Back4app. Used by cache-first pattern."""
+    from collections import Counter
 
     headers = {
         "X-Parse-Application-Id": BACK4APP_APP_ID,
         "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
     }
 
-    try:
-        # Fetch all meetings with only the state field to count by state
-        # This is much faster than making 52 separate requests
-        import urllib.parse
-        from collections import Counter
+    meetings_by_state = Counter()
+    total_meetings = 0
+    skip = 0
+    batch_size = 1000
 
-        meetings_by_state = Counter()
-        total_meetings = 0
-        skip = 0
-        batch_size = 1000
+    # Fetch all meetings in batches, only getting the state field
+    while True:
+        url = f"{BACK4APP_URL}?keys=state&limit={batch_size}&skip={skip}"
+        response = requests.get(url, headers=headers, timeout=30)
+        if response.status_code != 200:
+            break
 
-        # Fetch all meetings in batches, only getting the state field
-        while True:
-            url = f"{BACK4APP_URL}?keys=state&limit={batch_size}&skip={skip}"
-            response = requests.get(url, headers=headers, timeout=30)
-            if response.status_code != 200:
-                break
+        data = response.json()
+        results = data.get("results", [])
+        if not results:
+            break
 
-            data = response.json()
-            results = data.get("results", [])
-            if not results:
-                break
+        # Count meetings by state
+        for meeting in results:
+            state = meeting.get("state")
+            if state:
+                meetings_by_state[state] += 1
+            total_meetings += 1
 
-            # Count meetings by state
-            for meeting in results:
-                state = meeting.get("state")
-                if state:
-                    meetings_by_state[state] += 1
-                total_meetings += 1
+        # If we got fewer results than batch_size, we've reached the end
+        if len(results) < batch_size:
+            break
 
-            # If we got fewer results than batch_size, we've reached the end
-            if len(results) < batch_size:
-                break
+        skip += batch_size
 
-            skip += batch_size
+    # Calculate coverage metrics
+    coverage_data = []
+    total_us_population = sum(US_STATE_POPULATION.values())  # in thousands
 
-        # Calculate coverage metrics
-        coverage_data = []
-        total_us_population = sum(US_STATE_POPULATION.values())  # in thousands
+    for state_code, population in US_STATE_POPULATION.items():
+        meetings = meetings_by_state.get(state_code, 0)
+        # Coverage = meetings per 100k population
+        coverage_per_100k = (meetings / population * 100) if population > 0 else 0
 
-        for state_code, population in US_STATE_POPULATION.items():
-            meetings = meetings_by_state.get(state_code, 0)
-            # Coverage = meetings per 100k population
-            coverage_per_100k = (meetings / population * 100) if population > 0 else 0
-
-            coverage_data.append({
-                "state": state_code,
-                "stateName": US_STATE_NAMES.get(state_code, state_code),
-                "population": population * 1000,  # Convert to actual population
-                "meetings": meetings,
-                "coveragePer100k": round(coverage_per_100k, 2),
-                "hasFeed": any(feed["state"] == state_code for feed in get_all_feeds().values()),
-            })
-
-        # Sort by coverage (lowest first to show gaps)
-        coverage_data.sort(key=lambda x: x["coveragePer100k"])
-
-        # Calculate summary stats
-        states_with_meetings = [s for s in coverage_data if s["meetings"] > 0]
-        states_without_meetings = [s for s in coverage_data if s["meetings"] == 0]
-
-        avg_coverage = 0
-        if states_with_meetings:
-            avg_coverage = sum(s["coveragePer100k"] for s in states_with_meetings) / len(states_with_meetings)
-
-        # Identify priority states (high population, low/no coverage)
-        priority_states = [
-            s for s in coverage_data
-            if s["population"] > 2000000 and s["coveragePer100k"] < avg_coverage
-        ]
-
-        return jsonify({
-            "summary": {
-                "totalMeetings": total_meetings,
-                "statesWithMeetings": len(states_with_meetings),
-                "statesWithoutMeetings": len(states_without_meetings),
-                "averageCoveragePer100k": round(avg_coverage, 2),
-                "totalUSPopulation": total_us_population * 1000,
-            },
-            "coverage": coverage_data,
-            "priorityStates": priority_states[:10],  # Top 10 priority states
-            "statesWithoutCoverage": states_without_meetings,
+        coverage_data.append({
+            "state": state_code,
+            "stateName": US_STATE_NAMES.get(state_code, state_code),
+            "population": population * 1000,  # Convert to actual population
+            "meetings": meetings,
+            "coveragePer100k": round(coverage_per_100k, 2),
+            "hasFeed": any(feed["state"] == state_code for feed in get_all_feeds().values()),
         })
+
+    # Sort by coverage (lowest first to show gaps)
+    coverage_data.sort(key=lambda x: x["coveragePer100k"])
+
+    # Calculate summary stats
+    states_with_meetings = [s for s in coverage_data if s["meetings"] > 0]
+    states_without_meetings = [s for s in coverage_data if s["meetings"] == 0]
+
+    avg_coverage = 0
+    if states_with_meetings:
+        avg_coverage = sum(s["coveragePer100k"] for s in states_with_meetings) / len(states_with_meetings)
+
+    # Identify priority states (high population, low/no coverage)
+    priority_states = [
+        s for s in coverage_data
+        if s["population"] > 2000000 and s["coveragePer100k"] < avg_coverage
+    ]
+
+    return {
+        "summary": {
+            "totalMeetings": total_meetings,
+            "statesWithMeetings": len(states_with_meetings),
+            "statesWithoutMeetings": len(states_without_meetings),
+            "averageCoveragePer100k": round(avg_coverage, 2),
+            "totalUSPopulation": total_us_population * 1000,
+        },
+        "coverage": coverage_data,
+        "priorityStates": priority_states[:10],  # Top 10 priority states
+        "statesWithoutCoverage": states_without_meetings,
+    }
+
+
+@app.route('/api/coverage', methods=['GET'])
+def get_coverage():
+    """Get coverage analysis - meetings per capita by state.
+
+    Uses cache-first pattern with Back4app fallback:
+    1. Check server cache first
+    2. If cache miss, fetch from Back4app
+    3. If Back4app fails, return empty fallback data
+    """
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({"error": "Back4app not configured"}), 400
+
+    fallback_data = {
+        "summary": {
+            "totalMeetings": 0,
+            "statesWithMeetings": 0,
+            "statesWithoutMeetings": 51,
+            "averageCoveragePer100k": 0,
+            "totalUSPopulation": 330000000,
+        },
+        "coverage": [],
+        "priorityStates": [],
+        "statesWithoutCoverage": [],
+        "source": "fallback"
+    }
+
+    try:
+        data, source = cache_first_with_fallback(
+            cache_manager=coverage_analysis_cache,
+            cache_key='coverage_analysis',
+            fetch_function=_fetch_coverage_from_back4app,
+            fallback_data=fallback_data
+        )
+        data['source'] = source
+        return jsonify(data)
 
     except Exception as e:
         response, status_code = build_error_response(
