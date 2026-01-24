@@ -942,6 +942,22 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
 
   const hasActiveFilters = searchQuery || selectedStates.length > 0 || selectedCity || selectedDays.length > 0 || selectedTypes.length > 0 || showOnlineOnly || showTodayOnly || showHybridOnly || selectedFormat || selectedAccessibility.length > 0;
 
+  // Count the number of active filters for the badge
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery) count++;
+    if (selectedStates.length > 0) count++;
+    if (selectedCity) count++;
+    if (selectedDays.length > 0) count++;
+    if (selectedTypes.length > 0) count++;
+    if (showOnlineOnly) count++;
+    if (showTodayOnly) count++;
+    if (showHybridOnly) count++;
+    if (selectedFormat) count++;
+    if (selectedAccessibility.length > 0) count++;
+    return count;
+  }, [searchQuery, selectedStates, selectedCity, selectedDays, selectedTypes, showOnlineOnly, showTodayOnly, showHybridOnly, selectedFormat, selectedAccessibility]);
+
   // Expose mobile navigation state to parent for sidebar menu
   useEffect(() => {
     if (onMobileNavChange) {
@@ -2054,7 +2070,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
           </button>
 
           <button
-            className={`filter-chip ${showFilters ? 'active' : ''}`}
+            className={`filter-chip ${showFilters ? 'active' : ''} ${activeFilterCount > 0 ? 'has-count' : ''}`}
             onClick={() => setShowFilters(!showFilters)}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2066,6 +2082,9 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
               <circle cx="10" cy="18" r="2" fill="currentColor"/>
             </svg>
             Filters
+            {activeFilterCount > 0 && (
+              <span className="filter-count-badge">{activeFilterCount}</span>
+            )}
           </button>
 
           {hasActiveFilters && (
