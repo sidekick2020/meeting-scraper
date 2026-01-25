@@ -493,7 +493,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     setError(null);
     setErrorDetails(null);
 
-    // Build filter options for Parse SDK
+    // Build filter options for Parse SDK - use filtersRef for consistency with dedup key
+    // This ensures the API call uses the same filter values as the request key
     const filterOptions = {
       limit: 50,
       bounds: {
@@ -503,13 +504,13 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         west: bounds.west
       },
       center: bounds.center_lat !== undefined ? { lat: bounds.center_lat, lng: bounds.center_lng } : undefined,
-      state: selectedStates.length > 0 ? selectedStates[0] : undefined,
-      day: showTodayOnly ? new Date().getDay() : (selectedDays.length === 1 ? selectedDays[0] : undefined),
-      type: selectedTypes.length === 1 ? selectedTypes[0] : undefined,
-      city: selectedCity || undefined,
-      online: showOnlineOnly || undefined,
-      hybrid: showHybridOnly || undefined,
-      format: selectedFormat || undefined
+      state: filters.selectedStates?.length > 0 ? filters.selectedStates[0] : undefined,
+      day: filters.showTodayOnly ? new Date().getDay() : (filters.selectedDays?.length === 1 ? filters.selectedDays[0] : undefined),
+      type: filters.selectedTypes?.length === 1 ? filters.selectedTypes[0] : undefined,
+      city: filters.selectedCity || undefined,
+      online: filters.showOnlineOnly || undefined,
+      hybrid: filters.showHybridOnly || undefined,
+      format: filters.selectedFormat || undefined
     };
 
     try {
@@ -556,23 +557,24 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         }
       } else {
         // Fallback to backend API if Parse not configured
+        // Use filters from ref for consistency with dedup key
         let url = `${BACKEND_URL}/api/meetings?limit=50`;
         url += `&north=${bounds.north}&south=${bounds.south}&east=${bounds.east}&west=${bounds.west}`;
 
         if (bounds.center_lat !== undefined && bounds.center_lng !== undefined) {
           url += `&center_lat=${bounds.center_lat}&center_lng=${bounds.center_lng}`;
         }
-        if (selectedStates.length > 0) url += `&state=${encodeURIComponent(selectedStates[0])}`;
-        if (showTodayOnly) {
+        if (filters.selectedStates?.length > 0) url += `&state=${encodeURIComponent(filters.selectedStates[0])}`;
+        if (filters.showTodayOnly) {
           url += `&day=${new Date().getDay()}`;
-        } else if (selectedDays.length === 1) {
-          url += `&day=${selectedDays[0]}`;
+        } else if (filters.selectedDays?.length === 1) {
+          url += `&day=${filters.selectedDays[0]}`;
         }
-        if (selectedTypes.length === 1) url += `&type=${encodeURIComponent(selectedTypes[0])}`;
-        if (selectedCity) url += `&city=${encodeURIComponent(selectedCity)}`;
-        if (showOnlineOnly) url += `&online=true`;
-        if (showHybridOnly) url += `&hybrid=true`;
-        if (selectedFormat) url += `&format=${encodeURIComponent(selectedFormat)}`;
+        if (filters.selectedTypes?.length === 1) url += `&type=${encodeURIComponent(filters.selectedTypes[0])}`;
+        if (filters.selectedCity) url += `&city=${encodeURIComponent(filters.selectedCity)}`;
+        if (filters.showOnlineOnly) url += `&online=true`;
+        if (filters.showHybridOnly) url += `&hybrid=true`;
+        if (filters.selectedFormat) url += `&format=${encodeURIComponent(filters.selectedFormat)}`;
 
         const response = await fetch(url, {
           signal: pendingFetchRef.current.signal
@@ -634,7 +636,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     } finally {
       setIsLoading(false);
     }
-  }, [parseInitialized, parseFetchMeetings, selectedStates, selectedDays, selectedTypes, selectedCity, showOnlineOnly, showHybridOnly, showTodayOnly, selectedFormat]); // Filter deps needed for fallback API path; deduplication prevents duplicate calls
+  }, [parseInitialized, parseFetchMeetings]); // Filter values come from filtersRef to ensure consistency with dedup key
 
   // Keep fetchMeetingsRef updated for use in callbacks
   useEffect(() => {
