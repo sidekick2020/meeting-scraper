@@ -2153,6 +2153,155 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
           )}
         </div>
 
+        {/* Active Filter Tags - Show individual removable chips for each filter */}
+        {hasActiveFilters && (
+          <div className="active-filter-tags">
+            {searchQuery && (
+              <span className="active-filter-tag">
+                <span className="tag-label">Search:</span> {searchQuery}
+                <button
+                  className="tag-remove"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Remove search filter"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              </span>
+            )}
+            {selectedStates.map(state => (
+              <span key={`state-${state}`} className="active-filter-tag">
+                <span className="tag-label">State:</span> {state}
+                <button
+                  className="tag-remove"
+                  onClick={() => setSelectedStates(prev => prev.filter(s => s !== state))}
+                  aria-label={`Remove ${state} filter`}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              </span>
+            ))}
+            {selectedCity && (
+              <span className="active-filter-tag">
+                <span className="tag-label">City:</span> {selectedCity}
+                <button
+                  className="tag-remove"
+                  onClick={() => setSelectedCity('')}
+                  aria-label="Remove city filter"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              </span>
+            )}
+            {selectedDays.map(day => (
+              <span key={`day-${day}`} className="active-filter-tag">
+                <span className="tag-label">Day:</span> {dayNames[day]}
+                <button
+                  className="tag-remove"
+                  onClick={() => setSelectedDays(prev => prev.filter(d => d !== day))}
+                  aria-label={`Remove ${dayNames[day]} filter`}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              </span>
+            ))}
+            {selectedTypes.map(type => (
+              <span key={`type-${type}`} className="active-filter-tag">
+                <span className="tag-label">Type:</span> {type}
+                <button
+                  className="tag-remove"
+                  onClick={() => setSelectedTypes(prev => prev.filter(t => t !== type))}
+                  aria-label={`Remove ${type} filter`}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              </span>
+            ))}
+            {showOnlineOnly && (
+              <span className="active-filter-tag">
+                Online Only
+                <button
+                  className="tag-remove"
+                  onClick={() => setShowOnlineOnly(false)}
+                  aria-label="Remove online only filter"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              </span>
+            )}
+            {showTodayOnly && (
+              <span className="active-filter-tag">
+                Today Only
+                <button
+                  className="tag-remove"
+                  onClick={() => setShowTodayOnly(false)}
+                  aria-label="Remove today only filter"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              </span>
+            )}
+            {showHybridOnly && (
+              <span className="active-filter-tag">
+                Hybrid Only
+                <button
+                  className="tag-remove"
+                  onClick={() => setShowHybridOnly(false)}
+                  aria-label="Remove hybrid only filter"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              </span>
+            )}
+            {selectedFormat && (
+              <span className="active-filter-tag">
+                <span className="tag-label">Format:</span> {selectedFormat.replace(/_/g, ' ')}
+                <button
+                  className="tag-remove"
+                  onClick={() => setSelectedFormat('')}
+                  aria-label="Remove format filter"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              </span>
+            )}
+            {selectedAccessibility.map(acc => {
+              const option = accessibilityOptions.find(o => o.key === acc);
+              return (
+                <span key={`acc-${acc}`} className="active-filter-tag">
+                  {option?.icon} {option?.label || acc}
+                  <button
+                    className="tag-remove"
+                    onClick={() => setSelectedAccessibility(prev => prev.filter(a => a !== acc))}
+                    aria-label={`Remove ${option?.label || acc} filter`}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
+
         <div className="filter-stats">
           {filteredMeetings.length} meeting{filteredMeetings.length !== 1 ? 's' : ''}
         </div>

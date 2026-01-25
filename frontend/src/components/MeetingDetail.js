@@ -61,11 +61,35 @@ const feedMetadata = {
 function MeetingDetail({ meeting, onClose, isSidebar = false }) {
   const [sourceDetailOpen, setSourceDetailOpen] = useState(false);
   const [mapImageLoaded, setMapImageLoaded] = useState(false);
+  const [copiedField, setCopiedField] = useState(null); // Track which field was copied
 
   // Reset image loaded state when meeting changes
   useEffect(() => {
     setMapImageLoaded(false);
   }, [meeting?.latitude, meeting?.longitude]);
+
+  // Copy to clipboard with feedback
+  const copyToClipboard = async (text, fieldName) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldName);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  // Get formatted full address
+  const getFullAddress = () => {
+    if (!meeting) return '';
+    const parts = [
+      meeting.address,
+      meeting.city,
+      meeting.state,
+      meeting.postalCode
+    ].filter(Boolean);
+    return parts.join(', ').replace(/, ([A-Z]{2}),/, ', $1');
+  };
 
   // Check if meeting has a full street address (contains numbers indicating street number)
   const hasFullStreetAddress = (meeting) => {
@@ -281,7 +305,7 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                     </div>
                   )}
                   {meeting.address && (
-                    <div className="detail-row">
+                    <div className="detail-row detail-row-copyable">
                       <span className="detail-icon">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
@@ -297,6 +321,22 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                         </span>
                         <span className="field-description">Street address</span>
                       </div>
+                      <button
+                        className={`copy-btn ${copiedField === 'address' ? 'copied' : ''}`}
+                        onClick={() => copyToClipboard(getFullAddress(), 'address')}
+                        title={copiedField === 'address' ? 'Copied!' : 'Copy address'}
+                      >
+                        {copiedField === 'address' ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                          </svg>
+                        )}
+                      </button>
                     </div>
                   )}
                   {meeting.region && (
@@ -348,7 +388,7 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                   <div className="detail-section">
                     <h4>Online Access</h4>
                     {meeting.onlineUrl && (
-                      <div className="detail-row">
+                      <div className="detail-row detail-row-copyable">
                         <span className="detail-icon">
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <rect x="2" y="3" width="20" height="14" rx="2"/>
@@ -361,6 +401,22 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                           </a>
                           <span className="field-description">Video conference link (Zoom, etc.)</span>
                         </div>
+                        <button
+                          className={`copy-btn ${copiedField === 'onlineUrl' ? 'copied' : ''}`}
+                          onClick={() => copyToClipboard(meeting.onlineUrl, 'onlineUrl')}
+                          title={copiedField === 'onlineUrl' ? 'Copied!' : 'Copy meeting link'}
+                        >
+                          {copiedField === 'onlineUrl' ? (
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                          ) : (
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                          )}
+                        </button>
                       </div>
                     )}
                     {meeting.onlineUrlNotes && (
@@ -658,7 +714,7 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
               </div>
             )}
             {meeting.address && (
-              <div className="detail-row">
+              <div className="detail-row detail-row-copyable">
                 <span className="detail-icon">📍</span>
                 <span>
                   {meeting.address}
@@ -666,6 +722,22 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
                   {meeting.state && `, ${meeting.state}`}
                   {meeting.postalCode && ` ${meeting.postalCode}`}
                 </span>
+                <button
+                  className={`copy-btn ${copiedField === 'address' ? 'copied' : ''}`}
+                  onClick={() => copyToClipboard(getFullAddress(), 'address')}
+                  title={copiedField === 'address' ? 'Copied!' : 'Copy address'}
+                >
+                  {copiedField === 'address' ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                  )}
+                </button>
               </div>
             )}
             {meeting.region && (
@@ -695,11 +767,27 @@ function MeetingDetail({ meeting, onClose, isSidebar = false }) {
             <div className="detail-section">
               <h4>Online Access</h4>
               {meeting.onlineUrl && (
-                <div className="detail-row">
+                <div className="detail-row detail-row-copyable">
                   <span className="detail-icon">💻</span>
                   <a href={meeting.onlineUrl} target="_blank" rel="noopener noreferrer">
                     Join Online Meeting
                   </a>
+                  <button
+                    className={`copy-btn ${copiedField === 'onlineUrl' ? 'copied' : ''}`}
+                    onClick={() => copyToClipboard(meeting.onlineUrl, 'onlineUrl')}
+                    title={copiedField === 'onlineUrl' ? 'Copied!' : 'Copy meeting link'}
+                  >
+                    {copiedField === 'onlineUrl' ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      </svg>
+                    )}
+                  </button>
                 </div>
               )}
               {meeting.onlineUrlNotes && (

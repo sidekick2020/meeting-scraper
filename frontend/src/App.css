@@ -3624,6 +3624,55 @@ html, body {
   text-decoration: underline;
 }
 
+/* Copy button for copyable rows */
+.detail-row-copyable {
+  position: relative;
+}
+
+.detail-row-copyable .copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  margin-left: auto;
+  opacity: 0;
+}
+
+.detail-row-copyable:hover .copy-btn {
+  opacity: 1;
+}
+
+.detail-row-copyable .copy-btn:hover {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.detail-row-copyable .copy-btn:active {
+  transform: scale(0.92);
+}
+
+.detail-row-copyable .copy-btn.copied {
+  background: #10b981;
+  color: white;
+  opacity: 1;
+}
+
+/* On touch devices, always show copy button */
+@media (hover: none) {
+  .detail-row-copyable .copy-btn {
+    opacity: 0.7;
+  }
+}
+
 .detail-notes {
   color: var(--text-muted);
   font-style: italic;
@@ -10406,6 +10455,71 @@ a.sidebar-nav-item {
   background: rgba(239, 68, 68, 0.2);
 }
 
+/* Active Filter Tags - Individual removable filter chips */
+.active-filter-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0;
+  margin-top: -0.25rem;
+}
+
+.active-filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+  background: var(--accent-light);
+  border: 1px solid var(--accent-primary);
+  border-radius: 1rem;
+  font-size: 0.8125rem;
+  color: var(--accent-primary);
+  font-weight: 500;
+  animation: tag-appear 0.2s ease-out;
+}
+
+@keyframes tag-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.active-filter-tag .tag-label {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.active-filter-tag .tag-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent-primary);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+  margin-left: 0.125rem;
+}
+
+.active-filter-tag .tag-remove:hover {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.active-filter-tag .tag-remove:active {
+  transform: scale(0.9);
+}
+
 /* Multi-select States Dropdown */
 .multi-select-dropdown {
   position: relative;
@@ -14015,6 +14129,48 @@ a.sidebar-nav-item {
 
 .sidebar-detail-body .detail-row a:hover {
   text-decoration: underline;
+}
+
+/* Copy button for sidebar detail view */
+.sidebar-detail-body .detail-row-copyable {
+  position: relative;
+}
+
+.sidebar-detail-body .detail-row-copyable .copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  margin-left: auto;
+  opacity: 0;
+}
+
+.sidebar-detail-body .detail-row-copyable:hover .copy-btn {
+  opacity: 1;
+}
+
+.sidebar-detail-body .detail-row-copyable .copy-btn:hover {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.sidebar-detail-body .detail-row-copyable .copy-btn:active {
+  transform: scale(0.92);
+}
+
+.sidebar-detail-body .detail-row-copyable .copy-btn.copied {
+  background: #10b981;
+  color: white;
+  opacity: 1;
 }
 
 .sidebar-detail-body .btn-small {
