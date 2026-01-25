@@ -2,6 +2,269 @@
 
 This document provides guidance for Claude Code sessions working on this repository.
 
+## Project Overview
+
+**Sober Sidekick - 12-Step Meeting Finder** is a full-stack web application that aggregates AA, NA, Al-Anon, and other 12-step support group meetings from across the United States.
+
+### Key Features
+- **Public Directory**: Airbnb-style browsable interface with map/list views
+- **Admin Dashboard**: Real-time scraping progress, user management, coverage analysis
+- **Data Scraper**: Automated collection from 50+ TSML and BMLT feeds
+- **Mobile SDKs**: iOS and Android integration via Back4app Parse SDK
+- **Desktop App**: Native Mac app built with Electron
+
+### Live URLs
+- **Frontend**: https://meeting-scraper-frontend.onrender.com
+- **Backend API**: https://meeting-scraper.onrender.com
+- **Documentation**: https://meeting-scraper-frontend.onrender.com/docs
+
+---
+
+## Codebase Structure
+
+```
+meeting-scraper/
+├── backend/                    # Python Flask API
+│   ├── app.py                  # Main Flask server (~4000 lines)
+│   ├── heatmap_indicator_service.py  # Hierarchical clustering
+│   ├── thumbnail_service.py    # Location thumbnails
+│   ├── test_feeds.py           # Feed testing utilities
+│   └── requirements.txt        # Python dependencies
+├── frontend/                   # React 18 SPA
+│   ├── src/
+│   │   ├── components/         # React components
+│   │   ├── contexts/           # React Context providers
+│   │   ├── utils/              # Utility functions
+│   │   ├── App.js              # Main app with routing
+│   │   └── App.css             # All styles (single file)
+│   ├── public/
+│   │   ├── _redirects          # SPA routing fallback
+│   │   └── version.json        # App version info
+│   └── package.json
+├── desktop/                    # Electron Mac app
+│   ├── main.js                 # Electron main process
+│   └── package.json
+├── docs/                       # Documentation
+│   ├── SCHEMA.md               # Database schema reference
+│   └── MOBILE_QUICKSTART.md    # iOS/Android SDK guides
+├── changelog/                  # Changelog fragments
+│   ├── compile.py              # Compilation script
+│   └── unreleased/             # Pending changes
+│       ├── features/
+│       ├── fixes/
+│       └── improvements/
+├── .github/workflows/          # GitHub Actions
+│   ├── build-desktop.yml       # Mac app builds
+│   ├── compile-changelog.yml   # Auto changelog compilation
+│   └── pr-summary.yml          # PR summaries
+├── render.yaml                 # Render.com deployment config
+├── docker-compose.yml          # Docker configuration
+└── CLAUDE.md                   # This file
+```
+
+---
+
+## Technology Stack
+
+### Backend
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| Python | 3.11 | Runtime |
+| Flask | 3.0.0 | Web framework |
+| Gunicorn | 21.2 | WSGI server |
+| Requests | 2.31 | HTTP client |
+| BeautifulSoup4 | 4.12.2 | HTML parsing |
+| Flask-Compress | 1.14 | Response compression |
+
+### Frontend
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| React | 18.2 | UI framework |
+| React Router | 7.x | Client-side routing |
+| Leaflet | 1.9.4 | Interactive maps |
+| Parse SDK | 5.3 | Back4app database |
+| Socket.io-client | - | Real-time updates |
+
+### Database
+- **Back4app (Parse Server)**: Cloud-hosted Parse database
+- Key classes: `Meetings`, `Users`, `ScrapeHistory`, `CoverageAnalysis`, `HeatmapIndicator`
+
+### Desktop
+- **Electron 28**: Native Mac app wrapper
+- Build targets: Apple Silicon (M1/M2/M3), Intel x64, Universal
+
+---
+
+## Key Files Reference
+
+### Backend (`backend/`)
+| File | Purpose |
+|------|---------|
+| `app.py` | Main Flask API - all endpoints, cache managers, scraping logic |
+| `heatmap_indicator_service.py` | 5-tier zoom clustering for heatmap display |
+| `requirements.txt` | Python dependencies |
+
+### Frontend Components (`frontend/src/components/`)
+| Component | Purpose |
+|-----------|---------|
+| `MeetingsExplorer.js` | Main public directory with map/list views |
+| `AdminPanel.js` | Admin dashboard interface |
+| `MeetingMap.js` | Interactive Leaflet map component |
+| `MeetingDetail.js` | Single meeting view |
+| `MeetingDetailPage.js` | Standalone meeting page (for sharing) |
+| `DevDocs.js` | Developer documentation portal |
+| `CoverageAnalysis.js` | State-by-state coverage metrics |
+| `SourcesPage.js` | Feed management interface |
+| `SettingsModal.js` | Configuration UI |
+| `StateHeatmapModal.js` | Coverage heatmap display |
+| `OnlineMeetings.js` | Online-only meeting directory |
+| `DownloadPage.js` | Desktop app downloads |
+
+### Frontend Contexts (`frontend/src/contexts/`)
+| Context | Purpose |
+|---------|---------|
+| `AuthContext.js` | Google Sign-In authentication |
+| `ParseContext.js` | Back4app/Parse SDK initialization |
+| `DataCacheContext.js` | Client-side API response caching |
+| `ThemeContext.js` | Light/dark theme support |
+| `DevModeContext.js` | Development utilities |
+
+---
+
+## API Endpoints
+
+### Status & Control
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/status` | GET | Scraper status and statistics |
+| `/api/start` | POST | Start scraping process |
+| `/api/stop` | POST | Stop scraping process |
+| `/api/reset` | POST | Reset scraper state |
+
+### Meetings
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/meetings` | GET | List meetings with pagination |
+| `/api/meetings/<id>` | GET | Get single meeting |
+| `/api/meetings/<id>` | PUT | Update meeting |
+| `/api/meetings/<id>` | DELETE | Delete meeting |
+
+### Feeds & Sources
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/feeds` | GET | List available data feeds |
+| `/api/sources` | GET | List configured sources |
+
+### Users (Admin)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/users` | GET | List dashboard users |
+| `/api/users` | POST | Invite new user |
+| `/api/users/<id>` | PUT | Update user role |
+| `/api/users/<id>` | DELETE | Remove user |
+
+### System
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/versions` | GET | Release history from git tags |
+| `/api/changelog` | GET | Compiled changelog |
+| `/api/cache-stats` | GET | Cache statistics |
+| `/api/parse-diagnostics` | GET | Backend diagnostics |
+
+---
+
+## Database Schema
+
+### Meetings Class (Primary)
+| Field | Type | Description |
+|-------|------|-------------|
+| `objectId` | String | Unique identifier |
+| `uniqueKey` | String | Deduplication key |
+| `name` | String | Meeting name |
+| `fellowship` | String | AA, NA, Al-Anon, etc. |
+| `day` | Number | Day of week (0=Sun, 6=Sat) |
+| `time` | String | Start time (HH:MM) |
+| `endTime` | String | End time |
+| `timezone` | String | Timezone identifier |
+| `address` | String | Street address |
+| `city` | String | City |
+| `state` | String | State abbreviation |
+| `latitude` | Number | GPS latitude |
+| `longitude` | Number | GPS longitude |
+| `formattedAddress` | String | Full formatted address |
+| `isOnline` | Boolean | Virtual meeting flag |
+| `isHybrid` | Boolean | Hybrid meeting flag |
+| `onlineUrl` | String | Zoom/video link |
+| `conferencePhone` | String | Phone dial-in |
+| `types` | Array | Meeting type codes |
+| `notes` | String | Additional notes |
+| `clusterKey` | String | Heatmap clustering key |
+
+See `docs/SCHEMA.md` for complete field reference.
+
+---
+
+## Development Setup
+
+### Prerequisites
+- Python 3.8+ (3.11 recommended)
+- Node.js 16+ (18 recommended)
+- Back4app account (free tier available)
+
+### Backend
+```bash
+cd backend
+pip install -r requirements.txt
+python app.py
+# Runs on http://localhost:5000
+```
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm start
+# Runs on http://localhost:3000
+```
+
+### Environment Variables
+
+**Backend** (required):
+- `BACK4APP_APP_ID` - Parse server app ID
+- `BACK4APP_REST_KEY` - Parse server REST key
+
+**Frontend** (optional - defaults work for development):
+- `REACT_APP_BACKEND_URL` - Backend API URL
+- `REACT_APP_GOOGLE_CLIENT_ID` - Google OAuth client ID
+
+---
+
+## Common Patterns & Conventions
+
+### Cache-First Strategy
+The backend uses multiple `CacheManager` instances with TTL-based expiration:
+- `meetings_data_cache` (3 min)
+- `heatmap_cache` (5 min)
+- `coverage_analysis_cache` (15 min)
+
+### Error Response Format
+All API errors follow a standardized format with detailed diagnostics.
+
+### Data Pipeline
+1. Scrape from TSML/BMLT feeds
+2. Normalize to standard schema
+3. Deduplicate via `uniqueKey`
+4. Geocode missing coordinates (Nominatim)
+5. Save to Back4app
+6. Cache responses
+
+### Component Architecture
+- Feature-based component organization
+- Context API for cross-cutting concerns
+- Single CSS file (`App.css`) for all styles
+
+---
+
 ## Changelog Fragments System
 
 To avoid merge conflicts, this project uses **changelog fragments** instead of directly editing `CHANGELOG.md`.
@@ -39,6 +302,8 @@ This compiles all fragments into `CHANGELOG.md` and deletes the fragment files.
 
 Always use changelog fragments. Direct edits to `CHANGELOG.md` will cause merge conflicts when multiple PRs are open.
 
+---
+
 ## Post-Change Checklist
 
 After completing significant code changes, Claude should **always**:
@@ -49,6 +314,8 @@ After completing significant code changes, Claude should **always**:
 
 Provide all commands without comments for easy copy-paste.
 
+---
+
 ## Commit and Push Policy
 
 **When a PR already exists for the current branch**, Claude should automatically commit and push any new changes without asking. This keeps the PR up to date with the latest work.
@@ -56,6 +323,8 @@ Provide all commands without comments for easy copy-paste.
 - If changes are requested or additional work is done on an existing PR branch, commit and push immediately
 - Do not ask for permission to push when a PR is already open
 - Use clear, descriptive commit messages for each logical change
+
+---
 
 ## Release Versioning Workflow
 
@@ -86,11 +355,15 @@ git push origin vX.Y.Z
 
 The `/api/versions` endpoint reads git tags to populate the Release History in the Settings modal. Without a pushed tag, versions won't appear in the UI even if they're documented in the CHANGELOG.
 
+---
+
 ## Version Number Guidelines
 
 - **Major (X.0.0)**: Breaking changes or major new functionality
 - **Minor (X.Y.0)**: New features, significant enhancements
 - **Patch (X.Y.Z)**: Bug fixes, small improvements
+
+---
 
 ## Periodic Tag Reminders
 
@@ -128,6 +401,8 @@ Suggest a new version tag when:
 
 Always check CHANGELOG.md to see what the latest documented version is, and compare with `git tag -l` to identify unpushed versions.
 
+---
+
 ## Commit Message Format
 
 When updating the CHANGELOG for a new version, use a commit message like:
@@ -140,6 +415,8 @@ Release vX.Y.Z - Brief summary
 - Bug fix
 ```
 
+---
+
 ## API Versions vs Application Versions
 
 This project has two distinct version concepts:
@@ -149,6 +426,8 @@ This project has two distinct version concepts:
 2. **Application Versions** (`1.5.0`, `1.6.0`): Git tags representing releases. Shown in Release History UI.
 
 Don't confuse these - adding a CHANGELOG entry for v1.6.0 doesn't create a new API version.
+
+---
 
 ## Mac Build Tags
 
@@ -173,6 +452,8 @@ git push origin mac-v1.25.0
 
 **View build progress:** https://github.com/sidekick2020/meeting-scraper/actions/workflows/build-desktop.yml
 ```
+
+---
 
 ## Render.com SPA Routing
 
@@ -216,3 +497,66 @@ The frontend is deployed as a static site on Render.com. For SPA routing to work
 ### Why This Matters
 
 Without these configurations, direct URL access to routes (e.g., refreshing the page or sharing a link) will return a 404 error because Render looks for a static file at that path. The `200.html` fallback is the most reliable solution, but we maintain all three methods for redundancy.
+
+---
+
+## Testing
+
+### Backend
+```bash
+cd backend
+python test_feeds.py  # Test feed connectivity
+```
+
+### Frontend
+```bash
+cd frontend
+npm test  # React testing (react-scripts)
+```
+
+### Build Verification
+```bash
+# Frontend production build
+cd frontend && npm run build
+
+# Desktop app (Mac)
+cd desktop && npm run build
+```
+
+---
+
+## Docker Deployment
+
+```bash
+# Full stack with Docker Compose
+docker-compose up --build
+
+# Backend: port 5000
+# Frontend: port 80
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Backend won't start**
+- Check Python version (3.8+ required)
+- Verify `BACK4APP_APP_ID` and `BACK4APP_REST_KEY` are set
+- Run `pip install -r requirements.txt`
+
+**Frontend shows connection errors**
+- Verify backend is running on port 5000
+- Check browser console for CORS errors
+- Clear localStorage and refresh
+
+**Scraping fails**
+- Check feed URLs are accessible
+- Review rate limiting on external sites
+- Check activity log in admin dashboard
+
+**SPA routes return 404 on Render**
+- Ensure `build/200.html` exists after build
+- Verify `_redirects` file is in `frontend/public/`
+- Check `render.yaml` has correct rewrite rules
