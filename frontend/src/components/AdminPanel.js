@@ -1726,7 +1726,10 @@ function AdminPanel({ onBackToPublic }) {
               alt="Sober Sidekick"
               className="sidebar-logo-icon"
             />
-            <span>Sober Sidekick</span>
+            <div className="sidebar-branding">
+              <span className="sidebar-brand-title">Meeting Finder</span>
+              <span className="sidebar-brand-powered">powered by sober sidekick</span>
+            </div>
           </div>
         </div>
 
