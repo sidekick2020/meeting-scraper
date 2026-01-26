@@ -47,6 +47,117 @@ const TIMEZONES = [
   { value: 'Pacific/Honolulu', label: 'Hawaii (HT)' },
 ];
 
+// Data normalization helpers for auto-correction
+const normalizePhone = (phone) => {
+  if (!phone) return '';
+  // Remove all non-digit characters except + at start
+  const cleaned = phone.replace(/[^\d+]/g, '');
+  // Format as +1-XXX-XXX-XXXX if US number
+  if (cleaned.length === 10) {
+    return `+1-${cleaned.slice(0,3)}-${cleaned.slice(3,6)}-${cleaned.slice(6)}`;
+  }
+  if (cleaned.length === 11 && cleaned.startsWith('1')) {
+    return `+1-${cleaned.slice(1,4)}-${cleaned.slice(4,7)}-${cleaned.slice(7)}`;
+  }
+  if (cleaned.startsWith('+1') && cleaned.length === 12) {
+    return `+1-${cleaned.slice(2,5)}-${cleaned.slice(5,8)}-${cleaned.slice(8)}`;
+  }
+  return phone.trim();
+};
+
+const normalizeUrl = (url) => {
+  if (!url) return '';
+  let trimmed = url.trim();
+  // Add https:// if no protocol specified
+  if (trimmed && !trimmed.match(/^https?:\/\//i)) {
+    trimmed = 'https://' + trimmed;
+  }
+  return trimmed;
+};
+
+const normalizePostalCode = (zip) => {
+  if (!zip) return '';
+  // Extract digits only
+  const digits = zip.replace(/\D/g, '');
+  // Format as 5-digit or ZIP+4
+  if (digits.length === 9) {
+    return `${digits.slice(0,5)}-${digits.slice(5)}`;
+  }
+  if (digits.length >= 5) {
+    return digits.slice(0, 5);
+  }
+  return zip.trim();
+};
+
+const normalizeTime = (time) => {
+  if (!time) return '';
+  // Already in HH:MM format
+  if (/^\d{2}:\d{2}$/.test(time)) return time;
+  // Handle H:MM format
+  if (/^\d:\d{2}$/.test(time)) return '0' + time;
+  // Handle HHMM format
+  if (/^\d{4}$/.test(time)) return `${time.slice(0,2)}:${time.slice(2)}`;
+  return time.trim();
+};
+
+const normalizeEmail = (email) => {
+  if (!email) return '';
+  return email.trim().toLowerCase();
+};
+
+// Normalize all form data fields
+const normalizeFormData = (data) => ({
+  ...data,
+  name: data.name?.trim() || '',
+  group: data.group?.trim() || '',
+  locationName: data.locationName?.trim() || '',
+  address: data.address?.trim() || '',
+  city: data.city?.trim() || '',
+  state: data.state?.toUpperCase()?.trim() || '',
+  postalCode: normalizePostalCode(data.postalCode),
+  time: normalizeTime(data.time),
+  endTime: normalizeTime(data.endTime),
+  onlineUrl: normalizeUrl(data.onlineUrl),
+  conferencePhone: normalizePhone(data.conferencePhone),
+  contactPhone: normalizePhone(data.contactPhone),
+  contactEmail: normalizeEmail(data.contactEmail),
+  notes: data.notes?.trim() || '',
+  locationNotes: data.locationNotes?.trim() || '',
+});
+
+// Attempt to correct data based on error response
+const correctDataFromError = (data, errorResponse) => {
+  const corrected = { ...data };
+  const errorMsg = errorResponse?.error?.toLowerCase() || '';
+  const details = errorResponse?.details || [];
+  const detailsStr = details.join(' ').toLowerCase();
+  const combined = errorMsg + ' ' + detailsStr;
+
+  // Correct specific field issues based on error messages
+  if (combined.includes('phone') || combined.includes('tel')) {
+    corrected.conferencePhone = normalizePhone(data.conferencePhone);
+    corrected.contactPhone = normalizePhone(data.contactPhone);
+  }
+  if (combined.includes('email')) {
+    corrected.contactEmail = normalizeEmail(data.contactEmail);
+  }
+  if (combined.includes('url') || combined.includes('link')) {
+    corrected.onlineUrl = normalizeUrl(data.onlineUrl);
+  }
+  if (combined.includes('zip') || combined.includes('postal')) {
+    corrected.postalCode = normalizePostalCode(data.postalCode);
+  }
+  if (combined.includes('time')) {
+    corrected.time = normalizeTime(data.time);
+    corrected.endTime = normalizeTime(data.endTime);
+  }
+  if (combined.includes('state')) {
+    corrected.state = data.state?.toUpperCase()?.trim() || '';
+  }
+
+  return corrected;
+};
+
 function AddMeetingModal({ onClose, onMeetingCreated }) {
   const navigate = useNavigate();
 
@@ -100,11 +211,10 @@ function AddMeetingModal({ onClose, onMeetingCreated }) {
     }));
   };
 
-  // Submit form
+  // Submit form with auto-retry on correctable errors
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
     setSaving(true);
 
     // Validate required fields
@@ -133,12 +243,11 @@ function AddMeetingModal({ onClose, onMeetingCreated }) {
       }
     }
 
-    try {
-      const payload = {
-        ...formData,
-        day: parseInt(formData.day, 10),
-      };
+    // Normalize data before first attempt
+    const normalizedData = normalizeFormData(formData);
 
+    // Helper to attempt save
+    const attemptSave = async (payload) => {
       const response = await fetch(`${BACKEND_URL}/api/meetings`, {
         method: 'POST',
         headers: {
@@ -146,8 +255,43 @@ function AddMeetingModal({ onClose, onMeetingCreated }) {
         },
         body: JSON.stringify(payload),
       });
-
       const data = await response.json();
+      return { response, data };
+    };
+
+    try {
+      let payload = {
+        ...normalizedData,
+        day: parseInt(normalizedData.day, 10),
+      };
+
+      // First attempt
+      let { response, data } = await attemptSave(payload);
+
+      // If failed with a correctable error (not 409 duplicate), try auto-correction
+      if (!response.ok && response.status !== 409) {
+        const correctedData = correctDataFromError(normalizedData, data);
+        const correctedPayload = {
+          ...correctedData,
+          day: parseInt(correctedData.day, 10),
+        };
+
+        // Only retry if correction actually changed something
+        if (JSON.stringify(correctedPayload) !== JSON.stringify(payload)) {
+          // Retry with corrected data
+          const retryResult = await attemptSave(correctedPayload);
+          response = retryResult.response;
+          data = retryResult.data;
+
+          // Update form with corrected values if retry succeeds
+          if (response.ok) {
+            setFormData(prev => ({
+              ...prev,
+              ...correctedData,
+            }));
+          }
+        }
+      }
 
       if (!response.ok) {
         if (response.status === 409) {
