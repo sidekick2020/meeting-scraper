@@ -83,18 +83,243 @@ From our data collection run (January 2026):
 
 ---
 
-## Additional Sources Discovered (Not Yet Integrated)
+## Additional Support Groups Discovered
 
-### Potential Future Sources
+### Overview of All Online Meeting Sources
 
-| Source | Type | URL | Notes |
-|--------|------|-----|-------|
-| AA Home Group | AA | https://aahomegroup.org | 24/7 online meetings |
-| Online Group AA | AA | https://www.onlinegroupaa.org | Online community |
-| AA Global Australia | AA | https://meetings.aa.org.au/international-online-meetings/ | International listings |
-| International Secular AA | AA | https://www.aasecular.org/online-meetings | Secular meetings |
+| Fellowship | Source | Website | API Available | Est. Meetings |
+|------------|--------|---------|---------------|---------------|
+| **AA** | Online Intergroup of AA | aa-intergroup.org | ✅ TSML JSON | ~8,400 |
+| **NA** | Virtual NA | virtual-na.org | ✅ BMLT JSON | ~3,150 |
+| **Celebrate Recovery** | CR Official | celebraterecovery.com | ❌ Manual | Unknown |
+| **Al-Anon** | Online Al-Anon | ola-is.org | ❌ Manual | ~1,000+ |
+| **SMART Recovery** | SMART Intl | smartrecovery.org | ❌ Manual | ~3,000 |
+| **Recovery Dharma** | RD Online | recoverydharma.online | ❌ Manual | ~200+ |
+| **Cocaine Anonymous** | CA Online | ca-online.org | ❌ Manual | Unknown |
+| **Overeaters Anonymous** | OA Virtual | oavirtualregion.org | ❌ Manual | ~6,500 worldwide |
+| **CoDA** | CoDA Online | coda.org | ❌ Manual | Unknown |
+| **Gamblers Anonymous** | GA Virtual | gamblersanonymous.org | ❌ Manual | Unknown |
+| **LifeRing** | LifeRing Secular | lifering.org | ❌ Manual | ~50+ |
 
-These sources may duplicate data already in OIAA or require different scraping approaches.
+---
+
+## Celebrate Recovery (CR)
+
+**Website**: https://celebraterecovery.com/weekly-online-recovery-meetings/
+
+**Description**: Christ-centered 12-step recovery program addressing "hurts, habits, and hangups" including addiction, codependency, depression, anger, and more.
+
+**Online Meeting**:
+- Weekly Zoom group every **Wednesday at 12pm PST**
+- Email required to receive Zoom link
+
+**Meeting Finder**: https://crlocator.com - Searchable database of CR groups and step studies (in-person and online)
+
+**Notes**:
+- Individual churches offer additional online meetings
+- No public API available
+- Would require web scraping to collect meeting data
+
+---
+
+## Al-Anon / Alateen (Family Groups)
+
+**Website**: https://al-anon.org/al-anon-meetings/
+
+**Online Resources**:
+- **Online Al-Anon Outreach (OLA-IS)**: https://ola-is.org
+- **World Meeting List**: https://www.helplistnyc.org/awm
+
+**Meeting Types**:
+- Email meetings (24/7, asynchronous)
+- Chat meetings (real-time text)
+- Telephone/Zoom meetings
+
+**Notes**:
+- For family and friends of alcoholics
+- No public JSON API
+- Meetings available in multiple languages
+
+---
+
+## SMART Recovery
+
+**Website**: https://smartrecovery.org/meeting
+
+**Meeting Finder**: https://meetings.smartrecovery.org/meetings/
+
+**Description**: Science-based, secular alternative to 12-step programs. Uses cognitive-behavioral techniques and motivational interviewing.
+
+**Features**:
+- ~3,000 meetings in 35+ countries
+- Online meetings use Zoom or Microsoft Teams
+- Meetings are 90 minutes, free with trained facilitators
+- No camera required - voice/text chat supported
+
+**Online Community**: SMART Recovery Online (SROL) offers:
+- Daily online meetings
+- 24/7 chat room
+- Message boards
+
+**Notes**:
+- Suitable for any addictive behavior
+- Registration required for SROL access
+- No public API - would require scraping
+
+---
+
+## Recovery Dharma (Buddhist-Based)
+
+**Website**: https://recoverydharma.org/meetings/
+
+**Online Hub**: https://recoverydharma.online
+
+**Description**: Buddhist-inspired, peer-led addiction recovery program using meditation, mindfulness, and the Eightfold Path.
+
+**Meeting Types**:
+- **Book Study**: Standard format with reading from RD book
+- **Sitting Groups**: Focused on meditation and sharing
+- **Speaker Meetings**: Weekly invited speakers
+- **Identity Groups**: Women (WORD-OS), Men (BIRD), LGBTQIA+, BIPOC
+
+**Features**:
+- 200+ online meetings
+- 7 days/week availability
+- Google Calendar integration
+- Most use Zoom
+
+**Notes**:
+- Formerly Refuge Recovery
+- Multiple languages including German, Danish, Thai
+- No public API
+
+---
+
+## Cocaine Anonymous (CA)
+
+**Website**: https://ca.org/meetings/
+
+**Online Service Area**: https://ca-online.org
+
+**Description**: 12-step fellowship for recovery from cocaine and all mind-altering substances.
+
+**Meeting Types**:
+- Email meetings (24/7)
+- Voice meetings via Skype, GoToMeeting, Freeconferencecall
+- Zoom meetings
+
+**Regional Online Resources**:
+- Colorado: https://ca-colorado.org/online-phone-meetings/
+- Arizona: https://caarizona.org/c-a-online-meetings/
+- Los Angeles: https://ca4la.org/meetings/
+
+**Notes**:
+- "The Real Deal of CA" offers international Zoom meetings (Mon/Fri 11am EST)
+- 24-hour helpline: (888) 714-8341
+- No public API
+
+---
+
+## Overeaters Anonymous (OA)
+
+**Website**: https://oa.org/find-a-meeting/
+
+**Virtual Region**: https://oavirtualregion.org
+
+**Description**: 12-step fellowship for compulsive eating and body image issues.
+
+**Features**:
+- ~6,500 meetings in 80+ countries
+- Telephone, online, and asynchronous meetings
+- No registration required
+- Anonymous participation allowed
+
+**Special Groups**:
+- OA HOW (structured abstinence): https://oahowphonemeetings.com
+
+**Notes**:
+- Virtual meetings may have established procedures
+- No public API
+
+---
+
+## CoDA (Codependents Anonymous)
+
+**Website**: https://coda.org/find-a-meeting/online-meetings/
+
+**Alternative**: https://www.onlinecoda.net
+
+**Description**: 12-step fellowship for developing healthy relationships, addressing codependency patterns.
+
+**Features**:
+- Searchable online meeting directory
+- Filter by day, language, meeting focus
+- Times displayed in user's timezone
+
+**Notes**:
+- NYC CoDA and other regional groups have additional listings
+- No public API
+
+---
+
+## Gamblers Anonymous (GA)
+
+**Website**: https://gamblersanonymous.org/virtual-meetings/
+
+**Family Groups**: https://www.gam-anon.org/meeting-directory/virtual-meetings
+
+**Description**: 12-step fellowship for compulsive gamblers.
+
+**Meeting Types**:
+- Virtual (Zoom)
+- Telephone
+- Hybrid (in-person + virtual)
+
+**Resources**:
+- Hotline: 855-2CALLGA (855-222-5542)
+- International: (909) 931-9056
+- **Gamblers In Recovery**: https://gamblersinrecovery.com - Extensive Zoom meeting finder
+
+**Notes**:
+- Gam-Anon for family/friends
+- No public API
+
+---
+
+## LifeRing Secular Recovery
+
+**Website**: https://lifering.org/online-meetings/
+
+**Meeting Calendar**: https://meetings.lifering.org/meetings/
+
+**Description**: Secular, self-empowerment based recovery program (3-S Philosophy: Sobriety, Secularity, Self-Empowerment).
+
+**Meeting Types**:
+- **HWYW** (How Was Your Week) - Standard format
+- **Focus meetings** - Specific communities
+- **Topic meetings** - Discussion-based
+
+**Features**:
+- 1-hour meetings
+- Court/treatment program verification available
+- Open to all who want to stay sober
+
+**Notes**:
+- Must be sober to share
+- No public API
+
+---
+
+## Other AA Sources (Potential Duplicates)
+
+| Source | URL | Notes |
+|--------|-----|-------|
+| AA Home Group | https://aahomegroup.org | 24/7 online meetings |
+| Online Group AA | https://www.onlinegroupaa.org | Online community |
+| AA Global Australia | https://meetings.aa.org.au/international-online-meetings/ | International listings |
+| International Secular AA | https://www.aasecular.org/online-meetings | Secular meetings |
+
+These sources may duplicate data already in OIAA.
 
 ---
 
