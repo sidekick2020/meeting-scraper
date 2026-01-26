@@ -34,3 +34,7 @@ coverage/
 # Cache
 .npm/
 .cache/
+
+# Generated data files
+online_meetings_cleaned_*.csv
+online_meetings_cleaned_*.json
