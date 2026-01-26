@@ -6,6 +6,25 @@ import { SidebarToggleButton } from './PublicSidebar';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const dayAbbrevs = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Fellowship types for filtering
+const fellowshipTypes = [
+  { id: 'AA', label: 'AA', fullName: 'Alcoholics Anonymous' },
+  { id: 'NA', label: 'NA', fullName: 'Narcotics Anonymous' },
+  { id: 'Al-Anon', label: 'Al-Anon', fullName: 'Al-Anon Family Groups' },
+  { id: 'CA', label: 'CA', fullName: 'Cocaine Anonymous' },
+  { id: 'OA', label: 'OA', fullName: 'Overeaters Anonymous' },
+  { id: 'GA', label: 'GA', fullName: 'Gamblers Anonymous' },
+];
+
+// Time of day filters
+const timeOfDayFilters = [
+  { id: 'morning', label: 'Morning', icon: '🌅', startHour: 5, endHour: 12 },
+  { id: 'afternoon', label: 'Afternoon', icon: '☀️', startHour: 12, endHour: 17 },
+  { id: 'evening', label: 'Evening', icon: '🌆', startHour: 17, endHour: 21 },
+  { id: 'night', label: 'Night', icon: '🌙', startHour: 21, endHour: 5 },
+];
 
 // Format time from "HH:MM" to "h:mm AM/PM"
 const formatTime = (time) => {
@@ -41,6 +60,16 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [totalMeetings, setTotalMeetings] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+  // Filter state
+  const [filters, setFilters] = useState({
+    fellowships: [],
+    days: [],
+    timeOfDay: [],
+    hybridOnly: false,
+  });
 
   const containerRef = useRef(null);
   const nowMarkerRef = useRef(null);
@@ -114,25 +143,108 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
     fetchOnlineMeetings();
   }, [fetchOnlineMeetings]);
 
-  // Filter meetings based on search query
-  const filteredMeetings = useMemo(() => {
-    if (!searchQuery.trim()) return meetings;
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    return filters.fellowships.length +
+           filters.days.length +
+           filters.timeOfDay.length +
+           (filters.hybridOnly ? 1 : 0);
+  }, [filters]);
 
-    const query = searchQuery.toLowerCase().trim();
-    return meetings.filter(meeting => {
-      const name = (meeting.name || '').toLowerCase();
-      const locationName = (meeting.locationName || '').toLowerCase();
-      const meetingType = (meeting.meetingType || '').toLowerCase();
-      const format = (meeting.format || '').toLowerCase();
-      const notes = (meeting.notes || '').toLowerCase();
+  // Helper to check if meeting time falls within time of day filter
+  const isInTimeOfDay = useCallback((meetingTime, timeOfDayIds) => {
+    if (timeOfDayIds.length === 0) return true;
+    if (!meetingTime) return false;
 
-      return name.includes(query) ||
-             locationName.includes(query) ||
-             meetingType.includes(query) ||
-             format.includes(query) ||
-             notes.includes(query);
+    const [hours] = meetingTime.split(':').map(Number);
+
+    return timeOfDayIds.some(todId => {
+      const tod = timeOfDayFilters.find(t => t.id === todId);
+      if (!tod) return false;
+
+      // Handle night which wraps around midnight
+      if (tod.id === 'night') {
+        return hours >= tod.startHour || hours < tod.endHour;
+      }
+      return hours >= tod.startHour && hours < tod.endHour;
     });
-  }, [meetings, searchQuery]);
+  }, []);
+
+  // Filter meetings based on search query and filters
+  const filteredMeetings = useMemo(() => {
+    let result = meetings;
+
+    // Apply fellowship filter
+    if (filters.fellowships.length > 0) {
+      result = result.filter(meeting => {
+        const meetingType = (meeting.meetingType || 'AA').toUpperCase();
+        return filters.fellowships.some(f =>
+          meetingType.includes(f.toUpperCase())
+        );
+      });
+    }
+
+    // Apply day filter
+    if (filters.days.length > 0) {
+      result = result.filter(meeting =>
+        filters.days.includes(meeting.day)
+      );
+    }
+
+    // Apply time of day filter
+    if (filters.timeOfDay.length > 0) {
+      result = result.filter(meeting =>
+        isInTimeOfDay(meeting.time, filters.timeOfDay)
+      );
+    }
+
+    // Apply hybrid filter
+    if (filters.hybridOnly) {
+      result = result.filter(meeting => meeting.isHybrid);
+    }
+
+    // Apply text search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter(meeting => {
+        const name = (meeting.name || '').toLowerCase();
+        const locationName = (meeting.locationName || '').toLowerCase();
+        const meetingType = (meeting.meetingType || '').toLowerCase();
+        const format = (meeting.format || '').toLowerCase();
+        const notes = (meeting.notes || '').toLowerCase();
+
+        return name.includes(query) ||
+               locationName.includes(query) ||
+               meetingType.includes(query) ||
+               format.includes(query) ||
+               notes.includes(query);
+      });
+    }
+
+    return result;
+  }, [meetings, searchQuery, filters, isInTimeOfDay]);
+
+  // Toggle filter value
+  const toggleFilter = useCallback((filterType, value) => {
+    setFilters(prev => {
+      const current = prev[filterType];
+      const updated = current.includes(value)
+        ? current.filter(v => v !== value)
+        : [...current, value];
+      return { ...prev, [filterType]: updated };
+    });
+  }, []);
+
+  // Clear all filters
+  const clearFilters = useCallback(() => {
+    setFilters({
+      fellowships: [],
+      days: [],
+      timeOfDay: [],
+      hybridOnly: false,
+    });
+    setSearchQuery('');
+  }, []);
 
   // Group meetings by day, ordered starting from today
   const groupedMeetings = useMemo(() => {
@@ -289,38 +401,157 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
             <span className="logo-fallback" style={{ display: 'none' }}>Sober Sidekick</span>
           </div>
         </div>
-        <div className="online-meetings-header-center">
-          <h1>Online Meetings</h1>
-          <p className="online-meetings-count">
-            {isLoading ? 'Loading...' : searchQuery ? `${filteredMeetings.length} of ${totalMeetings} meeting${totalMeetings !== 1 ? 's' : ''}` : `${totalMeetings} online meeting${totalMeetings !== 1 ? 's' : ''} available`}
-          </p>
-        </div>
         <div className="online-meetings-header-right">
-          <div className="online-meetings-search">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          {/* Spacer for layout balance */}
+        </div>
+      </header>
+
+      {/* Airbnb-style Search Section */}
+      <div className="online-meetings-search-section">
+        <div className={`online-meetings-search-bar ${isSearchFocused ? 'focused' : ''}`}>
+          <div className="search-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <circle cx="11" cy="11" r="8"/>
               <path d="m21 21-4.35-4.35"/>
             </svg>
-            <input
-              type="text"
-              placeholder="Search meetings..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {searchQuery && (
-              <button
-                className="online-meetings-search-clear"
-                onClick={() => setSearchQuery('')}
-                aria-label="Clear search"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
-              </button>
-            )}
           </div>
+          <input
+            type="text"
+            placeholder="Search online meetings..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
+          />
+          {(searchQuery || activeFilterCount > 0) && (
+            <button
+              className="search-clear-btn"
+              onClick={clearFilters}
+              aria-label="Clear search and filters"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          )}
+          <button
+            className={`filter-toggle-btn ${activeFilterCount > 0 ? 'has-filters' : ''}`}
+            onClick={() => setShowFilters(!showFilters)}
+            aria-label="Toggle filters"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            {activeFilterCount > 0 && (
+              <span className="filter-badge">{activeFilterCount}</span>
+            )}
+          </button>
         </div>
-      </header>
+
+        {/* Results count */}
+        <p className="online-meetings-count">
+          {isLoading ? 'Loading...' :
+           (searchQuery || activeFilterCount > 0)
+             ? `${filteredMeetings.length} of ${totalMeetings} meeting${totalMeetings !== 1 ? 's' : ''}`
+             : `${totalMeetings} online meeting${totalMeetings !== 1 ? 's' : ''} available`}
+        </p>
+
+        {/* Filter Chips - Quick Access */}
+        <div className="online-meetings-filter-chips">
+          {/* Fellowship filters */}
+          {fellowshipTypes.map(fellowship => (
+            <button
+              key={fellowship.id}
+              className={`filter-chip ${filters.fellowships.includes(fellowship.id) ? 'active' : ''}`}
+              onClick={() => toggleFilter('fellowships', fellowship.id)}
+              title={fellowship.fullName}
+            >
+              {fellowship.label}
+            </button>
+          ))}
+          <span className="filter-divider" />
+          {/* Day filters - abbreviated */}
+          {dayAbbrevs.map((day, index) => (
+            <button
+              key={index}
+              className={`filter-chip ${filters.days.includes(index) ? 'active' : ''}`}
+              onClick={() => toggleFilter('days', index)}
+              title={dayNames[index]}
+            >
+              {day}
+            </button>
+          ))}
+          <span className="filter-divider" />
+          {/* Hybrid filter */}
+          <button
+            className={`filter-chip ${filters.hybridOnly ? 'active' : ''}`}
+            onClick={() => setFilters(prev => ({ ...prev, hybridOnly: !prev.hybridOnly }))}
+          >
+            Hybrid
+          </button>
+        </div>
+
+        {/* Expanded Filters Panel */}
+        {showFilters && (
+          <div className="online-meetings-filters-panel">
+            <div className="filters-panel-section">
+              <h4>Time of Day</h4>
+              <div className="filter-options">
+                {timeOfDayFilters.map(tod => (
+                  <button
+                    key={tod.id}
+                    className={`filter-option ${filters.timeOfDay.includes(tod.id) ? 'active' : ''}`}
+                    onClick={() => toggleFilter('timeOfDay', tod.id)}
+                  >
+                    <span className="filter-option-icon">{tod.icon}</span>
+                    <span>{tod.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="filters-panel-section">
+              <h4>Day of Week</h4>
+              <div className="filter-options days">
+                {dayNames.map((day, index) => (
+                  <button
+                    key={index}
+                    className={`filter-option day ${filters.days.includes(index) ? 'active' : ''}`}
+                    onClick={() => toggleFilter('days', index)}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="filters-panel-section">
+              <h4>Fellowship</h4>
+              <div className="filter-options">
+                {fellowshipTypes.map(fellowship => (
+                  <button
+                    key={fellowship.id}
+                    className={`filter-option ${filters.fellowships.includes(fellowship.id) ? 'active' : ''}`}
+                    onClick={() => toggleFilter('fellowships', fellowship.id)}
+                  >
+                    <span className="filter-option-label">{fellowship.label}</span>
+                    <span className="filter-option-desc">{fellowship.fullName}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="filters-panel-actions">
+              <button className="btn btn-secondary" onClick={clearFilters}>
+                Clear All
+              </button>
+              <button className="btn btn-primary" onClick={() => setShowFilters(false)}>
+                Show {filteredMeetings.length} Meetings
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Main Content */}
       <div className="online-meetings-container" ref={containerRef}>

@@ -24882,68 +24882,68 @@ a.sidebar-nav-item {
   color: var(--text-primary);
 }
 
-.online-meetings-header-center {
-  text-align: center;
-}
-
-.online-meetings-header-center h1 {
-  font-size: 20px;
-  font-weight: 600;
-  margin: 0;
-  color: var(--text-primary);
-}
-
-.online-meetings-count {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin: 2px 0 0;
-}
-
 .online-meetings-header-right {
   min-width: 100px;
 }
 
-/* Search Bar */
-.online-meetings-search {
+/* Airbnb-style Search Section */
+.online-meetings-search-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 24px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.online-meetings-search-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 12px;
+  padding: 12px 16px;
   background: var(--bg-primary);
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  min-width: 200px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  border: 2px solid var(--border-color);
+  border-radius: 40px;
+  width: 100%;
+  max-width: 600px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.online-meetings-search:focus-within {
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
+.online-meetings-search-bar:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
-.online-meetings-search svg {
-  color: var(--text-muted);
+.online-meetings-search-bar.focused {
+  border-color: var(--primary-color, #007AFF);
+  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.2);
+}
+
+.online-meetings-search-bar .search-icon {
+  color: var(--primary-color, #007AFF);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
-.online-meetings-search input {
+.online-meetings-search-bar input {
   flex: 1;
   border: none;
   background: transparent;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--text-primary);
   outline: none;
   min-width: 0;
 }
 
-.online-meetings-search input::placeholder {
+.online-meetings-search-bar input::placeholder {
   color: var(--text-muted);
 }
 
-.online-meetings-search-clear {
-  background: transparent;
+.search-clear-btn {
+  background: var(--bg-hover);
   border: none;
-  padding: 4px;
+  padding: 6px;
   cursor: pointer;
   color: var(--text-muted);
   display: flex;
@@ -24953,9 +24953,216 @@ a.sidebar-nav-item {
   transition: all 0.2s ease;
 }
 
-.online-meetings-search-clear:hover {
+.search-clear-btn:hover {
+  background: var(--bg-tertiary, var(--bg-hover));
+  color: var(--text-primary);
+}
+
+.filter-toggle-btn {
+  position: relative;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 20px;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.filter-toggle-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+.filter-toggle-btn.has-filters {
+  background: var(--primary-color, #007AFF);
+  border-color: var(--primary-color, #007AFF);
+  color: white;
+}
+
+.filter-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--danger-color, #FF3B30);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filter-toggle-btn.has-filters .filter-badge {
+  background: white;
+  color: var(--primary-color, #007AFF);
+}
+
+.online-meetings-count {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 12px 0 0;
+  text-align: center;
+}
+
+/* Filter Chips */
+.online-meetings-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 16px;
+  max-width: 800px;
+}
+
+.filter-chip {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.filter-chip:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+.filter-chip.active {
+  background: var(--primary-color, #007AFF);
+  border-color: var(--primary-color, #007AFF);
+  color: white;
+}
+
+.filter-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+/* Expanded Filters Panel */
+.online-meetings-filters-panel {
+  width: 100%;
+  max-width: 700px;
+  margin-top: 20px;
+  padding: 20px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.filters-panel-section {
+  margin-bottom: 20px;
+}
+
+.filters-panel-section:last-of-type {
+  margin-bottom: 0;
+}
+
+.filters-panel-section h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 12px;
+}
+
+.filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-options.days {
+  gap: 6px;
+}
+
+.filter-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+}
+
+.filter-option:hover {
+  border-color: var(--primary-color, #007AFF);
+  background: var(--bg-hover);
+}
+
+.filter-option.active {
+  background: rgba(0, 122, 255, 0.1);
+  border-color: var(--primary-color, #007AFF);
+  color: var(--primary-color, #007AFF);
+}
+
+.filter-option.day {
+  min-width: auto;
+  padding: 8px 12px;
+  flex-direction: row;
+}
+
+.filter-option-icon {
+  font-size: 20px;
+}
+
+.filter-option-label {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.filter-option-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.filter-option.active .filter-option-label,
+.filter-option.active .filter-option-desc {
+  color: var(--primary-color, #007AFF);
+}
+
+.filters-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
 }
 
 /* Main Container */
@@ -25325,47 +25532,110 @@ a.sidebar-nav-item {
   background: rgba(0, 122, 255, 0.08);
 }
 
-[data-theme="light"] .online-meetings-search {
+[data-theme="light"] .online-meetings-search-section {
+  background: white;
+}
+
+[data-theme="light"] .online-meetings-search-bar {
+  background: #f5f5f7;
+  border-color: #e5e5e5;
+}
+
+[data-theme="light"] .online-meetings-search-bar.focused {
+  border-color: #007aff;
+  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.15);
+}
+
+[data-theme="light"] .filter-chip {
+  border-color: #e5e5e5;
+}
+
+[data-theme="light"] .filter-chip:hover {
+  background: #f5f5f7;
+}
+
+[data-theme="light"] .online-meetings-filters-panel {
+  background: #f5f5f7;
+  border-color: #e5e5e5;
+}
+
+[data-theme="light"] .filter-option {
   background: white;
   border-color: #e5e5e5;
 }
 
-[data-theme="light"] .online-meetings-search:focus-within {
-  border-color: #007aff;
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+[data-theme="light"] .filter-option:hover {
+  background: #f5f5f7;
+}
+
+[data-theme="light"] .filter-option.active {
+  background: rgba(0, 122, 255, 0.08);
 }
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .online-meetings-header {
     padding: 12px 16px;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .online-meetings-header-center {
-    order: 3;
-    width: 100%;
-    text-align: left;
-    padding-top: 8px;
-  }
-
-  .online-meetings-header-center h1 {
-    font-size: 18px;
   }
 
   .online-meetings-header-right {
-    order: 2;
     min-width: auto;
   }
 
-  .online-meetings-search {
-    min-width: 140px;
-    padding: 6px 10px;
+  .online-meetings-search-section {
+    padding: 16px;
   }
 
-  .online-meetings-search input {
+  .online-meetings-search-bar {
+    padding: 10px 14px;
+    border-radius: 30px;
+  }
+
+  .online-meetings-search-bar input {
+    font-size: 15px;
+  }
+
+  .online-meetings-filter-chips {
+    gap: 6px;
+    margin-top: 12px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    padding-bottom: 4px;
+    max-width: 100%;
+  }
+
+  .filter-chip {
+    padding: 5px 10px;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .filter-divider {
+    height: 20px;
+  }
+
+  .online-meetings-filters-panel {
+    padding: 16px;
+    margin-top: 16px;
+  }
+
+  .filter-option {
+    padding: 10px 12px;
+    min-width: 70px;
+  }
+
+  .filter-option.day {
+    padding: 6px 10px;
     font-size: 13px;
+  }
+
+  .filters-panel-actions {
+    flex-direction: column;
+  }
+
+  .filters-panel-actions .btn {
+    width: 100%;
   }
 
   .online-meetings-container {
