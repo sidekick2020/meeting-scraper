@@ -25014,20 +25014,101 @@ a.sidebar-nav-item {
   text-align: center;
 }
 
-/* Filter Chips */
-.online-meetings-filter-chips {
+/* Active Filter Pills - Removable tags */
+.active-filter-pills {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   justify-content: center;
-  margin-top: 16px;
+  margin-top: 12px;
   max-width: 800px;
 }
 
+.active-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 12px;
+  background: var(--primary-color, #007AFF);
+  border: none;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.active-filter-pill:hover {
+  background: var(--primary-hover, #0056b3);
+  transform: scale(1.02);
+}
+
+.active-filter-pill svg {
+  opacity: 0.8;
+}
+
+.active-filter-pill:hover svg {
+  opacity: 1;
+}
+
+.clear-all-filters-btn {
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-all-filters-btn:hover {
+  border-color: var(--danger-color, #FF3B30);
+  color: var(--danger-color, #FF3B30);
+  background: rgba(255, 59, 48, 0.05);
+}
+
+/* Filter Chips with Section Labels */
+.online-meetings-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  align-items: flex-start;
+  margin-top: 16px;
+  max-width: 900px;
+}
+
+.filter-chip-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-chip-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.filter-chip-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
 .filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   background: transparent;
   border: 1px solid var(--border-color);
-  padding: 6px 14px;
+  padding: 6px 12px;
   border-radius: 20px;
   font-size: 13px;
   color: var(--text-secondary);
@@ -25038,7 +25119,7 @@ a.sidebar-nav-item {
 
 .filter-chip:hover {
   background: var(--bg-hover);
-  border-color: var(--border-light);
+  border-color: var(--primary-color, #007AFF);
   color: var(--text-primary);
 }
 
@@ -25048,11 +25129,34 @@ a.sidebar-nav-item {
   color: white;
 }
 
+.filter-chip-check {
+  display: flex;
+  align-items: center;
+  margin-right: 2px;
+}
+
+.filter-chip-count {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-left: 2px;
+}
+
+.filter-chip.active .filter-chip-count {
+  opacity: 0.9;
+}
+
+.filter-chip.day-chip {
+  padding: 6px 10px;
+  min-width: 42px;
+  justify-content: center;
+}
+
 .filter-divider {
   width: 1px;
-  height: 24px;
+  height: 50px;
   background: var(--border-color);
   margin: 0 4px;
+  align-self: center;
 }
 
 /* Expanded Filters Panel */
@@ -25060,11 +25164,12 @@ a.sidebar-nav-item {
   width: 100%;
   max-width: 700px;
   margin-top: 20px;
-  padding: 20px;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 16px;
   animation: slideDown 0.2s ease;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
 @keyframes slideDown {
@@ -25078,72 +25183,236 @@ a.sidebar-nav-item {
   }
 }
 
+.filters-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.filters-panel-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.filters-panel-close {
+  background: transparent;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filters-panel-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 .filters-panel-section {
-  margin-bottom: 20px;
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .filters-panel-section:last-of-type {
-  margin-bottom: 0;
+  border-bottom: none;
 }
 
 .filters-panel-section h4 {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin: 0 0 12px;
+  margin: 0 0 16px;
 }
 
 .filter-options {
   display: flex;
   flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filter-options.time-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.filter-options.days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
   gap: 8px;
 }
 
-.filter-options.days {
-  gap: 6px;
+.filter-options.fellowship-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
 }
 
-.filter-option {
+/* Time of Day Options */
+.filter-option.time-option {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 4px;
-  padding: 12px 16px;
+  gap: 12px;
+  padding: 14px 16px;
   background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  border: 2px solid var(--border-color);
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-width: 80px;
+  position: relative;
 }
 
-.filter-option:hover {
+.filter-option.time-option:hover {
   border-color: var(--primary-color, #007AFF);
   background: var(--bg-hover);
 }
 
-.filter-option.active {
-  background: rgba(0, 122, 255, 0.1);
+.filter-option.time-option.active {
+  background: rgba(0, 122, 255, 0.08);
   border-color: var(--primary-color, #007AFF);
-  color: var(--primary-color, #007AFF);
-}
-
-.filter-option.day {
-  min-width: auto;
-  padding: 8px 12px;
-  flex-direction: row;
 }
 
 .filter-option-icon {
-  font-size: 20px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.filter-option.time-option.active .filter-option-icon {
+  color: var(--primary-color, #007AFF);
+}
+
+.filter-option-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
 }
 
 .filter-option-label {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text-primary);
+}
+
+.filter-option-count {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.filter-option.active .filter-option-label {
+  color: var(--primary-color, #007AFF);
+}
+
+.filter-option-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: var(--primary-color, #007AFF);
+  display: flex;
+  align-items: center;
+}
+
+/* Day Options */
+.filter-option.day-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 8px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  min-width: 0;
+}
+
+.filter-option.day-option:hover {
+  border-color: var(--primary-color, #007AFF);
+  background: var(--bg-hover);
+}
+
+.filter-option.day-option.active {
+  background: rgba(0, 122, 255, 0.08);
+  border-color: var(--primary-color, #007AFF);
+}
+
+.day-option-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  text-align: center;
+}
+
+.day-option-count {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.filter-option.day-option.active .day-option-name {
+  color: var(--primary-color, #007AFF);
+}
+
+.filter-option.day-option .filter-option-check {
+  top: 4px;
+  right: 4px;
+}
+
+/* Fellowship Options */
+.filter-option.fellowship-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.filter-option.fellowship-option:hover {
+  border-color: var(--primary-color, #007AFF);
+  background: var(--bg-hover);
+}
+
+.filter-option.fellowship-option.active {
+  background: rgba(0, 122, 255, 0.08);
+  border-color: var(--primary-color, #007AFF);
+}
+
+.fellowship-option-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  flex: 1;
+}
+
+.filter-option.fellowship-option .filter-option-label {
+  font-weight: 700;
+  font-size: 16px;
 }
 
 .filter-option-desc {
@@ -25151,8 +25420,7 @@ a.sidebar-nav-item {
   color: var(--text-muted);
 }
 
-.filter-option.active .filter-option-label,
-.filter-option.active .filter-option-desc {
+.filter-option.fellowship-option.active .filter-option-label {
   color: var(--primary-color, #007AFF);
 }
 
@@ -25160,9 +25428,14 @@ a.sidebar-nav-item {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  margin-top: 20px;
-  padding-top: 16px;
+  padding: 16px 20px;
+  background: var(--bg-secondary);
   border-top: 1px solid var(--border-color);
+}
+
+.filters-panel-actions .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Main Container */
@@ -25546,6 +25819,14 @@ a.sidebar-nav-item {
   box-shadow: 0 4px 20px rgba(0, 122, 255, 0.15);
 }
 
+[data-theme="light"] .active-filter-pill {
+  box-shadow: 0 2px 4px rgba(0, 122, 255, 0.2);
+}
+
+[data-theme="light"] .clear-all-filters-btn {
+  border-color: #d5d5d5;
+}
+
 [data-theme="light"] .filter-chip {
   border-color: #e5e5e5;
 }
@@ -25554,22 +25835,41 @@ a.sidebar-nav-item {
   background: #f5f5f7;
 }
 
+[data-theme="light"] .filter-divider {
+  background: #e5e5e5;
+}
+
 [data-theme="light"] .online-meetings-filters-panel {
-  background: #f5f5f7;
+  background: white;
   border-color: #e5e5e5;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .filters-panel-header {
+  background: #f8f8f8;
+  border-bottom-color: #e5e5e5;
+}
+
+[data-theme="light"] .filters-panel-section {
+  border-bottom-color: #f0f0f0;
 }
 
 [data-theme="light"] .filter-option {
-  background: white;
+  background: #f8f8f8;
   border-color: #e5e5e5;
 }
 
 [data-theme="light"] .filter-option:hover {
-  background: #f5f5f7;
+  background: #f0f0f0;
 }
 
 [data-theme="light"] .filter-option.active {
-  background: rgba(0, 122, 255, 0.08);
+  background: rgba(0, 122, 255, 0.06);
+}
+
+[data-theme="light"] .filters-panel-actions {
+  background: #f8f8f8;
+  border-top-color: #e5e5e5;
 }
 
 /* Mobile Responsive */
@@ -25595,14 +25895,33 @@ a.sidebar-nav-item {
     font-size: 15px;
   }
 
-  .online-meetings-filter-chips {
+  .active-filter-pills {
     gap: 6px;
+    margin-top: 10px;
+  }
+
+  .active-filter-pill {
+    padding: 5px 8px 5px 10px;
+    font-size: 11px;
+  }
+
+  .online-meetings-filter-chips {
+    gap: 12px;
     margin-top: 12px;
     overflow-x: auto;
     flex-wrap: nowrap;
     justify-content: flex-start;
-    padding-bottom: 4px;
+    padding-bottom: 8px;
     max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .filter-chip-group {
+    flex-shrink: 0;
+  }
+
+  .filter-chip-options {
+    flex-wrap: nowrap;
   }
 
   .filter-chip {
@@ -25611,27 +25930,63 @@ a.sidebar-nav-item {
     flex-shrink: 0;
   }
 
+  .filter-chip-count {
+    display: none;
+  }
+
+  .filter-chip-check {
+    margin-right: 0;
+  }
+
   .filter-divider {
-    height: 20px;
+    height: 40px;
   }
 
   .online-meetings-filters-panel {
-    padding: 16px;
     margin-top: 16px;
+    border-radius: 12px;
   }
 
-  .filter-option {
-    padding: 10px 12px;
-    min-width: 70px;
+  .filters-panel-header {
+    padding: 12px 16px;
   }
 
-  .filter-option.day {
-    padding: 6px 10px;
-    font-size: 13px;
+  .filters-panel-section {
+    padding: 16px;
+  }
+
+  .filter-options.time-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .filter-options.days-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+
+  .filter-options.fellowship-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .filter-option.time-option {
+    padding: 12px;
+  }
+
+  .filter-option.day-option {
+    padding: 10px 6px;
+  }
+
+  .day-option-name {
+    font-size: 12px;
+  }
+
+  .filter-option.fellowship-option {
+    padding: 12px;
   }
 
   .filters-panel-actions {
     flex-direction: column;
+    padding: 12px 16px;
   }
 
   .filters-panel-actions .btn {

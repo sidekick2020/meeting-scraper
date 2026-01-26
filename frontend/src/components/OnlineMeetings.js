@@ -18,13 +18,72 @@ const fellowshipTypes = [
   { id: 'GA', label: 'GA', fullName: 'Gamblers Anonymous' },
 ];
 
-// Time of day filters
+// Time of day filters with SVG icons
 const timeOfDayFilters = [
-  { id: 'morning', label: 'Morning', icon: '🌅', startHour: 5, endHour: 12 },
-  { id: 'afternoon', label: 'Afternoon', icon: '☀️', startHour: 12, endHour: 17 },
-  { id: 'evening', label: 'Evening', icon: '🌆', startHour: 17, endHour: 21 },
-  { id: 'night', label: 'Night', icon: '🌙', startHour: 21, endHour: 5 },
+  { id: 'morning', label: 'Morning', startHour: 5, endHour: 12 },
+  { id: 'afternoon', label: 'Afternoon', startHour: 12, endHour: 17 },
+  { id: 'evening', label: 'Evening', startHour: 17, endHour: 21 },
+  { id: 'night', label: 'Night', startHour: 21, endHour: 5 },
 ];
+
+// SVG Icons for time of day
+const TimeOfDayIcon = ({ id, size = 20 }) => {
+  const icons = {
+    morning: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2"/>
+        <path d="M12 20v2"/>
+        <path d="m4.93 4.93 1.41 1.41"/>
+        <path d="m17.66 17.66 1.41 1.41"/>
+        <path d="M2 12h2"/>
+        <path d="M20 12h2"/>
+        <path d="m6.34 17.66-1.41 1.41"/>
+        <path d="m19.07 4.93-1.41 1.41"/>
+      </svg>
+    ),
+    afternoon: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="5"/>
+        <path d="M12 1v2"/>
+        <path d="M12 21v2"/>
+        <path d="M4.22 4.22l1.42 1.42"/>
+        <path d="M18.36 18.36l1.42 1.42"/>
+        <path d="M1 12h2"/>
+        <path d="M21 12h2"/>
+        <path d="M4.22 19.78l1.42-1.42"/>
+        <path d="M18.36 5.64l1.42-1.42"/>
+      </svg>
+    ),
+    evening: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+        <path d="M19 3v4"/>
+        <path d="M21 5h-4"/>
+      </svg>
+    ),
+    night: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+      </svg>
+    ),
+  };
+  return icons[id] || null;
+};
+
+// Checkmark icon for selected states
+const CheckIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+);
+
+// Close/remove icon
+const CloseIcon = ({ size = 12 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 6L6 18M6 6l12 12"/>
+  </svg>
+);
 
 // Format time from "HH:MM" to "h:mm AM/PM"
 const formatTime = (time) => {
@@ -150,6 +209,106 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
            filters.timeOfDay.length +
            (filters.hybridOnly ? 1 : 0);
   }, [filters]);
+
+  // Build list of active filter items for display as removable pills
+  const activeFilterItems = useMemo(() => {
+    const items = [];
+
+    filters.fellowships.forEach(f => {
+      const fellowship = fellowshipTypes.find(ft => ft.id === f);
+      if (fellowship) {
+        items.push({
+          type: 'fellowships',
+          id: f,
+          label: fellowship.label,
+          fullLabel: fellowship.fullName,
+        });
+      }
+    });
+
+    filters.days.forEach(d => {
+      items.push({
+        type: 'days',
+        id: d,
+        label: dayAbbrevs[d],
+        fullLabel: dayNames[d],
+      });
+    });
+
+    filters.timeOfDay.forEach(t => {
+      const tod = timeOfDayFilters.find(tf => tf.id === t);
+      if (tod) {
+        items.push({
+          type: 'timeOfDay',
+          id: t,
+          label: tod.label,
+          fullLabel: tod.label,
+        });
+      }
+    });
+
+    if (filters.hybridOnly) {
+      items.push({
+        type: 'hybridOnly',
+        id: true,
+        label: 'Hybrid',
+        fullLabel: 'Hybrid Only',
+      });
+    }
+
+    return items;
+  }, [filters]);
+
+  // Remove a single filter item
+  const removeFilterItem = useCallback((type, id) => {
+    if (type === 'hybridOnly') {
+      setFilters(prev => ({ ...prev, hybridOnly: false }));
+    } else {
+      setFilters(prev => ({
+        ...prev,
+        [type]: prev[type].filter(v => v !== id),
+      }));
+    }
+  }, []);
+
+  // Calculate filter counts (how many meetings match each filter option)
+  const filterCounts = useMemo(() => {
+    const counts = {
+      fellowships: {},
+      days: {},
+      timeOfDay: {},
+      hybrid: 0,
+    };
+
+    // Count meetings per fellowship
+    fellowshipTypes.forEach(f => {
+      counts.fellowships[f.id] = meetings.filter(m =>
+        (m.meetingType || 'AA').toUpperCase().includes(f.id.toUpperCase())
+      ).length;
+    });
+
+    // Count meetings per day
+    for (let i = 0; i < 7; i++) {
+      counts.days[i] = meetings.filter(m => m.day === i).length;
+    }
+
+    // Count meetings per time of day
+    timeOfDayFilters.forEach(tod => {
+      counts.timeOfDay[tod.id] = meetings.filter(m => {
+        if (!m.time) return false;
+        const [hours] = m.time.split(':').map(Number);
+        if (tod.id === 'night') {
+          return hours >= tod.startHour || hours < tod.endHour;
+        }
+        return hours >= tod.startHour && hours < tod.endHour;
+      }).length;
+    });
+
+    // Count hybrid meetings
+    counts.hybrid = meetings.filter(m => m.isHybrid).length;
+
+    return counts;
+  }, [meetings]);
 
   // Helper to check if meeting time falls within time of day filter
   const isInTimeOfDay = useCallback((meetingTime, timeOfDayIds) => {
@@ -456,55 +615,130 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
              : `${totalMeetings} online meeting${totalMeetings !== 1 ? 's' : ''} available`}
         </p>
 
-        {/* Filter Chips - Quick Access */}
+        {/* Active Filter Pills - Removable tags showing current filters */}
+        {activeFilterItems.length > 0 && (
+          <div className="active-filter-pills">
+            {activeFilterItems.map(item => (
+              <button
+                key={`${item.type}-${item.id}`}
+                className="active-filter-pill"
+                onClick={() => removeFilterItem(item.type, item.id)}
+                title={`Remove ${item.fullLabel} filter`}
+              >
+                <span>{item.label}</span>
+                <CloseIcon size={10} />
+              </button>
+            ))}
+            {activeFilterItems.length > 1 && (
+              <button
+                className="clear-all-filters-btn"
+                onClick={clearFilters}
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Filter Chips - Quick Access with Section Labels */}
         <div className="online-meetings-filter-chips">
-          {/* Fellowship filters */}
-          {fellowshipTypes.map(fellowship => (
-            <button
-              key={fellowship.id}
-              className={`filter-chip ${filters.fellowships.includes(fellowship.id) ? 'active' : ''}`}
-              onClick={() => toggleFilter('fellowships', fellowship.id)}
-              title={fellowship.fullName}
-            >
-              {fellowship.label}
-            </button>
-          ))}
+          {/* Fellowship section */}
+          <div className="filter-chip-group">
+            <span className="filter-chip-label">Fellowship</span>
+            <div className="filter-chip-options">
+              {fellowshipTypes.map(fellowship => (
+                <button
+                  key={fellowship.id}
+                  className={`filter-chip ${filters.fellowships.includes(fellowship.id) ? 'active' : ''}`}
+                  onClick={() => toggleFilter('fellowships', fellowship.id)}
+                  title={`${fellowship.fullName} (${filterCounts.fellowships[fellowship.id] || 0})`}
+                >
+                  {filters.fellowships.includes(fellowship.id) && (
+                    <span className="filter-chip-check"><CheckIcon size={12} /></span>
+                  )}
+                  <span>{fellowship.label}</span>
+                  <span className="filter-chip-count">{filterCounts.fellowships[fellowship.id] || 0}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <span className="filter-divider" />
-          {/* Day filters - abbreviated */}
-          {dayAbbrevs.map((day, index) => (
-            <button
-              key={index}
-              className={`filter-chip ${filters.days.includes(index) ? 'active' : ''}`}
-              onClick={() => toggleFilter('days', index)}
-              title={dayNames[index]}
-            >
-              {day}
-            </button>
-          ))}
+
+          {/* Day section */}
+          <div className="filter-chip-group">
+            <span className="filter-chip-label">Day</span>
+            <div className="filter-chip-options">
+              {dayAbbrevs.map((day, index) => (
+                <button
+                  key={index}
+                  className={`filter-chip day-chip ${filters.days.includes(index) ? 'active' : ''}`}
+                  onClick={() => toggleFilter('days', index)}
+                  title={`${dayNames[index]} (${filterCounts.days[index] || 0})`}
+                >
+                  {filters.days.includes(index) && (
+                    <span className="filter-chip-check"><CheckIcon size={10} /></span>
+                  )}
+                  <span>{day}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <span className="filter-divider" />
+
           {/* Hybrid filter */}
-          <button
-            className={`filter-chip ${filters.hybridOnly ? 'active' : ''}`}
-            onClick={() => setFilters(prev => ({ ...prev, hybridOnly: !prev.hybridOnly }))}
-          >
-            Hybrid
-          </button>
+          <div className="filter-chip-group">
+            <span className="filter-chip-label">Type</span>
+            <div className="filter-chip-options">
+              <button
+                className={`filter-chip ${filters.hybridOnly ? 'active' : ''}`}
+                onClick={() => setFilters(prev => ({ ...prev, hybridOnly: !prev.hybridOnly }))}
+                title={`Hybrid meetings (${filterCounts.hybrid || 0})`}
+              >
+                {filters.hybridOnly && (
+                  <span className="filter-chip-check"><CheckIcon size={12} /></span>
+                )}
+                <span>Hybrid</span>
+                <span className="filter-chip-count">{filterCounts.hybrid || 0}</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Expanded Filters Panel */}
         {showFilters && (
           <div className="online-meetings-filters-panel">
+            <div className="filters-panel-header">
+              <h3>Filters</h3>
+              <button
+                className="filters-panel-close"
+                onClick={() => setShowFilters(false)}
+                aria-label="Close filters"
+              >
+                <CloseIcon size={16} />
+              </button>
+            </div>
+
             <div className="filters-panel-section">
               <h4>Time of Day</h4>
-              <div className="filter-options">
+              <div className="filter-options time-grid">
                 {timeOfDayFilters.map(tod => (
                   <button
                     key={tod.id}
-                    className={`filter-option ${filters.timeOfDay.includes(tod.id) ? 'active' : ''}`}
+                    className={`filter-option time-option ${filters.timeOfDay.includes(tod.id) ? 'active' : ''}`}
                     onClick={() => toggleFilter('timeOfDay', tod.id)}
                   >
-                    <span className="filter-option-icon">{tod.icon}</span>
-                    <span>{tod.label}</span>
+                    <span className="filter-option-icon">
+                      <TimeOfDayIcon id={tod.id} size={24} />
+                    </span>
+                    <span className="filter-option-text">
+                      <span className="filter-option-label">{tod.label}</span>
+                      <span className="filter-option-count">{filterCounts.timeOfDay[tod.id] || 0} meetings</span>
+                    </span>
+                    {filters.timeOfDay.includes(tod.id) && (
+                      <span className="filter-option-check"><CheckIcon size={16} /></span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -512,14 +746,18 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
 
             <div className="filters-panel-section">
               <h4>Day of Week</h4>
-              <div className="filter-options days">
+              <div className="filter-options days-grid">
                 {dayNames.map((day, index) => (
                   <button
                     key={index}
-                    className={`filter-option day ${filters.days.includes(index) ? 'active' : ''}`}
+                    className={`filter-option day-option ${filters.days.includes(index) ? 'active' : ''}`}
                     onClick={() => toggleFilter('days', index)}
                   >
-                    {day}
+                    <span className="day-option-name">{day}</span>
+                    <span className="day-option-count">{filterCounts.days[index] || 0}</span>
+                    {filters.days.includes(index) && (
+                      <span className="filter-option-check"><CheckIcon size={14} /></span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -527,26 +765,32 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
 
             <div className="filters-panel-section">
               <h4>Fellowship</h4>
-              <div className="filter-options">
+              <div className="filter-options fellowship-grid">
                 {fellowshipTypes.map(fellowship => (
                   <button
                     key={fellowship.id}
-                    className={`filter-option ${filters.fellowships.includes(fellowship.id) ? 'active' : ''}`}
+                    className={`filter-option fellowship-option ${filters.fellowships.includes(fellowship.id) ? 'active' : ''}`}
                     onClick={() => toggleFilter('fellowships', fellowship.id)}
                   >
-                    <span className="filter-option-label">{fellowship.label}</span>
-                    <span className="filter-option-desc">{fellowship.fullName}</span>
+                    <span className="fellowship-option-content">
+                      <span className="filter-option-label">{fellowship.label}</span>
+                      <span className="filter-option-desc">{fellowship.fullName}</span>
+                      <span className="filter-option-count">{filterCounts.fellowships[fellowship.id] || 0} meetings</span>
+                    </span>
+                    {filters.fellowships.includes(fellowship.id) && (
+                      <span className="filter-option-check"><CheckIcon size={16} /></span>
+                    )}
                   </button>
                 ))}
               </div>
             </div>
 
             <div className="filters-panel-actions">
-              <button className="btn btn-secondary" onClick={clearFilters}>
+              <button className="btn btn-secondary" onClick={clearFilters} disabled={activeFilterCount === 0}>
                 Clear All
               </button>
               <button className="btn btn-primary" onClick={() => setShowFilters(false)}>
-                Show {filteredMeetings.length} Meetings
+                Show {filteredMeetings.length} Meeting{filteredMeetings.length !== 1 ? 's' : ''}
               </button>
             </div>
           </div>
