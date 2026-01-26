@@ -1917,7 +1917,7 @@ NA_FEEDS = {
     },
     # === VIRTUAL NA ===
     "Virtual NA (Online)": {
-        "url": "https://virtual-na.org/main_server/client_interface/json/?switcher=GetSearchResults",
+        "url": "https://bmlt.virtual-na.org/main_server/client_interface/json/?switcher=GetSearchResults",
         "state": "ONLINE",
         "type": "bmlt"
     },
