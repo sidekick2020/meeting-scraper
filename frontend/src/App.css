@@ -11508,6 +11508,294 @@ a.sidebar-nav-item {
   border-top: 1px solid var(--border-light);
 }
 
+/* =====================================================
+   ADD MEETING MODAL
+   ===================================================== */
+.add-meeting-panel {
+  width: 50%;
+  min-width: 400px;
+  max-width: 700px;
+}
+
+.add-meeting-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.form-section-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.form-section-desc {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: -0.5rem 0 1rem 0;
+}
+
+.form-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+.form-row .form-group-city {
+  flex: 2;
+}
+
+.form-row .form-group-state {
+  flex: 0.75;
+}
+
+.form-row .form-group-zip {
+  flex: 1;
+}
+
+.add-meeting-form .form-group {
+  margin-bottom: 1rem;
+}
+
+.add-meeting-form .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.add-meeting-form .form-group label {
+  display: block;
+  margin-bottom: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.add-meeting-form .form-group input,
+.add-meeting-form .form-group select,
+.add-meeting-form .form-group textarea {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.add-meeting-form .form-group input:focus,
+.add-meeting-form .form-group select:focus,
+.add-meeting-form .form-group textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(var(--accent-primary-rgb), 0.1);
+}
+
+.add-meeting-form .form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-checkbox-row {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent-primary);
+}
+
+.checkbox-label input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.checkbox-label input[type="checkbox"]:disabled + span {
+  opacity: 0.5;
+}
+
+/* Meeting Types Grid */
+.meeting-types-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.meeting-type-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.meeting-type-checkbox:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-hover);
+}
+
+.meeting-type-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent-primary);
+}
+
+.meeting-type-checkbox input[type="checkbox"]:checked + .meeting-type-label {
+  color: var(--accent-primary);
+  font-weight: 500;
+}
+
+.meeting-type-label {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Form Error & Success Messages */
+.form-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 0.875rem;
+}
+
+.form-success {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+  color: #22c55e;
+  font-size: 0.875rem;
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-light);
+}
+
+/* Button Spinner */
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 0.5rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Directory Add Meeting Button */
+.directory-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-add-meeting {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  background: var(--accent-primary);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-add-meeting:hover {
+  background: var(--accent-primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-add-meeting svg {
+  stroke-width: 2.5;
+}
+
+/* Responsive styles for Add Meeting Modal */
+@media (max-width: 768px) {
+  .add-meeting-panel {
+    width: 100%;
+    min-width: unset;
+    max-width: unset;
+  }
+
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .form-row .form-group,
+  .form-row .form-group-city,
+  .form-row .form-group-state,
+  .form-row .form-group-zip {
+    flex: unset;
+  }
+
+  .meeting-types-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .form-checkbox-row {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+
 /* Users Section */
 .users-section {
   display: flex;

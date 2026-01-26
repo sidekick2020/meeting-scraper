@@ -4956,6 +4956,207 @@ def get_meetings():
         }), 500
 
 
+@app.route('/api/meetings', methods=['POST'])
+def create_meeting():
+    """Create a new meeting (admin only).
+
+    Request Body (JSON):
+        name (str): Meeting name (required)
+        day (int): Day of week 0-6 (required)
+        time (str): Start time in HH:MM format (required)
+        meetingType (str): Fellowship type - AA, NA, Al-Anon (default: AA)
+        locationName (str): Location/venue name
+        address (str): Street address
+        city (str): City name
+        state (str): State abbreviation
+        postalCode (str): Postal/ZIP code
+        latitude (float): GPS latitude (auto-geocoded if not provided)
+        longitude (float): GPS longitude (auto-geocoded if not provided)
+        isOnline (bool): Online meeting flag
+        isHybrid (bool): Hybrid meeting flag
+        onlineUrl (str): Video conference URL
+        conferencePhone (str): Phone dial-in number
+        endTime (str): End time in HH:MM format
+        timezone (str): Timezone identifier
+        types (array): Meeting type codes (O, C, D, SP, BB, etc.)
+        notes (str): Additional notes
+        group (str): Group name
+        contactEmail (str): Contact email
+        contactPhone (str): Contact phone
+        locationNotes (str): Location access notes
+
+    Returns:
+        JSON with created meeting data or error message
+    """
+    if not BACK4APP_APP_ID or not BACK4APP_REST_KEY:
+        return jsonify({'error': 'Back4app not configured'}), 400
+
+    data = request.json
+    if not data:
+        return jsonify({'error': 'Request body is required'}), 400
+
+    # Validate required fields
+    errors = []
+    if not data.get('name') or not data.get('name').strip():
+        errors.append('Name is required')
+    if data.get('day') is None or not isinstance(data.get('day'), int) or data.get('day') < 0 or data.get('day') > 6:
+        errors.append('Day must be an integer from 0 (Sunday) to 6 (Saturday)')
+    if not data.get('time') or not isinstance(data.get('time'), str):
+        errors.append('Time is required in HH:MM format')
+    else:
+        # Validate time format
+        time_val = data.get('time', '')
+        if not re.match(r'^\d{1,2}:\d{2}$', time_val):
+            errors.append('Time must be in HH:MM format')
+
+    # Need at least some location info (unless online-only)
+    is_online_only = data.get('isOnline') and not data.get('isHybrid')
+    has_location = data.get('address') or data.get('city') or data.get('locationName')
+    if not is_online_only and not has_location:
+        errors.append('Location information required (address, city, or locationName) for in-person/hybrid meetings')
+
+    if errors:
+        return jsonify({'error': 'Validation failed', 'details': errors}), 400
+
+    # Build the meeting object
+    name = data.get('name', '').strip()
+    location_name = data.get('locationName', '').strip() or data.get('address', '').strip() or data.get('city', '').strip()
+    day = data.get('day')
+    meeting_time = data.get('time', '').strip()
+
+    # Generate unique key for deduplication
+    unique_key = f"{name}|{location_name}|{day}|{meeting_time}".lower().strip()
+
+    # Check for duplicates
+    if check_duplicate(unique_key):
+        return jsonify({
+            'error': 'A meeting with this name, location, day, and time already exists',
+            'uniqueKey': unique_key
+        }), 409
+
+    # Build formatted address
+    address_parts = []
+    if data.get('address'):
+        address_parts.append(data.get('address').strip())
+    if data.get('city'):
+        address_parts.append(data.get('city').strip())
+    if data.get('state'):
+        address_parts.append(data.get('state').strip())
+    if data.get('postalCode'):
+        address_parts.append(data.get('postalCode').strip())
+    formatted_address = ', '.join(address_parts) if address_parts else ''
+
+    # Get coordinates - use provided or geocode
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+
+    if (latitude is None or longitude is None) and formatted_address:
+        # Attempt to geocode
+        geo_lat, geo_lon = geocode_address(formatted_address)
+        if geo_lat is not None and geo_lon is not None:
+            latitude = geo_lat
+            longitude = geo_lon
+
+    # Build meeting data
+    meeting_data = {
+        'name': name,
+        'uniqueKey': unique_key,
+        'day': day,
+        'time': meeting_time,
+        'meetingType': data.get('meetingType', 'AA'),
+        'fellowship': data.get('meetingType', 'AA'),
+        'source': 'Admin Created',
+        'sourceType': 'admin',
+        'createdAt': datetime.utcnow().isoformat() + 'Z',
+    }
+
+    # Add optional fields if provided
+    if data.get('locationName'):
+        meeting_data['locationName'] = data.get('locationName').strip()
+    if data.get('address'):
+        meeting_data['address'] = data.get('address').strip()
+    if data.get('city'):
+        meeting_data['city'] = data.get('city').strip()
+    if data.get('state'):
+        meeting_data['state'] = data.get('state').strip().upper()
+    if data.get('postalCode'):
+        meeting_data['postalCode'] = data.get('postalCode').strip()
+    if formatted_address:
+        meeting_data['formattedAddress'] = formatted_address
+    if latitude is not None:
+        meeting_data['latitude'] = latitude
+    if longitude is not None:
+        meeting_data['longitude'] = longitude
+    if data.get('endTime'):
+        meeting_data['endTime'] = data.get('endTime').strip()
+    if data.get('timezone'):
+        meeting_data['timezone'] = data.get('timezone').strip()
+    if data.get('isOnline') is not None:
+        meeting_data['isOnline'] = bool(data.get('isOnline'))
+    if data.get('isHybrid') is not None:
+        meeting_data['isHybrid'] = bool(data.get('isHybrid'))
+    if data.get('onlineUrl'):
+        meeting_data['onlineUrl'] = data.get('onlineUrl').strip()
+    if data.get('conferencePhone'):
+        meeting_data['conferencePhone'] = data.get('conferencePhone').strip()
+    if data.get('types') and isinstance(data.get('types'), list):
+        meeting_data['types'] = data.get('types')
+    if data.get('notes'):
+        meeting_data['notes'] = data.get('notes').strip()
+    if data.get('group'):
+        meeting_data['group'] = data.get('group').strip()
+    if data.get('contactEmail'):
+        meeting_data['contactEmail'] = data.get('contactEmail').strip()
+    if data.get('contactPhone'):
+        meeting_data['contactPhone'] = data.get('contactPhone').strip()
+    if data.get('locationNotes'):
+        meeting_data['locationNotes'] = data.get('locationNotes').strip()
+
+    # Save to Back4app
+    headers = {
+        "X-Parse-Application-Id": BACK4APP_APP_ID,
+        "X-Parse-REST-API-Key": BACK4APP_REST_KEY,
+        "Content-Type": "application/json"
+    }
+
+    # Sanitize data for Parse
+    sanitized_data = sanitize_keys_for_parse(meeting_data)
+
+    try:
+        response = requests.post(BACK4APP_URL, headers=headers, json=sanitized_data, timeout=10)
+
+        if response.status_code == 201:
+            result = response.json()
+            # Add objectId to meeting data for response
+            meeting_data['objectId'] = result.get('objectId')
+
+            # Invalidate caches since we added a new meeting
+            meetings_data_cache.invalidate()
+            heatmap_cache.invalidate()
+            coverage_analysis_cache.invalidate()
+
+            add_log(f"Admin created meeting: {name} ({meeting_data.get('objectId')})", "success")
+
+            return jsonify({
+                'success': True,
+                'message': 'Meeting created successfully',
+                'meeting': meeting_data
+            }), 201
+        else:
+            error_detail = response.text[:500] if response.text else "No details"
+            add_log(f"Failed to create meeting: {response.status_code} - {error_detail}", "error")
+            return jsonify({
+                'error': f'Failed to save meeting (HTTP {response.status_code})',
+                'details': error_detail
+            }), 500
+
+    except Exception as e:
+        add_log(f"Exception creating meeting: {str(e)}", "error")
+        return jsonify({
+            'error': f'Exception while saving meeting: {str(e)}'
+        }), 500
+
+
 @app.route('/api/meetings/heatmap', methods=['GET'])
 def get_meetings_heatmap():
     """Get aggregated heatmap data for efficient map display.
