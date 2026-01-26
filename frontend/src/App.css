@@ -11766,6 +11766,109 @@ a.sidebar-nav-item {
   stroke-width: 2.5;
 }
 
+/* Add Meeting Success State */
+.add-meeting-success-panel {
+  max-width: 480px;
+}
+
+.add-meeting-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.success-animation {
+  margin-bottom: 1.5rem;
+}
+
+.success-checkmark {
+  width: 80px;
+  height: 80px;
+}
+
+.success-checkmark-circle {
+  stroke-dasharray: 166;
+  stroke-dashoffset: 166;
+  stroke-width: 2;
+  stroke-miterlimit: 10;
+  stroke: #4ade80;
+  fill: none;
+  animation: success-stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+
+.success-checkmark-check {
+  transform-origin: 50% 50%;
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  stroke-width: 3;
+  stroke: #4ade80;
+  stroke-linecap: round;
+  animation: success-stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.4s forwards;
+}
+
+@keyframes success-stroke {
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.success-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.success-meeting-name {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+}
+
+.success-meeting-details {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0 0 2rem 0;
+}
+
+.success-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 280px;
+}
+
+.success-actions .btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+}
+
+.success-actions .btn-view-meeting {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  font-size: 1rem;
+}
+
+.success-actions .btn-view-meeting:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-1px);
+}
+
+.success-actions .btn-ghost {
+  color: var(--text-secondary);
+}
+
+.success-actions .btn-ghost:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
 /* Responsive styles for Add Meeting Modal */
 @media (max-width: 768px) {
   .add-meeting-panel {
