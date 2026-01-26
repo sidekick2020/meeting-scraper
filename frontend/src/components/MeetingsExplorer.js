@@ -1420,10 +1420,13 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
 
     // If it's a recent search, geocode and pan to the location
     if (suggestion.type === 'recent') {
+      // Clear state/city filter so meeting list matches the searched location
+      setSelectedStates([]);
+      setSelectedCity('');
       // Mark as programmatic pan so handleBoundsChange doesn't clear filters
       isProgrammaticPanRef.current = true;
       // Geocode the search string and pan the map
-      geocodeAndPanMap(suggestion.value, selectedStates.length === 1 ? selectedStates[0] : null);
+      geocodeAndPanMap(suggestion.value, null);
     }
 
     // If it's a Nominatim place, pan/zoom map to that location and set filters
@@ -1518,10 +1521,14 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const handleSearchSubmit = () => {
     if (searchQuery) {
       saveRecentSearch(searchQuery);
+      // Clear state filter so meeting list matches the searched location
+      // This ensures the list shows meetings from the new area, not filtered by old state
+      setSelectedStates([]);
+      setSelectedCity('');
       // Mark as programmatic pan so handleBoundsChange doesn't clear filters
       isProgrammaticPanRef.current = true;
       // Geocode and pan map to the searched location - this will trigger bounds change and fetch
-      geocodeAndPanMap(searchQuery, selectedStates.length === 1 ? selectedStates[0] : null);
+      geocodeAndPanMap(searchQuery, null);
     }
     setShowSuggestions(false);
   };
