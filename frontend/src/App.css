@@ -24903,6 +24903,61 @@ a.sidebar-nav-item {
   min-width: 100px;
 }
 
+/* Search Bar */
+.online-meetings-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  min-width: 200px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.online-meetings-search:focus-within {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
+}
+
+.online-meetings-search svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.online-meetings-search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  color: var(--text-primary);
+  outline: none;
+  min-width: 0;
+}
+
+.online-meetings-search input::placeholder {
+  color: var(--text-muted);
+}
+
+.online-meetings-search-clear {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.online-meetings-search-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 /* Main Container */
 .online-meetings-container {
   flex: 1;
@@ -25270,6 +25325,16 @@ a.sidebar-nav-item {
   background: rgba(0, 122, 255, 0.08);
 }
 
+[data-theme="light"] .online-meetings-search {
+  background: white;
+  border-color: #e5e5e5;
+}
+
+[data-theme="light"] .online-meetings-search:focus-within {
+  border-color: #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .online-meetings-header {
@@ -25287,6 +25352,20 @@ a.sidebar-nav-item {
 
   .online-meetings-header-center h1 {
     font-size: 18px;
+  }
+
+  .online-meetings-header-right {
+    order: 2;
+    min-width: auto;
+  }
+
+  .online-meetings-search {
+    min-width: 140px;
+    padding: 6px 10px;
+  }
+
+  .online-meetings-search input {
+    font-size: 13px;
   }
 
   .online-meetings-container {

@@ -40,6 +40,7 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [totalMeetings, setTotalMeetings] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const containerRef = useRef(null);
   const nowMarkerRef = useRef(null);
@@ -113,6 +114,26 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
     fetchOnlineMeetings();
   }, [fetchOnlineMeetings]);
 
+  // Filter meetings based on search query
+  const filteredMeetings = useMemo(() => {
+    if (!searchQuery.trim()) return meetings;
+
+    const query = searchQuery.toLowerCase().trim();
+    return meetings.filter(meeting => {
+      const name = (meeting.name || '').toLowerCase();
+      const locationName = (meeting.locationName || '').toLowerCase();
+      const meetingType = (meeting.meetingType || '').toLowerCase();
+      const format = (meeting.format || '').toLowerCase();
+      const notes = (meeting.notes || '').toLowerCase();
+
+      return name.includes(query) ||
+             locationName.includes(query) ||
+             meetingType.includes(query) ||
+             format.includes(query) ||
+             notes.includes(query);
+    });
+  }, [meetings, searchQuery]);
+
   // Group meetings by day, ordered starting from today
   const groupedMeetings = useMemo(() => {
     const today = new Date().getDay();
@@ -125,7 +146,7 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
     }
 
     // Group meetings by day
-    meetings.forEach(meeting => {
+    filteredMeetings.forEach(meeting => {
       if (meeting.day !== undefined && groups[meeting.day]) {
         groups[meeting.day].push(meeting);
       }
@@ -151,7 +172,7 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
     }
 
     return orderedDays;
-  }, [meetings]);
+  }, [filteredMeetings]);
 
   // Find the index of the next meeting (for today's section)
   const getNextMeetingIndex = useCallback((dayMeetings) => {
@@ -271,11 +292,33 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
         <div className="online-meetings-header-center">
           <h1>Online Meetings</h1>
           <p className="online-meetings-count">
-            {isLoading ? 'Loading...' : `${totalMeetings} online meeting${totalMeetings !== 1 ? 's' : ''} available`}
+            {isLoading ? 'Loading...' : searchQuery ? `${filteredMeetings.length} of ${totalMeetings} meeting${totalMeetings !== 1 ? 's' : ''}` : `${totalMeetings} online meeting${totalMeetings !== 1 ? 's' : ''} available`}
           </p>
         </div>
         <div className="online-meetings-header-right">
-          {/* Placeholder for future actions */}
+          <div className="online-meetings-search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search meetings..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                className="online-meetings-search-clear"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -308,6 +351,18 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
             </svg>
             <h3>No online meetings found</h3>
             <p>There are no online meetings available at this time.</p>
+          </div>
+        ) : filteredMeetings.length === 0 && searchQuery ? (
+          <div className="online-meetings-empty">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+            <h3>No meetings match "{searchQuery}"</h3>
+            <p>Try a different search term or clear the search.</p>
+            <button className="btn btn-secondary" onClick={() => setSearchQuery('')}>
+              Clear Search
+            </button>
           </div>
         ) : (
           <div className="online-meetings-list">
