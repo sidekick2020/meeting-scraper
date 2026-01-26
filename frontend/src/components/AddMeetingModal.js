@@ -104,7 +104,6 @@ function AddMeetingModal({ onClose, onMeetingCreated }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
     setSaving(true);
 
     // Validate required fields
