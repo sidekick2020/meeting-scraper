@@ -13,6 +13,7 @@ import DevDocs from './DevDocs';
 import FeedDetailPanel from './FeedDetailPanel';
 import SourcesPage from './SourcesPage';
 import ClusteringProgressSidebar from './ClusteringProgressSidebar';
+import AddMeetingModal from './AddMeetingModal';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -447,6 +448,7 @@ function AdminPanel({ onBackToPublic }) {
   });
   const [recentMeetings, setRecentMeetings] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAddMeetingModal, setShowAddMeetingModal] = useState(false);
   // Derive backendConfigured from Parse context
   const backendConfigured = parseInitialized && parseConfig.hasAppId && parseConfig.hasJsKey;
   const [selectedMeeting, setSelectedMeeting] = useState(null);
@@ -1588,6 +1590,18 @@ function AdminPanel({ onBackToPublic }) {
               <div className="directory-count">
                 {directoryMeetings.length} of {directoryTotal} meeting{directoryTotal !== 1 ? 's' : ''}
               </div>
+              <div className="directory-header-actions">
+                <button
+                  className="btn-add-meeting"
+                  onClick={() => setShowAddMeetingModal(true)}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                  Add Meeting
+                </button>
+              </div>
             </div>
 
             {directoryLoading ? (
@@ -1928,6 +1942,17 @@ function AdminPanel({ onBackToPublic }) {
             name: user?.name,
             role: 'admin',
             isOwner: user?.email === 'chris.thompson@sobersidekick.com'
+          }}
+        />
+      )}
+
+      {showAddMeetingModal && (
+        <AddMeetingModal
+          onClose={() => setShowAddMeetingModal(false)}
+          onMeetingCreated={(meeting) => {
+            // Add the new meeting to the directory list
+            setDirectoryMeetings(prev => [meeting, ...prev]);
+            setDirectoryTotal(prev => prev + 1);
           }}
         />
       )}
