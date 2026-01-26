@@ -2105,6 +2105,36 @@ def generate_object_id():
     """Generate a 10-character alphanumeric objectId"""
     return ''.join(random.choices(string.ascii_letters + string.digits, k=10))
 
+def sanitize_keys_for_parse(data):
+    """Recursively sanitize dictionary keys to remove characters not allowed by Parse/MongoDB.
+
+    Back4app/Parse (built on MongoDB) does not allow '$' or '.' in field names.
+    This function replaces:
+    - '$' with '_dollar_'
+    - '.' with '_dot_'
+
+    Args:
+        data: Any data type (dict, list, or primitive)
+
+    Returns:
+        Sanitized data with safe key names
+    """
+    if isinstance(data, dict):
+        sanitized = {}
+        for key, value in data.items():
+            # Sanitize the key
+            new_key = key
+            if isinstance(key, str):
+                new_key = key.replace('$', '_dollar_').replace('.', '_dot_')
+            # Recursively sanitize the value
+            sanitized[new_key] = sanitize_keys_for_parse(value)
+        return sanitized
+    elif isinstance(data, list):
+        return [sanitize_keys_for_parse(item) for item in data]
+    else:
+        # Primitive types (str, int, float, bool, None) are returned as-is
+        return data
+
 def parse_address(formatted_address):
     """Parse a formatted address into components"""
     if not formatted_address:
@@ -2591,8 +2621,11 @@ def save_to_back4app(meeting_data, skip_duplicate_check=False):
         "Content-Type": "application/json"
     }
 
+    # Sanitize data to remove $ and . characters from keys (not allowed by Parse/MongoDB)
+    sanitized_data = sanitize_keys_for_parse(meeting_data)
+
     try:
-        response = requests.post(BACK4APP_URL, headers=headers, json=meeting_data, timeout=10)
+        response = requests.post(BACK4APP_URL, headers=headers, json=sanitized_data, timeout=10)
         if response.status_code == 201:
             return True
         else:
@@ -2658,13 +2691,14 @@ def save_to_back4app_batch(meetings):
         "Content-Type": "application/json"
     }
 
-    # Parse batch API format
+    # Parse batch API format - sanitize each meeting to remove $ and . from keys
     requests_list = []
     for meeting in meetings:
+        sanitized_meeting = sanitize_keys_for_parse(meeting)
         requests_list.append({
             "method": "POST",
             "path": "/classes/Meetings",
-            "body": meeting
+            "body": sanitized_meeting
         })
 
     try:
@@ -3286,15 +3320,18 @@ def save_scrape_history(status="completed", feeds_processed=0):
                 "Content-Type": "application/json"
             }
 
+            # Sanitize history entry to remove $ and . from keys (not allowed by Parse/MongoDB)
+            sanitized_entry = sanitize_keys_for_parse(history_entry)
+
             # If we have an existing Back4app objectId, update it; otherwise create new
             if current_scrape_object_id and status == "in_progress":
                 # Update existing record
                 history_url = f"https://parseapi.back4app.com/classes/ScrapeHistory/{current_scrape_object_id}"
-                response = requests.put(history_url, headers=headers, json=history_entry, timeout=10)
+                response = requests.put(history_url, headers=headers, json=sanitized_entry, timeout=10)
             else:
                 # Create new record
                 history_url = "https://parseapi.back4app.com/classes/ScrapeHistory"
-                response = requests.post(history_url, headers=headers, json=history_entry, timeout=10)
+                response = requests.post(history_url, headers=headers, json=sanitized_entry, timeout=10)
                 if response.status_code == 201:
                     # Store the objectId for future updates
                     result = response.json()
