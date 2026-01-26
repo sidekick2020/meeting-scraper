@@ -5058,6 +5058,7 @@ def create_meeting():
             longitude = geo_lon
 
     # Build meeting data
+    # Note: Do NOT set 'createdAt' - it's a reserved Parse field that's auto-managed
     meeting_data = {
         'name': name,
         'uniqueKey': unique_key,
@@ -5067,7 +5068,6 @@ def create_meeting():
         'fellowship': data.get('meetingType', 'AA'),
         'source': 'Admin Created',
         'sourceType': 'admin',
-        'createdAt': datetime.utcnow().isoformat() + 'Z',
     }
 
     # Add optional fields if provided
