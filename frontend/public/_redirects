@@ -1,1 +1,16 @@
-/*    /index.html   200
+# SPA Rewrite Rules for Render.com Static Site
+# More specific rules first, catch-all last
+# Format: source destination [status]
+
+# Meeting detail pages - handles /meeting/<any-id>
+/meeting/*  /index.html  200
+
+# Other SPA routes
+/docs       /index.html  200
+/docs/*     /index.html  200
+/download   /index.html  200
+/download/* /index.html  200
+/online-meetings  /index.html  200
+
+# Catch-all for any other SPA routes
+/*          /index.html  200
