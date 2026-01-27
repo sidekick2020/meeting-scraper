@@ -184,7 +184,7 @@ const MeetingTypeIcon = ({ type, size = 16 }) => {
   return iconMap[iconKey] || iconMap.circle;
 };
 
-function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
+function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isActive = true }) {
   // Data cache context for persisting data across navigation
   const { getCache, setCache } = useDataCache();
 
@@ -641,22 +641,24 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
     fetchMeetingsRef.current = fetchMeetings;
   }, [fetchMeetings]);
 
-  // Fetch meetings when bounds change (map pan/zoom)
+  // Fetch meetings when bounds change (map pan/zoom) or when view becomes active
   // CRITICAL: Use ref to avoid dependency on fetchMeetings callback reference
   // Including fetchMeetings in deps causes infinite loops when filters change:
   // filter change -> callback recreated -> effect re-runs -> duplicate API calls
+  // Also checks isActive to pause fetching when admin panel is in foreground
   useEffect(() => {
-    if (mapBounds) {
+    if (mapBounds && isActive) {
       fetchMeetingsRef.current?.(mapBounds);
     }
-  }, [mapBounds]); // Removed fetchMeetings - use ref instead
+  }, [mapBounds, isActive]); // isActive triggers refetch when returning to foreground
 
   // Debounced fetch when filters change - prevents rapid API calls during filter updates
   // CRITICAL: Use ref to avoid dependency on fetchMeetings callback reference
   // Including fetchMeetings in deps causes cascade of duplicate API calls when filters change
+  // Skip if isActive is false (admin panel in foreground) to avoid unnecessary API calls
   useEffect(() => {
-    // Only trigger debounced fetch if we have bounds (map is initialized)
-    if (!mapBounds) return;
+    // Only trigger debounced fetch if we have bounds (map is initialized) and view is active
+    if (!mapBounds || !isActive) return;
 
     // Clear any pending debounced fetch
     if (filterFetchTimeoutRef.current) {
@@ -677,7 +679,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
         clearTimeout(filterFetchTimeoutRef.current);
       }
     };
-  }, [selectedStates, selectedDays, selectedTypes, selectedCity, showOnlineOnly, showHybridOnly, showTodayOnly, selectedFormat, mapBounds]); // Removed fetchMeetings - use ref instead
+  }, [selectedStates, selectedDays, selectedTypes, selectedCity, showOnlineOnly, showHybridOnly, showTodayOnly, selectedFormat, mapBounds, isActive]); // isActive included to skip when admin panel active
 
   // Cleanup on unmount - abort pending requests and clear timeouts
   useEffect(() => {

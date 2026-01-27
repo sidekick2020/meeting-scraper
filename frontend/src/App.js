@@ -131,26 +131,26 @@ function AppContent() {
     <div className="App">
       <DeploymentIndicator />
 
-      {currentView === 'public' ? (
-        <>
-          <MeetingsExplorer
-            sidebarOpen={sidebarOpen}
-            onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
-            onMobileNavChange={setMobileNav}
-          />
-          <PublicSidebar
-            onAdminClick={handleAdminClick}
-            isOpen={sidebarOpen}
-            onToggle={setSidebarOpen}
-            mobileNav={mobileNav}
-          />
-        </>
-      ) : (
-        <>
-          {!isBackendReady && <LoadingOverlay onReady={handleBackendReady} />}
-          <AdminPanel onBackToPublic={handleBackToPublic} />
-        </>
-      )}
+      {/* Keep both views mounted to preserve state, but hide inactive view */}
+      {/* MeetingsExplorer pauses API requests when isActive=false */}
+      <div style={{ display: currentView === 'public' ? 'contents' : 'none' }}>
+        <MeetingsExplorer
+          sidebarOpen={sidebarOpen}
+          onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
+          onMobileNavChange={setMobileNav}
+          isActive={currentView === 'public'}
+        />
+        <PublicSidebar
+          onAdminClick={handleAdminClick}
+          isOpen={sidebarOpen}
+          onToggle={setSidebarOpen}
+          mobileNav={mobileNav}
+        />
+      </div>
+      <div style={{ display: currentView === 'admin' ? 'contents' : 'none' }}>
+        {!isBackendReady && <LoadingOverlay onReady={handleBackendReady} />}
+        <AdminPanel onBackToPublic={handleBackToPublic} />
+      </div>
 
       {showSignIn && (
         <SignInModal onClose={() => setShowSignIn(false)} />
