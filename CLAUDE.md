@@ -123,6 +123,7 @@ meeting-scraper/
 ### Frontend Contexts (`frontend/src/contexts/`)
 | Context | Purpose |
 |---------|---------|
+| `AnalyticsContext.js` | Amplitude analytics tracking (see Analytics section) |
 | `AuthContext.js` | Google Sign-In authentication |
 | `ParseContext.js` | Back4app/Parse SDK initialization |
 | `DataCacheContext.js` | Client-side API response caching |
@@ -236,6 +237,7 @@ npm start
 **Frontend** (optional - defaults work for development):
 - `REACT_APP_BACKEND_URL` - Backend API URL
 - `REACT_APP_GOOGLE_CLIENT_ID` - Google OAuth client ID
+- `REACT_APP_AMPLITUDE_API_KEY` - Amplitude analytics API key (required for production)
 
 ---
 
@@ -560,3 +562,268 @@ docker-compose up --build
 - Ensure `build/200.html` exists after build
 - Verify `_redirects` file is in `frontend/public/`
 - Check `render.yaml` has correct rewrite rules
+
+---
+
+## Amplitude Analytics Data Collection
+
+This project uses [Amplitude Analytics](https://amplitude.com/docs/analytics) for product analytics. The implementation is in `frontend/src/contexts/AnalyticsContext.js`.
+
+### Current Implementation Status
+
+| Category | Status | Coverage |
+|----------|--------|----------|
+| Core Context | ✅ Complete | `AnalyticsContext.js` with 120+ event constants |
+| MeetingsExplorer | ✅ Complete | 21+ tracking calls |
+| AdminPanel | ✅ Complete | 9+ tracking calls |
+| MeetingDetailPage | ✅ Complete | Full tracking |
+| OnlineMeetings | ✅ Complete | Full tracking |
+| Other Components | ⚠️ Incomplete | 30+ components need tracking |
+
+### Environment Configuration
+
+```bash
+# Required for production
+REACT_APP_AMPLITUDE_API_KEY=your-amplitude-api-key
+
+# Development (analytics disabled by default)
+# Set the key in .env.development.local to enable local tracking
+```
+
+### Event Naming Conventions
+
+Follow [Amplitude's taxonomy best practices](https://amplitude.com/docs/data/data-planning-playbook):
+
+| Rule | Example | Rationale |
+|------|---------|-----------|
+| Use `snake_case` | `meeting_viewed` | Consistent, readable |
+| Use past tense verbs | `search_completed` | Indicates action occurred |
+| Noun + Verb pattern | `filter_applied` | Consistent structure |
+| Be concise | `map_zoom_changed` vs `user_changed_zoom_on_map` | Easier to query |
+
+**Property Naming:**
+- Use `snake_case` for properties: `meeting_id`, `filter_type`
+- Limit to 20 properties per event
+- Use boolean prefixes: `is_online`, `has_results`
+
+### Required Analytics When Adding Features
+
+**CRITICAL**: When implementing new features, Claude MUST add analytics tracking. Follow this checklist:
+
+#### 1. Page/View Tracking
+```javascript
+// Track when user enters a new page or view
+const { trackPageView, events } = useAnalytics();
+
+useEffect(() => {
+  trackPageView('FeatureName', {
+    source: 'navigation', // or 'deep_link', 'search', etc.
+  });
+}, []);
+```
+
+#### 2. User Actions
+```javascript
+// Track all user interactions
+const { track, events } = useAnalytics();
+
+// Button clicks
+track(events.FEATURE_ACTION_COMPLETED, {
+  action: 'button_clicked',
+  button_name: 'submit',
+  context: 'form_submission',
+});
+
+// Form submissions
+track(events.FORM_SUBMITTED, {
+  form_name: 'contact',
+  field_count: 5,
+  has_errors: false,
+});
+```
+
+#### 3. Feature-Specific Events
+Add new event constants to `ANALYTICS_EVENTS` in `AnalyticsContext.js`:
+
+```javascript
+// In ANALYTICS_EVENTS object
+NEW_FEATURE_VIEWED: 'new_feature_viewed',
+NEW_FEATURE_ACTION: 'new_feature_action',
+NEW_FEATURE_COMPLETED: 'new_feature_completed',
+NEW_FEATURE_ERROR: 'new_feature_error',
+```
+
+#### 4. Error Tracking
+```javascript
+const { trackError } = useAnalytics();
+
+try {
+  // operation
+} catch (error) {
+  trackError('feature_name', error.message, {
+    error_code: error.code,
+    user_action: 'attempted_submit',
+  });
+}
+```
+
+### User Properties to Track
+
+Set user properties for segmentation and [behavioral cohorts](https://amplitude.com/docs/faq/behavioral-cohorts):
+
+| Property | When to Set | Purpose |
+|----------|-------------|---------|
+| `is_admin` | On sign-in | Segment admin vs public users |
+| `email` | On sign-in | User identification |
+| `preferred_fellowship` | On filter selection | Understand user preferences |
+| `preferred_state` | On location search | Geographic segmentation |
+| `session_count` | On each session | Engagement tracking |
+| `meetings_viewed_count` | Increment on view | Engagement depth |
+| `last_search_query` | On search | Search behavior |
+| `theme_preference` | On theme toggle | UX insights |
+
+```javascript
+const { setUserProperties, incrementUserProperty } = useAnalytics();
+
+// Set properties
+setUserProperties({
+  preferred_fellowship: 'AA',
+  preferred_state: 'CA',
+});
+
+// Increment counters
+incrementUserProperty('meetings_viewed_count', 1);
+```
+
+### Funnel Events to Track
+
+Define clear funnels for key user journeys:
+
+**Meeting Discovery Funnel:**
+1. `app_loaded` → User arrives
+2. `search_initiated` → User searches
+3. `search_completed` → Results shown
+4. `meeting_viewed` → User clicks meeting
+5. `meeting_directions_clicked` OR `meeting_online_link_clicked` → User takes action
+
+**Admin Workflow Funnel:**
+1. `admin_signin_success` → Admin logs in
+2. `admin_tab_viewed` → Admin navigates
+3. `scrape_started` → Admin initiates scrape
+4. `scrape_completed` → Scrape finishes
+
+### Session Replay Integration
+
+[Session Replay](https://amplitude.com/docs/session-replay) is available on Amplitude's paid plans. When enabled:
+
+1. Configure in `AnalyticsContext.js`:
+```javascript
+amplitude.init(AMPLITUDE_API_KEY, {
+  defaultTracking: {
+    sessions: true,
+    pageViews: true,
+    formInteractions: true,
+    fileDownloads: true,
+  },
+  // Enable session replay (requires paid plan)
+  plugins: [sessionReplayPlugin()],
+});
+```
+
+2. Track key moments for replay review:
+```javascript
+// Mark important moments for session replay filtering
+track('checkout_friction_point', { step: 'payment', issue: 'validation_error' });
+```
+
+### Components Requiring Analytics Integration
+
+The following components need analytics added:
+
+| Component | Priority | Events to Track |
+|-----------|----------|-----------------|
+| `CoverageAnalysis.js` | High | State clicked, coverage viewed |
+| `SettingsModal.js` | High | Tab changed, settings modified |
+| `DownloadPage.js` | High | Download initiated, platform selected |
+| `DevDocs.js` | Medium | Section viewed, code copied |
+| `SourcesPage.js` | Medium | Source viewed, feed tested |
+| `StateHeatmapModal.js` | Medium | State selected, zoom level |
+| `Dashboard.js` | Medium | Metrics viewed, time range changed |
+| `ScrapePanel.js` | Medium | Feed selected, scrape progress |
+| `MeetingMap.js` | Low | (May cause noise - debounce) |
+
+### Performance & API Tracking
+
+Track API performance for monitoring:
+
+```javascript
+const { trackApiRequest } = useAnalytics();
+
+const startTime = Date.now();
+try {
+  const response = await fetch(endpoint);
+  trackApiRequest(endpoint, Date.now() - startTime, true, {
+    status_code: response.status,
+    response_size: response.headers.get('content-length'),
+  });
+} catch (error) {
+  trackApiRequest(endpoint, Date.now() - startTime, false, {
+    error_message: error.message,
+  });
+}
+```
+
+### Behavioral Cohorts to Create in Amplitude
+
+After sufficient data collection, create these [cohorts](https://amplitude.com/docs/analytics/define-cohort):
+
+| Cohort Name | Definition | Use Case |
+|-------------|------------|----------|
+| Power Users | 10+ meetings viewed in 7 days | Feature prioritization |
+| New Users | First session in last 7 days | Onboarding analysis |
+| Churning Users | No activity in 14 days after 3+ sessions | Re-engagement |
+| Mobile Users | Device type = mobile | Mobile UX optimization |
+| Admin Active | Admin actions in last 7 days | Admin tool usage |
+| Search Failures | search_completed with results_count = 0 | Search improvement |
+| High Intent | directions_clicked OR online_link_clicked | Conversion analysis |
+
+### A/B Testing Preparation
+
+For future [Amplitude Experiment](https://amplitude.com/amplitude-experiment) integration:
+
+1. Track variant exposure:
+```javascript
+track('experiment_viewed', {
+  experiment_name: 'new_search_ui',
+  variant: 'treatment_a',
+});
+```
+
+2. Track conversion events tied to experiments:
+```javascript
+track('experiment_conversion', {
+  experiment_name: 'new_search_ui',
+  variant: 'treatment_a',
+  conversion_event: 'meeting_viewed',
+});
+```
+
+### Data Quality Checklist
+
+Before merging features with analytics:
+
+- [ ] All new events added to `ANALYTICS_EVENTS` constant
+- [ ] Event names follow `snake_case` naming convention
+- [ ] Properties limited to 20 per event
+- [ ] No PII in event properties (no full addresses, phone numbers)
+- [ ] Error cases tracked with `trackError()`
+- [ ] User properties set where appropriate
+- [ ] Page views tracked for new routes
+- [ ] Funnels considered and documented
+
+### Privacy Considerations
+
+- Never track: Full addresses, phone numbers, email content, meeting notes content
+- Anonymize: Use meeting IDs instead of names where possible
+- Comply with: GDPR, CCPA - implement consent where required
+- IP handling: Amplitude uses IP for geolocation then discards by default
