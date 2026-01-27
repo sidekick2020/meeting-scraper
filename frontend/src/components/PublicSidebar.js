@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAnalytics } from '../contexts/AnalyticsContext';
 
 const dayAbbrev = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -62,6 +63,7 @@ function PublicSidebar({
   const setIsOpen = isControlled ? onToggle : setInternalIsOpen;
 
   const { toggleTheme, isDark } = useTheme();
+  const { track, events, trackNavigation } = useAnalytics();
   const sidebarRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -392,7 +394,7 @@ function PublicSidebar({
             <div className="public-sidebar-section-title">Appearance</div>
             <button
               className="public-sidebar-item"
-              onClick={toggleTheme}
+              onClick={() => { track(events.THEME_TOGGLED, { new_theme: isDark ? 'light' : 'dark' }); toggleTheme(); }}
             >
               <span className="public-sidebar-item-icon">
                 {isDark ? (
@@ -428,6 +430,7 @@ function PublicSidebar({
             <button
               className={`public-sidebar-item ${location.pathname === '/online-meetings' ? 'active' : ''}`}
               onClick={() => {
+                trackNavigation('online_meetings');
                 navigate('/online-meetings');
                 setIsOpen(false);
               }}
@@ -446,6 +449,7 @@ function PublicSidebar({
             <button
               className={`public-sidebar-item ${location.pathname === '/' ? 'active' : ''}`}
               onClick={() => {
+                trackNavigation('home');
                 navigate('/');
                 setIsOpen(false);
               }}

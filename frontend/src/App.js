@@ -8,6 +8,7 @@ import { ParseProvider, useParse } from './contexts/ParseContext';
 import { ParseQueryLoggerProvider } from './contexts/ParseQueryLoggerContext';
 import { DevModeProvider } from './contexts/DevModeContext';
 import { MemoryMonitorProvider } from './contexts/MemoryMonitorContext';
+import { AnalyticsProvider, useAnalytics, ANALYTICS_EVENTS } from './contexts/AnalyticsContext';
 import MeetingsExplorer from './components/MeetingsExplorer';
 import OnlineMeetings from './components/OnlineMeetings';
 import AdminPanel from './components/AdminPanel';
@@ -23,8 +24,10 @@ import MemoryCleanupIntegration from './components/MemoryCleanupIntegration';
 
 function SignInModal({ onClose }) {
   const { signIn, authError, clearError, allowedDomains } = useAuth();
+  const { track, events } = useAnalytics();
 
   const handleSignIn = () => {
+    track(events.ADMIN_SIGNIN_CLICKED);
     signIn();
   };
 
@@ -70,14 +73,21 @@ function SignInModal({ onClose }) {
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
   const { connectionStatus, isConnectionReady } = useParse();
+  const { track, events, trackPageView } = useAnalytics();
   const [currentView, setCurrentView] = useState('public'); // 'public' or 'admin'
   const [showSignIn, setShowSignIn] = useState(false);
   const [isBackendReady, setIsBackendReady] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileNav, setMobileNav] = useState(null);
 
+  // Track initial page view
+  React.useEffect(() => {
+    trackPageView('home', { view: 'public' });
+  }, [trackPageView]);
+
   const handleAdminClick = () => {
     if (isAuthenticated) {
+      track(events.ADMIN_VIEW_ENTERED);
       setCurrentView('admin');
     } else {
       setShowSignIn(true);
@@ -85,6 +95,7 @@ function AppContent() {
   };
 
   const handleBackToPublic = () => {
+    track(events.ADMIN_VIEW_EXITED);
     setCurrentView('public');
   };
 
@@ -160,9 +171,14 @@ function AppContent() {
 }
 
 function DocsPage() {
+  const { trackPageView } = useAnalytics();
   const handleAdminClick = () => {
     window.location.href = '/?admin=1';
   };
+
+  React.useEffect(() => {
+    trackPageView('docs');
+  }, [trackPageView]);
 
   return (
     <div className="App">
@@ -173,9 +189,14 @@ function DocsPage() {
 }
 
 function DownloadPageWrapper() {
+  const { trackPageView } = useAnalytics();
   const handleAdminClick = () => {
     window.location.href = '/?admin=1';
   };
+
+  React.useEffect(() => {
+    trackPageView('download');
+  }, [trackPageView]);
 
   return (
     <div className="App">
@@ -186,10 +207,15 @@ function DownloadPageWrapper() {
 }
 
 function OnlineMeetingsPage() {
+  const { trackPageView } = useAnalytics();
   const handleAdminClick = () => {
     window.location.href = '/?admin=1';
   };
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  React.useEffect(() => {
+    trackPageView('online_meetings');
+  }, [trackPageView]);
 
   return (
     <div className="App">
@@ -208,9 +234,14 @@ function OnlineMeetingsPage() {
 }
 
 function MeetingDetailPageWrapper() {
+  const { trackPageView } = useAnalytics();
   const handleAdminClick = () => {
     window.location.href = '/?admin=1';
   };
+
+  React.useEffect(() => {
+    trackPageView('meeting_detail');
+  }, [trackPageView]);
 
   return (
     <div className="App">
@@ -225,28 +256,30 @@ function App() {
   return (
     <BrowserRouter>
       <ThemeProvider>
-        <MemoryMonitorProvider>
-          <DevModeProvider>
-            <ParseQueryLoggerProvider>
-              <ParseProvider>
-                <AuthProvider>
-                  <DataCacheProvider>
-                    <MemoryCleanupIntegration />
-                    <Routes>
-                      <Route path="/" element={<AppContent />} />
-                      <Route path="/online-meetings" element={<OnlineMeetingsPage />} />
-                      <Route path="/docs" element={<DocsPage />} />
-                      <Route path="/download" element={<DownloadPageWrapper />} />
-                      <Route path="/meeting/:id" element={<MeetingDetailPageWrapper />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                    <DevModeApiIndicator />
-                  </DataCacheProvider>
-                </AuthProvider>
-              </ParseProvider>
-            </ParseQueryLoggerProvider>
-          </DevModeProvider>
-        </MemoryMonitorProvider>
+        <AnalyticsProvider>
+          <MemoryMonitorProvider>
+            <DevModeProvider>
+              <ParseQueryLoggerProvider>
+                <ParseProvider>
+                  <AuthProvider>
+                    <DataCacheProvider>
+                      <MemoryCleanupIntegration />
+                      <Routes>
+                        <Route path="/" element={<AppContent />} />
+                        <Route path="/online-meetings" element={<OnlineMeetingsPage />} />
+                        <Route path="/docs" element={<DocsPage />} />
+                        <Route path="/download" element={<DownloadPageWrapper />} />
+                        <Route path="/meeting/:id" element={<MeetingDetailPageWrapper />} />
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                      <DevModeApiIndicator />
+                    </DataCacheProvider>
+                  </AuthProvider>
+                </ParseProvider>
+              </ParseQueryLoggerProvider>
+            </DevModeProvider>
+          </MemoryMonitorProvider>
+        </AnalyticsProvider>
       </ThemeProvider>
     </BrowserRouter>
   );
