@@ -144,7 +144,8 @@ function AppContent() {
 
       {/* Keep both views mounted to preserve state, but hide inactive view */}
       {/* MeetingsExplorer pauses API requests when isActive=false */}
-      <div style={{ display: currentView === 'public' ? 'contents' : 'none' }}>
+      {/* Using CSS class instead of display:contents for better browser compatibility */}
+      <div className={`app-view-wrapper ${currentView !== 'public' ? 'hidden' : ''}`}>
         <MeetingsExplorer
           sidebarOpen={sidebarOpen}
           onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
@@ -158,7 +159,7 @@ function AppContent() {
           mobileNav={mobileNav}
         />
       </div>
-      <div style={{ display: currentView === 'admin' ? 'contents' : 'none' }}>
+      <div className={`app-view-wrapper ${currentView !== 'admin' ? 'hidden' : ''}`}>
         {!isBackendReady && <LoadingOverlay onReady={handleBackendReady} />}
         <AdminPanel onBackToPublic={handleBackToPublic} />
       </div>
