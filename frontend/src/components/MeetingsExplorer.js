@@ -1177,18 +1177,13 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
               'District of Columbia': 'DC'
             };
 
-            // Set state filter if we have state info
-            if (firstResult.state) {
-              const stateAbbr = stateAbbreviations[firstResult.state];
-              if (stateAbbr) {
-                setSelectedStates([stateAbbr]);
-              }
-            }
-
-            // Set city filter if we have city info
-            if (firstResult.city) {
-              setSelectedCity(firstResult.city);
-            }
+            // Don't set state/city filters for Nominatim location searches
+            // The geographic bounds already filter to the correct area
+            // Setting city filter causes 0 results when Nominatim city names
+            // don't exactly match database values (case, format, spelling)
+            // Instead, clear any existing filters and let bounds do the work
+            setSelectedStates([]);
+            setSelectedCity('');
 
             // Update mapCenterLocation to sync with the searched location
             // This ensures the header shows the correct location name
@@ -1511,32 +1506,23 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
         zoom: 12 // City-level zoom
       });
 
-      // Extract state abbreviation from full state name if available
-      const stateAbbreviations = {
-        'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
-        'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
-        'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
-        'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
-        'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
-        'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
-        'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
-        'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
-        'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
-        'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY',
-        'District of Columbia': 'DC'
-      };
+      // Don't set state/city filters for Nominatim location searches
+      // The geographic bounds already filter to the correct area
+      // Setting city filter causes 0 results when Nominatim city names
+      // don't exactly match database values (case, format, spelling)
+      // Instead, clear any existing filters and let bounds do the work
+      setSelectedStates([]);
+      setSelectedCity('');
 
-      // Set the state filter if we have state info
-      if (suggestion.state) {
-        const stateAbbr = stateAbbreviations[suggestion.state];
-        if (stateAbbr) {
-          setSelectedStates([stateAbbr]);
-        }
-      }
-
-      // Set the city filter if we have city info
-      if (suggestion.city) {
-        setSelectedCity(suggestion.city);
+      // Update mapCenterLocation for the header display
+      if (suggestion.city && suggestion.state) {
+        setMapCenterLocation(`${suggestion.city}, ${suggestion.state}`);
+      } else if (suggestion.city) {
+        setMapCenterLocation(suggestion.city);
+      } else if (suggestion.state) {
+        setMapCenterLocation(suggestion.state);
+      } else if (suggestion.label) {
+        setMapCenterLocation(suggestion.label);
       }
     }
 
