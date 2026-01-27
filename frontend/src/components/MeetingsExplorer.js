@@ -1488,6 +1488,9 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
       isProgrammaticPanRef.current = true;
       // Geocode the search string and pan the map
       geocodeAndPanMap(suggestion.value, null);
+      // Clear the text search query since we're using geographic search
+      // The full location string doesn't match meeting city fields
+      setSearchQuery('');
     }
 
     // If it's a Nominatim place, pan/zoom map to that location and set filters
@@ -1582,7 +1585,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
   const handleSearchSubmit = () => {
     if (searchQuery) {
       saveRecentSearch(searchQuery);
-      // Clear state filter so meeting list matches the searched location
+      // Clear state/city filters so meeting list matches the searched location
       // This ensures the list shows meetings from the new area, not filtered by old state
       setSelectedStates([]);
       setSelectedCity('');
@@ -1590,6 +1593,10 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
       isProgrammaticPanRef.current = true;
       // Geocode and pan map to the searched location - this will trigger bounds change and fetch
       geocodeAndPanMap(searchQuery, null);
+      // Clear the text search query since we're using geographic search
+      // The full location string (e.g., "Bentonville, Benton County") doesn't
+      // match meeting city fields, causing list to show 0 meetings while map shows many
+      setSearchQuery('');
     }
     setShowSuggestions(false);
   };
