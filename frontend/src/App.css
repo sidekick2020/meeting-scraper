@@ -98,6 +98,19 @@ html, body {
   overflow-x: hidden;
 }
 
+/* View wrapper for preserving state while hiding inactive views */
+/* Uses flex instead of display:contents for better browser compatibility */
+.app-view-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0; /* Allow flex shrinking */
+}
+
+.app-view-wrapper.hidden {
+  display: none;
+}
+
 /* Deployment Banner */
 .deployment-banner {
   position: fixed;
