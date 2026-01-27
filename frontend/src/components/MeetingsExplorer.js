@@ -949,6 +949,9 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
     setSelectedCity('');
   }, [selectedStates, meetings]);
 
+  // Check if any filters are active - needed for clearFilters and UI
+  const hasActiveFilters = searchQuery || selectedStates.length > 0 || selectedCity || selectedDays.length > 0 || selectedTypes.length > 0 || showOnlineOnly || showTodayOnly || showHybridOnly || selectedFormat || selectedAccessibility.length > 0;
+
   const clearFilters = useCallback(() => {
     // Track filter cleared
     track(events.FILTER_CLEARED, { had_active_filters: hasActiveFilters });
@@ -1025,8 +1028,6 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
         : [...prev, state]
     );
   };
-
-  const hasActiveFilters = searchQuery || selectedStates.length > 0 || selectedCity || selectedDays.length > 0 || selectedTypes.length > 0 || showOnlineOnly || showTodayOnly || showHybridOnly || selectedFormat || selectedAccessibility.length > 0;
 
   // Count the number of active filters for the badge
   const activeFilterCount = useMemo(() => {
