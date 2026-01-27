@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useParse } from '../contexts/ParseContext';
+import { useAnalytics } from '../contexts/AnalyticsContext';
 import SourceDetailPanel from './SourceDetailPanel';
 
 // Generate static map tile URL from coordinates
@@ -63,6 +64,7 @@ function MeetingDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { getObject, isReady, connectionStatus } = useParse();
+  const { track, events, trackMeetingViewed } = useAnalytics();
 
   const [meeting, setMeeting] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -82,7 +84,16 @@ function MeetingDetailPage() {
         setError(null);
         const result = await getObject('Meetings', id);
         if (result) {
-          setMeeting(result.toJSON());
+          const meetingData = result.toJSON();
+          setMeeting(meetingData);
+          // Track meeting page viewed
+          track(events.MEETING_PAGE_VIEWED, {
+            meeting_id: id,
+            meeting_name: meetingData.name,
+            meeting_fellowship: meetingData.fellowship,
+            meeting_city: meetingData.city,
+            meeting_state: meetingData.state
+          });
         } else {
           setError('Meeting not found');
         }
@@ -97,7 +108,7 @@ function MeetingDetailPage() {
     if (id) {
       fetchMeeting();
     }
-  }, [id, getObject, isReady, connectionStatus]);
+  }, [id, getObject, isReady, connectionStatus, track, events.MEETING_PAGE_VIEWED]);
 
   // Reset image loaded state when meeting changes
   useEffect(() => {

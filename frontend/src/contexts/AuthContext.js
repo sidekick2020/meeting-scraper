@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAnalytics } from './AnalyticsContext';
 
 const AuthContext = createContext(null);
 
@@ -9,6 +10,7 @@ const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
 const ALLOWED_DOMAINS = ['sobersidekick.com', 'empathyhealthtech.com'];
 
 export function AuthProvider({ children }) {
+  const { track, events, identify, resetUser: resetAnalyticsUser } = useAnalytics();
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
@@ -78,6 +80,7 @@ export function AuthProvider({ children }) {
     // Check if email domain is allowed
     if (!isAllowedDomain(payload.email)) {
       setAuthError(`Access denied. Only ${ALLOWED_DOMAINS.join(' and ')} email addresses are allowed.`);
+      track(events.ADMIN_SIGNIN_FAILED, { reason: 'domain_not_allowed' });
       return;
     }
 
@@ -91,6 +94,14 @@ export function AuthProvider({ children }) {
     setUser(userData);
     setAuthError(null);
     localStorage.setItem('auth_user', JSON.stringify(userData));
+
+    // Track successful sign-in and identify user
+    track(events.ADMIN_SIGNIN_SUCCESS, { domain: payload.email.split('@')[1] });
+    identify(payload.sub, {
+      email: payload.email,
+      name: payload.name,
+      is_admin: true
+    });
   };
 
   const decodeJwt = (token) => {
@@ -110,6 +121,8 @@ export function AuthProvider({ children }) {
   };
 
   const signOut = () => {
+    track(events.ADMIN_SIGNOUT);
+    resetAnalyticsUser();
     setUser(null);
     setAuthError(null);
     localStorage.removeItem('auth_user');

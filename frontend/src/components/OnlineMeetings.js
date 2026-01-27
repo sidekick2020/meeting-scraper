@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom';
 import MeetingDetail from './MeetingDetail';
 import { SidebarToggleButton } from './PublicSidebar';
+import { useAnalytics } from '../contexts/AnalyticsContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -51,6 +52,7 @@ const getCurrentTimeMinutes = () => {
 
 function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
   const navigate = useNavigate();
+  const { track, events, trackMeetingViewed, trackFilterChange } = useAnalytics();
   const [meetings, setMeetings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -125,11 +127,23 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
           const uniqueNew = newMeetings.filter(m => !existingIds.has(m.objectId));
           const updated = [...prev, ...uniqueNew];
           meetingsRef.current = updated;
+          // Track load more
+          track(events.MEETINGS_LOAD_MORE, {
+            new_count: uniqueNew.length,
+            total_loaded: updated.length,
+            page: 'online_meetings'
+          });
           return updated;
         });
       } else {
         meetingsRef.current = newMeetings;
         setMeetings(newMeetings);
+        // Track initial load
+        track(events.MEETINGS_LOADED, {
+          count: newMeetings.length,
+          total: data.total || 0,
+          page: 'online_meetings'
+        });
       }
     } catch (err) {
       setError(err.message);
@@ -137,7 +151,7 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, []);
+  }, [track, events.MEETINGS_LOADED, events.MEETINGS_LOAD_MORE]);
 
   useEffect(() => {
     fetchOnlineMeetings();
@@ -228,15 +242,22 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
   const toggleFilter = useCallback((filterType, value) => {
     setFilters(prev => {
       const current = prev[filterType];
-      const updated = current.includes(value)
+      const isRemoving = current.includes(value);
+      const updated = isRemoving
         ? current.filter(v => v !== value)
         : [...current, value];
+      // Track filter change
+      trackFilterChange(`online_${filterType}`, value, {
+        action: isRemoving ? 'remove' : 'add',
+        page: 'online_meetings'
+      });
       return { ...prev, [filterType]: updated };
     });
-  }, []);
+  }, [trackFilterChange]);
 
   // Clear all filters
   const clearFilters = useCallback(() => {
+    track(events.FILTER_CLEARED, { page: 'online_meetings' });
     setFilters({
       fellowships: [],
       days: [],
@@ -244,7 +265,7 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
       hybridOnly: false,
     });
     setSearchQuery('');
-  }, []);
+  }, [track, events.FILTER_CLEARED]);
 
   // Group meetings by day, ordered starting from today
   const groupedMeetings = useMemo(() => {
@@ -344,6 +365,7 @@ function OnlineMeetings({ sidebarOpen, onSidebarToggle }) {
 
   const handleMeetingClick = (meeting) => {
     setSelectedMeeting(meeting);
+    trackMeetingViewed(meeting, { source: 'online_meetings_list', is_online: true });
   };
 
   const loadMoreMeetings = useCallback(() => {

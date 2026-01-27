@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useDataCache } from '../contexts/DataCacheContext';
 import { useParse } from '../contexts/ParseContext';
+import { useAnalytics } from '../contexts/AnalyticsContext';
 import SettingsModal from './SettingsModal';
 import Stats from './Stats';
 import ParseQueryLog from './ParseQueryLog';
@@ -390,6 +391,7 @@ function AdminPanel({ onBackToPublic }) {
   const { user, signOut } = useAuth();
   const { getCache, setCache } = useDataCache();
   const { isInitialized: parseInitialized, config: parseConfig } = useParse();
+  const { track, events, trackAdminAction } = useAnalytics();
 
   // Initialize from cache
   const cachedFeeds = getCache(ADMIN_CACHE_KEYS.FEEDS);
@@ -1027,6 +1029,7 @@ function AdminPanel({ onBackToPublic }) {
   const startScraping = async () => {
     setIsStartingScrape(true);
     setScrapeError(null);
+    trackAdminAction(events.SCRAPE_STARTED, { feeds_count: selectedFeeds.length });
 
     try {
       const body = shouldAbandonOld && unfinishedScrape
@@ -1125,6 +1128,7 @@ function AdminPanel({ onBackToPublic }) {
   };
 
   const stopScraping = async () => {
+    trackAdminAction(events.SCRAPE_STOPPED);
     try {
       await fetch(`${BACKEND_URL}/api/stop`, {
         method: 'POST',
@@ -1138,6 +1142,7 @@ function AdminPanel({ onBackToPublic }) {
   };
 
   const resetScraper = async () => {
+    trackAdminAction(events.SCRAPE_RESET);
     try {
       await fetch(`${BACKEND_URL}/api/reset`, {
         method: 'POST',
@@ -1791,7 +1796,7 @@ function AdminPanel({ onBackToPublic }) {
                       <button
                         key={child.id}
                         className={`sidebar-nav-item sidebar-submenu-item ${activeSection === child.id ? 'active' : ''}`}
-                        onClick={() => setActiveSection(child.id)}
+                        onClick={() => { track(events.ADMIN_TAB_VIEWED, { tab: child.id }); setActiveSection(child.id); }}
                       >
                         {child.icon}
                         <span>{child.label}</span>
@@ -1804,7 +1809,7 @@ function AdminPanel({ onBackToPublic }) {
               <button
                 key={item.id}
                 className={`sidebar-nav-item ${activeSection === item.id ? 'active' : ''}`}
-                onClick={() => setActiveSection(item.id)}
+                onClick={() => { track(events.ADMIN_TAB_VIEWED, { tab: item.id }); setActiveSection(item.id); }}
               >
                 {item.icon}
                 <span>{item.label}</span>
@@ -1814,7 +1819,7 @@ function AdminPanel({ onBackToPublic }) {
         </nav>
 
         <div className="sidebar-footer">
-          <button className="sidebar-nav-item" onClick={() => setShowSettings(true)}>
+          <button className="sidebar-nav-item" onClick={() => { track(events.SETTINGS_OPENED); setShowSettings(true); }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="3"/>
               <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>

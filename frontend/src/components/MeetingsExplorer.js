@@ -5,6 +5,7 @@ import ParseDiagnostics from './ParseDiagnostics';
 import { SidebarToggleButton } from './PublicSidebar';
 import { useDataCache } from '../contexts/DataCacheContext';
 import { useParse } from '../contexts/ParseContext';
+import { useAnalytics } from '../contexts/AnalyticsContext';
 import { fetchThumbnailsThrottled, getCachedThumbnails } from '../utils/networkSpeed';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
@@ -187,6 +188,9 @@ const MeetingTypeIcon = ({ type, size = 16 }) => {
 function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isActive = true }) {
   // Data cache context for persisting data across navigation
   const { getCache, setCache } = useDataCache();
+
+  // Analytics context for tracking user interactions
+  const { track, events, trackSearch, trackSearchCompleted, trackFilterChange, trackMeetingViewed, trackMapInteraction } = useAnalytics();
 
   // Parse SDK context for connection status and direct data fetching
   const {
@@ -533,6 +537,14 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
           // Apply cached thumbnails to avoid re-fetching already-loaded thumbnails
           setMeetings(applyCachedThumbnails(newMeetings));
 
+          // Track meetings loaded
+          track(events.MEETINGS_LOADED, {
+            count: newMeetings.length,
+            total: total,
+            source: 'parse_sdk',
+            has_filters: Object.keys(filterOptions).length > 1
+          });
+
           // Update available cities from results
           const cities = [...new Set(newMeetings.map(m => m.city).filter(Boolean))].sort();
           setAvailableCities(cities);
@@ -587,6 +599,14 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
           // Apply cached thumbnails to avoid re-fetching already-loaded thumbnails
           setMeetings(applyCachedThumbnails(newMeetings));
 
+          // Track meetings loaded
+          track(events.MEETINGS_LOADED, {
+            count: newMeetings.length,
+            total: total,
+            source: 'backend_api',
+            has_filters: !!(selectedStates.length || selectedDays.length || selectedTypes.length || selectedCity || showOnlineOnly || showHybridOnly)
+          });
+
           const cities = [...new Set(newMeetings.map(m => m.city).filter(Boolean))].sort();
           setAvailableCities(cities);
 
@@ -634,7 +654,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
     } finally {
       setIsLoading(false);
     }
-  }, [parseInitialized, parseFetchMeetings, selectedStates, selectedDays, selectedTypes, selectedCity, showOnlineOnly, showHybridOnly, showTodayOnly, selectedFormat]); // Filter deps needed for fallback API path; deduplication prevents duplicate calls
+  }, [parseInitialized, parseFetchMeetings, selectedStates, selectedDays, selectedTypes, selectedCity, showOnlineOnly, showHybridOnly, showTodayOnly, selectedFormat, track, events.MEETINGS_LOADED]); // Filter deps needed for fallback API path; deduplication prevents duplicate calls
 
   // Keep fetchMeetingsRef updated for use in callbacks
   useEffect(() => {
@@ -930,6 +950,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
   }, [selectedStates, meetings]);
 
   const clearFilters = useCallback(() => {
+    // Track filter cleared
+    track(events.FILTER_CLEARED, { had_active_filters: hasActiveFilters });
     setSearchQuery('');
     setSelectedStates([]);
     setSelectedCity('');
@@ -940,10 +962,12 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
     setShowHybridOnly(false);
     setSelectedFormat('');
     setSelectedAccessibility([]);
-  }, []);
+  }, [track, events.FILTER_CLEARED, hasActiveFilters]);
 
   // Toggle functions for multi-select
   const toggleDay = (day) => {
+    const isRemoving = selectedDays.includes(day);
+    trackFilterChange('day', dayNames[day], { action: isRemoving ? 'remove' : 'add', day_index: day });
     setSelectedDays(prev =>
       prev.includes(day)
         ? prev.filter(d => d !== day)
@@ -952,6 +976,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
   };
 
   const toggleType = (type) => {
+    const isRemoving = selectedTypes.includes(type);
+    trackFilterChange('fellowship_type', type, { action: isRemoving ? 'remove' : 'add' });
     setSelectedTypes(prev =>
       prev.includes(type)
         ? prev.filter(t => t !== type)
@@ -981,6 +1007,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
   };
 
   const toggleAccessibility = (key) => {
+    const isRemoving = selectedAccessibility.includes(key);
+    trackFilterChange('accessibility', key, { action: isRemoving ? 'remove' : 'add' });
     setSelectedAccessibility(prev =>
       prev.includes(key)
         ? prev.filter(k => k !== key)
@@ -989,6 +1017,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
   };
 
   const toggleState = (state) => {
+    const isRemoving = selectedStates.includes(state);
+    trackFilterChange('state', state, { action: isRemoving ? 'remove' : 'add' });
     setSelectedStates(prev =>
       prev.includes(state)
         ? prev.filter(s => s !== state)
@@ -1449,6 +1479,10 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
     computeSuggestions(value, false);
     searchLocations(value);
     setShowSuggestions(value.length >= 1 || recentSearches.length > 0);
+    // Track search initiated when user starts typing
+    if (value.length === 1) {
+      trackSearch(value);
+    }
   };
 
   // Handle search input focus
@@ -1468,6 +1502,13 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
     setShowSuggestions(false);
     setLocationResults([]);
     saveRecentSearch(suggestion.value);
+
+    // Track suggestion selection
+    track(events.SEARCH_SUGGESTION_SELECTED, {
+      suggestion_type: suggestion.type,
+      suggestion_value: suggestion.value,
+      has_coordinates: !!(suggestion.lat && suggestion.lon)
+    });
 
     // If it's a state, also set the state filter
     if (suggestion.type === 'state') {
@@ -1572,6 +1613,11 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
   // Handle search submit (pressing enter or clicking search button)
   const handleSearchSubmit = () => {
     if (searchQuery) {
+      // Track search completed
+      track(events.SEARCH_COMPLETED, {
+        search_query: searchQuery,
+        query_length: searchQuery.length
+      });
       saveRecentSearch(searchQuery);
       // Clear state/city filters so meeting list matches the searched location
       // This ensures the list shows meetings from the new area, not filtered by old state
@@ -1592,6 +1638,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
   // Handle city dropdown selection - pans map immediately
   const handleCityChange = (city) => {
     setSelectedCity(city);
+    // Track city filter change
+    trackFilterChange('city', city, { filter_action: city ? 'select' : 'clear' });
     if (city) {
       // Find a meeting with coordinates for this city to pan the map
       const meetingWithCoords = meetings.find(m => m.city === city && m.latitude && m.longitude);
@@ -1633,6 +1681,12 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
 
   const handleMapMarkerClick = (meeting) => {
     setSelectedMeeting(meeting);
+    // Track map marker click
+    trackMapInteraction(events.MAP_MARKER_CLICKED, {
+      meeting_id: meeting?.objectId,
+      meeting_name: meeting?.name,
+      meeting_fellowship: meeting?.fellowship
+    });
     // Scroll list to the meeting card
     if (listRef.current) {
       const cardElement = listRef.current.querySelector(`[data-meeting-id="${meeting.objectId}"]`);
@@ -1645,6 +1699,8 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
   // Handle meeting card click from list - show detail and zoom map to location
   const handleMeetingCardClick = (meeting) => {
     setSelectedMeeting(meeting);
+    // Track meeting viewed from list
+    trackMeetingViewed(meeting, { source: 'list_click' });
     // Zoom the map to the meeting location if it has coordinates
     if (meeting.latitude && meeting.longitude) {
       isProgrammaticPanRef.current = true;
@@ -1673,6 +1729,13 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
         isProgrammaticPanRef.current = false;
       }, 500);
     } else {
+      // Track user map interaction (manual pan/zoom)
+      trackMapInteraction(events.MAP_BOUNDS_CHANGED, {
+        zoom_level: bounds.zoom,
+        center_lat: bounds.center_lat,
+        center_lng: bounds.center_lng,
+        is_user_action: true
+      });
       // User manually dragged the map - clear state/city filters and reverse geocode
       setSelectedStates([]);
       setSelectedCity('');
@@ -1680,7 +1743,7 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange, isA
         reverseGeocodeMapCenter(bounds.center_lat, bounds.center_lng, bounds.zoom);
       }
     }
-  }, [reverseGeocodeMapCenter]);
+  }, [reverseGeocodeMapCenter, trackMapInteraction, events.MAP_BOUNDS_CHANGED]);
 
   // Build filters object to pass to the map
   const mapFilters = useMemo(() => {
