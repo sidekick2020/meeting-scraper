@@ -827,3 +827,118 @@ Before merging features with analytics:
 - Anonymize: Use meeting IDs instead of names where possible
 - Comply with: GDPR, CCPA - implement consent where required
 - IP handling: Amplitude uses IP for geolocation then discards by default
+
+---
+
+## Subdomain Skeleton Template
+
+A reusable template for creating new Sober Sidekick subdomain applications with shared design system.
+
+### Template Location
+
+```
+subdomain-skeleton/           # GitHub template repository
+├── src/
+│   ├── components/          # Header, etc.
+│   ├── contexts/            # Theme, Auth, Analytics, DataCache
+│   ├── pages/               # HomePage, AboutPage, NotFound
+│   ├── styles/              # Design system CSS
+│   ├── App.js               # Main app
+│   └── index.js             # Entry point
+├── public/                  # Static assets
+├── package.json
+├── render.yaml              # Render.com deployment
+└── .env.example             # Environment template
+```
+
+### When to Offer the Skeleton
+
+**Claude MUST proactively ask users** if they want to use the subdomain skeleton when:
+
+1. User mentions creating a **new React application** for Sober Sidekick
+2. User wants to build a **new subdomain** (e.g., `admin.sobersidekick.com`, `docs.sobersidekick.com`)
+3. User asks about **starting a new frontend project**
+4. User mentions needing **shared styling/components** across apps
+
+### Prompt Format
+
+When any of the above triggers are detected, Claude should ask:
+
+```
+🎨 **Would you like to use the Sober Sidekick subdomain skeleton?**
+
+The skeleton template includes:
+- ✅ Shared design system (colors, typography, spacing)
+- ✅ Pre-built components (buttons, cards, modals, forms)
+- ✅ Google Sign-In authentication
+- ✅ Amplitude analytics integration
+- ✅ Light/dark theme support
+- ✅ Responsive layout patterns
+- ✅ Render.com deployment config
+
+**Options:**
+1. **Yes** - Create new app from skeleton template
+2. **No** - Start from scratch
+3. **Show me the template** - Preview what's included
+```
+
+### Creating a New App from Skeleton
+
+If the user selects **Yes**, Claude should:
+
+1. **Ask for the app name/subdomain**:
+   ```
+   What subdomain will this be for? (e.g., `admin`, `docs`, `dashboard`)
+   ```
+
+2. **Copy the skeleton** to a new directory:
+   ```bash
+   cp -r subdomain-skeleton ../new-app-name
+   cd ../new-app-name
+   ```
+
+3. **Update app-specific values**:
+   - `package.json` - name field
+   - `public/index.html` - title
+   - `public/manifest.json` - name, short_name
+   - `src/components/Header.js` - logo and app name
+   - `render.yaml` - service name
+
+4. **Initialize git and install**:
+   ```bash
+   git init
+   npm install
+   ```
+
+5. **Provide next steps**:
+   - Set up environment variables
+   - Create GitHub repo
+   - Connect to Render.com
+
+### MCP Integration
+
+The skeleton can be scaffolded via MCP tools. When an MCP server is available, Claude should use:
+
+```javascript
+// MCP tool call example
+mcp.scaffold_subdomain_app({
+  name: "admin",
+  subdomain: "admin.sobersidekick.com",
+  features: ["auth", "analytics", "theme"]
+})
+```
+
+### Design System Documentation
+
+Full documentation available at:
+- `docs/DESIGN_SYSTEM.md` - Complete design system reference
+- `docs/skeleton/README.md` - Skeleton template guide
+- `subdomain-skeleton/README.md` - Quick start guide
+
+### Backwards Compatibility
+
+The skeleton is designed to:
+- Share contexts with the Meeting Finder app
+- Use identical CSS variables
+- Support embedding Meeting Finder as a module
+- Maintain consistent analytics events
