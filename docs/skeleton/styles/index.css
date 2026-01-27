@@ -1,0 +1,23 @@
+/**
+ * Sober Sidekick Design System - Main Stylesheet
+ *
+ * This file imports all style modules in the correct order.
+ * Import this single file in your application's entry point.
+ *
+ * Usage: import './styles/index.css';
+ */
+
+/* Design tokens (CSS custom properties) */
+@import './tokens.css';
+
+/* Base reset and typography */
+@import './base.css';
+
+/* Component styles */
+@import './components.css';
+
+/* Layout patterns */
+@import './layout.css';
+
+/* Utility classes (import last for highest specificity) */
+@import './utilities.css';
