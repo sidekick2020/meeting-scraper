@@ -9,7 +9,8 @@ const SETTINGS_CACHE_KEYS = {
   GIT_VERSIONS: 'settings:gitVersions',
   RECENT_COMMITS: 'settings:recentCommits',
   API_VERSIONS: 'settings:apiVersions',
-  CHANGELOG: 'settings:changelog'
+  CHANGELOG: 'settings:changelog',
+  PR_HISTORY: 'settings:prHistory'
 };
 
 // Cache TTL: 5 minutes for settings data
@@ -55,6 +56,7 @@ function SettingsModal({ onClose, currentUser }) {
   const cachedRecentCommits = getCache(SETTINGS_CACHE_KEYS.RECENT_COMMITS);
   const cachedApiVersions = getCache(SETTINGS_CACHE_KEYS.API_VERSIONS);
   const cachedChangelog = getCache(SETTINGS_CACHE_KEYS.CHANGELOG);
+  const cachedPrHistory = getCache(SETTINGS_CACHE_KEYS.PR_HISTORY);
 
   const [activeTab, setActiveTab] = useState('users');
 
@@ -88,6 +90,11 @@ function SettingsModal({ onClose, currentUser }) {
   const [loadingChangelog, setLoadingChangelog] = useState(!cachedChangelog?.data);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
   const [selectedVersionChangelog, setSelectedVersionChangelog] = useState(null);
+
+  // PR History state - initialize from cache
+  const [prHistory, setPrHistory] = useState(cachedPrHistory?.data || []);
+  const [loadingPrHistory, setLoadingPrHistory] = useState(!cachedPrHistory?.data);
+  const [expandedPrId, setExpandedPrId] = useState(null);
 
   // Users state - initialize from cache
   const [users, setUsers] = useState(cachedUsers?.data || []);
@@ -340,6 +347,9 @@ function SettingsModal({ onClose, currentUser }) {
     if (activeTab === 'releases') {
       fetchChangelog();
     }
+    if (activeTab === 'version-history') {
+      fetchPrHistory();
+    }
   }, [activeTab, fetchGitVersions]);
 
   // Fetch API versions with features from server
@@ -391,6 +401,55 @@ function SettingsModal({ onClose, currentUser }) {
     } finally {
       setLoadingChangelog(false);
     }
+  };
+
+  // Fetch PR history from server
+  const fetchPrHistory = async (forceRefresh = false) => {
+    // Skip if we have cached data and not forcing refresh
+    if (!forceRefresh && cachedPrHistory?.data && cachedPrHistory.data.length > 0) {
+      setLoadingPrHistory(false);
+      return;
+    }
+
+    setLoadingPrHistory(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/pr-history`);
+      if (response.ok) {
+        const data = await response.json();
+        const prs = data.pull_requests || [];
+        setPrHistory(prs);
+        // Cache the data
+        setCache(SETTINGS_CACHE_KEYS.PR_HISTORY, prs, SETTINGS_CACHE_TTL);
+      }
+    } catch (error) {
+      console.error('Failed to fetch PR history:', error);
+    } finally {
+      setLoadingPrHistory(false);
+    }
+  };
+
+  // Get PR type badge color
+  const getPrTypeBadge = (type) => {
+    const badges = {
+      feature: { label: 'Feature', className: 'pr-type-feature' },
+      fix: { label: 'Bug Fix', className: 'pr-type-fix' },
+      improvement: { label: 'Improvement', className: 'pr-type-improvement' },
+      docs: { label: 'Docs', className: 'pr-type-docs' },
+      refactor: { label: 'Refactor', className: 'pr-type-refactor' },
+      test: { label: 'Test', className: 'pr-type-test' }
+    };
+    return badges[type] || { label: 'Other', className: 'pr-type-other' };
+  };
+
+  // Format PR date
+  const formatPrDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   // Show changelog for a specific version
@@ -573,6 +632,16 @@ function SettingsModal({ onClose, currentUser }) {
               <polyline points="10,9 9,9 8,9"/>
             </svg>
             Release Notes
+          </button>
+          <button
+            className={`settings-tab ${activeTab === 'version-history' ? 'active' : ''}`}
+            onClick={() => setActiveTab('version-history')}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12,6 12,12 16,14"/>
+            </svg>
+            Version History
           </button>
         </div>
 
@@ -1190,6 +1259,136 @@ function SettingsModal({ onClose, currentUser }) {
                   </svg>
                   <p>No changelog available</p>
                   <p className="hint">Check back later for release notes.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'version-history' && (
+            <div className="version-history-section">
+              <div className="version-history-header">
+                <h3>Pull Request History</h3>
+                <p className="section-description">
+                  Track all merged pull requests and their contributions to the codebase.
+                </p>
+              </div>
+
+              {loadingPrHistory ? (
+                <div className="versions-loading">
+                  <div className="version-switch-spinner"></div>
+                  <span>Loading PR history...</span>
+                </div>
+              ) : prHistory.length > 0 ? (
+                <div className="pr-history-list">
+                  {prHistory.map((pr) => {
+                    const typeBadge = getPrTypeBadge(pr.type);
+                    const isExpanded = expandedPrId === pr.number;
+
+                    return (
+                      <div
+                        key={pr.number}
+                        className={`pr-history-card ${isExpanded ? 'expanded' : ''}`}
+                      >
+                        <div
+                          className="pr-history-card-header"
+                          onClick={() => setExpandedPrId(isExpanded ? null : pr.number)}
+                        >
+                          <div className="pr-info">
+                            <div className="pr-title-row">
+                              <span className="pr-number">#{pr.number}</span>
+                              <span className="pr-title">{pr.title}</span>
+                              <span className={`pr-type-badge ${typeBadge.className}`}>
+                                {typeBadge.label}
+                              </span>
+                            </div>
+                            <div className="pr-meta">
+                              <span className="pr-date">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                  <line x1="16" y1="2" x2="16" y2="6"/>
+                                  <line x1="8" y1="2" x2="8" y2="6"/>
+                                  <line x1="3" y1="10" x2="21" y2="10"/>
+                                </svg>
+                                {formatPrDate(pr.merged_at)}
+                              </span>
+                              <span className="pr-branch">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <line x1="6" y1="3" x2="6" y2="15"/>
+                                  <circle cx="18" cy="6" r="3"/>
+                                  <circle cx="6" cy="18" r="3"/>
+                                  <path d="M18 9a9 9 0 01-9 9"/>
+                                </svg>
+                                {pr.branch}
+                              </span>
+                              {pr.commits_count > 0 && (
+                                <span className="pr-commits-count">
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="4"/>
+                                    <line x1="1.05" y1="12" x2="7" y2="12"/>
+                                    <line x1="17.01" y1="12" x2="22.96" y2="12"/>
+                                  </svg>
+                                  {pr.commits_count} commit{pr.commits_count !== 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="pr-actions">
+                            <a
+                              href={pr.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn btn-ghost btn-sm"
+                              onClick={(e) => e.stopPropagation()}
+                              title="View on GitHub"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+                                <polyline points="15,3 21,3 21,9"/>
+                                <line x1="10" y1="14" x2="21" y2="3"/>
+                              </svg>
+                              View PR
+                            </a>
+                            <button className={`pr-expand-btn ${isExpanded ? 'expanded' : ''}`}>
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="6,9 12,15 18,9"/>
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+
+                        {isExpanded && pr.commits && pr.commits.length > 0 && (
+                          <div className="pr-commits-panel">
+                            <div className="pr-commits-header">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="4"/>
+                                <line x1="1.05" y1="12" x2="7" y2="12"/>
+                                <line x1="17.01" y1="12" x2="22.96" y2="12"/>
+                              </svg>
+                              Commits in this PR
+                            </div>
+                            <div className="pr-commits-list">
+                              {pr.commits.map((commit, idx) => (
+                                <div key={idx} className="pr-commit-entry">
+                                  <code className="commit-hash">{commit.hash}</code>
+                                  <span className="commit-message">{commit.message}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="no-versions-message">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                  </svg>
+                  <p>No pull request history available</p>
+                  <p className="hint">PR history will appear here once pull requests are merged.</p>
                 </div>
               )}
             </div>

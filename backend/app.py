@@ -3964,6 +3964,152 @@ def get_version_history():
             "error": str(e)
         })
 
+# Cache for PR history (10 minute TTL)
+pr_history_cache = CacheManager('pr_history', ttl_seconds=600, max_entries=10)
+
+@app.route('/api/pr-history', methods=['GET'])
+def get_pr_history():
+    """Get pull request history from git merge commits.
+
+    Extracts PR information from merge commits which have the format:
+    'Merge pull request #XXX from owner/branch-name'
+
+    Returns structured PR data including:
+    - PR number and URL
+    - Branch name (used to infer PR purpose)
+    - Merge date and author
+    - Commits associated with the PR
+    """
+    import subprocess
+
+    # Check cache first
+    cached = pr_history_cache.get('pr_history')
+    if cached is not None:
+        return jsonify(cached)
+
+    prs = []
+    repo_url = "https://github.com/sidekick2020/meeting-scraper"
+
+    try:
+        # Get merge commits (these represent merged PRs)
+        result = subprocess.run(
+            ['git', 'log', '--merges', '--pretty=format:%H|%h|%s|%ci|%an', '-50'],
+            capture_output=True, text=True, timeout=15
+        )
+
+        if result.returncode != 0:
+            raise Exception(f"Git command failed: {result.stderr}")
+
+        merge_lines = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
+
+        for line in merge_lines:
+            parts = line.split('|')
+            if len(parts) < 5:
+                continue
+
+            full_hash, short_hash, subject, date, author = parts[0], parts[1], parts[2], parts[3], parts[4]
+
+            # Extract PR number from subject: "Merge pull request #XXX from ..."
+            pr_match = re.match(r'Merge pull request #(\d+) from (.+)', subject)
+            if not pr_match:
+                continue
+
+            pr_number = pr_match.group(1)
+            branch_path = pr_match.group(2)  # e.g., "sidekick2020/claude/fix-meeting-list-AslRa"
+
+            # Extract meaningful branch name (last part after owner/)
+            branch_parts = branch_path.split('/')
+            branch_name = '/'.join(branch_parts[1:]) if len(branch_parts) > 1 else branch_path
+
+            # Convert branch name to readable title
+            # e.g., "claude/fix-meeting-list-AslRa" -> "Fix meeting list"
+            title_part = branch_name.split('/')[-1] if '/' in branch_name else branch_name
+            # Remove random suffix (usually 5 chars at end)
+            if len(title_part) > 6 and title_part[-5:].isalnum():
+                title_part = title_part[:-6] if title_part[-6] == '-' else title_part
+            # Convert dashes to spaces and capitalize
+            readable_title = title_part.replace('-', ' ').replace('_', ' ').title()
+
+            # Get commits in this PR (commits between merge commit's parents)
+            pr_commits = []
+            try:
+                # Get the commits that were merged (first parent is base, second is PR branch)
+                commits_result = subprocess.run(
+                    ['git', 'log', '--pretty=format:%h|%s', f'{full_hash}^1..{full_hash}^2'],
+                    capture_output=True, text=True, timeout=10
+                )
+
+                if commits_result.returncode == 0 and commits_result.stdout.strip():
+                    for commit_line in commits_result.stdout.strip().split('\n')[:10]:
+                        if '|' in commit_line:
+                            c_hash, c_msg = commit_line.split('|', 1)
+                            pr_commits.append({
+                                "hash": c_hash,
+                                "message": c_msg
+                            })
+            except:
+                pass  # Commit details are optional
+
+            # Determine PR type from branch name or title
+            pr_type = "feature"
+            lower_branch = branch_name.lower()
+            if 'fix' in lower_branch or 'bug' in lower_branch:
+                pr_type = "fix"
+            elif 'improve' in lower_branch or 'enhance' in lower_branch:
+                pr_type = "improvement"
+            elif 'doc' in lower_branch or 'readme' in lower_branch:
+                pr_type = "docs"
+            elif 'refactor' in lower_branch:
+                pr_type = "refactor"
+            elif 'test' in lower_branch:
+                pr_type = "test"
+
+            prs.append({
+                "number": int(pr_number),
+                "title": readable_title,
+                "branch": branch_name,
+                "type": pr_type,
+                "url": f"{repo_url}/pull/{pr_number}",
+                "merged_at": date,
+                "author": author,
+                "merge_commit": short_hash,
+                "commits": pr_commits,
+                "commits_count": len(pr_commits) if pr_commits else 1
+            })
+
+        # Limit to 30 most recent PRs
+        prs = prs[:30]
+
+        result_data = {
+            "pull_requests": prs,
+            "total": len(prs),
+            "repo_url": repo_url
+        }
+
+        # Cache the result
+        pr_history_cache.set('pr_history', result_data)
+
+        return jsonify(result_data)
+
+    except FileNotFoundError:
+        return jsonify({
+            "pull_requests": [],
+            "total": 0,
+            "error": "Git not available on server"
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            "pull_requests": [],
+            "total": 0,
+            "error": "Git command timed out"
+        })
+    except Exception as e:
+        return jsonify({
+            "pull_requests": [],
+            "total": 0,
+            "error": str(e)
+        })
+
 # API Versions with changelog support
 API_VERSIONS = {
     "v1.8": {
