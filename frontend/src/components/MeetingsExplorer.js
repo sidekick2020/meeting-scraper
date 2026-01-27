@@ -1146,13 +1146,27 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
 
           // Auto-pan to the first result immediately
           if (locations.length > 0) {
+            const firstResult = locations[0];
             // Mark as programmatic pan so handleBoundsChange doesn't clear filters
             isProgrammaticPanRef.current = true;
             setTargetLocation({
-              lat: locations[0].lat,
-              lng: locations[0].lon,
+              lat: firstResult.lat,
+              lng: firstResult.lon,
               zoom: 12
             });
+            // Update mapCenterLocation to sync with the searched location
+            // This ensures the header shows the correct location name
+            const city = firstResult.city;
+            const state = firstResult.state;
+            if (city && state) {
+              setMapCenterLocation(`${city}, ${state}`);
+            } else if (city) {
+              setMapCenterLocation(city);
+            } else if (state) {
+              setMapCenterLocation(state);
+            } else if (firstResult.label) {
+              setMapCenterLocation(firstResult.label);
+            }
           }
         }
       } catch (error) {
@@ -1190,6 +1204,19 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
             lng: parseFloat(location.lon),
             zoom: 12 // City-level zoom
           });
+          // Update mapCenterLocation from geocoding result to sync header with searched location
+          const city = location.address?.city || location.address?.town || location.address?.village || '';
+          const state = location.address?.state || '';
+          if (city && state) {
+            setMapCenterLocation(`${city}, ${state}`);
+          } else if (city) {
+            setMapCenterLocation(city);
+          } else if (state) {
+            setMapCenterLocation(state);
+          } else {
+            // Fallback to the original query
+            setMapCenterLocation(query);
+          }
         }
       }
     } catch (error) {
