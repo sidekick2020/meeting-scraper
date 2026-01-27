@@ -1154,6 +1154,40 @@ function MeetingsExplorer({ sidebarOpen, onSidebarToggle, onMobileNavChange }) {
               lng: firstResult.lon,
               zoom: 12
             });
+
+            // Clear the text search query since we're using geographic filters
+            // The full location string (e.g., "Bentonville, Benton County") doesn't
+            // match meeting city fields, causing list to show 0 meetings while map shows many
+            setSearchQuery('');
+
+            // State abbreviation mapping for filter sync
+            const stateAbbreviations = {
+              'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+              'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+              'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+              'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+              'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+              'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+              'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+              'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+              'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+              'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY',
+              'District of Columbia': 'DC'
+            };
+
+            // Set state filter if we have state info
+            if (firstResult.state) {
+              const stateAbbr = stateAbbreviations[firstResult.state];
+              if (stateAbbr) {
+                setSelectedStates([stateAbbr]);
+              }
+            }
+
+            // Set city filter if we have city info
+            if (firstResult.city) {
+              setSelectedCity(firstResult.city);
+            }
+
             // Update mapCenterLocation to sync with the searched location
             // This ensures the header shows the correct location name
             const city = firstResult.city;
